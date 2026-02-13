@@ -114,7 +114,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
                 No discount tiers configured. Click "Add Tier" to create one.
             </div>
             <div v-for="(tier, index) in settings.tiers" :key="index"
-                 style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:10px;background:#f9f9f9;border-radius:4px;border:1px solid #eee;">
+                 style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:10px;border-radius:4px;">
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#666;margin-bottom:2px;">Min Qty</label>
                     <el-input-number v-model="tier.min_qty" :min="1" :step="1" size="small" style="width:100%;" />

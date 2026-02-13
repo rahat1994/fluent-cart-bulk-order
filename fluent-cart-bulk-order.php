@@ -3,7 +3,7 @@
  * Plugin Name: Fluent Cart Bulk Order
  * Description: Adds a [fluent_cart_bulk_order] shortcode that renders an interactive bulk order table for FluentCart stores.
  * Version: 1.0.0
- * Author: WPManageNinja
+ * Author: Rahat Baksh
  * Requires PHP: 7.4
  * Text Domain: fluent-cart-bulk-order
  */

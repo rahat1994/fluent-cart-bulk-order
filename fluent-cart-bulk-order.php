@@ -14,6 +14,17 @@ define('FCBO_VERSION', '1.0.0');
 define('FCBO_DIR', plugin_dir_path(__FILE__));
 define('FCBO_URL', plugin_dir_url(__FILE__));
 
+// Register wholesale-customer role on activation
+register_activation_hook(__FILE__, function () {
+    if (!get_role('wholesale-customer')) {
+        add_role(
+            'wholesale-customer',
+            __('Wholesale Customer', 'fluent-cart-bulk-order'),
+            get_role('customer') ? get_role('customer')->capabilities : get_role('subscriber')->capabilities
+        );
+    }
+});
+
 add_action('plugins_loaded', function () {
     if (!defined('FLUENTCART_VERSION')) {
         add_action('admin_notices', function () {
@@ -32,12 +43,37 @@ add_action('plugins_loaded', function () {
         (new \FluentCartBulkOrder\BulkPricingIntegration())->register();
     }, 20);
 
+    // Enqueue admin CSS on FluentCart admin pages
+    add_action('admin_enqueue_scripts', function ($hook) {
+        if (strpos($hook, 'fluent-cart') === false) {
+            return;
+        }
+        wp_enqueue_style(
+            'fcbo-admin-bulk-pricing',
+            FCBO_URL . 'assets/css/admin-bulk-pricing.css',
+            [],
+            FCBO_VERSION
+        );
+    });
+
     // Apply bulk pricing discount when items are added/updated in FluentCart's cart
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
 });
 
 function fcbo_render_shortcode()
 {
+    // Only administrators and wholesale customers can access the bulk order form
+    if (!is_user_logged_in()) {
+        return '<p>' . esc_html__('Please log in to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
+    $user = wp_get_current_user();
+    $allowed_roles = ['administrator', 'wholesale-customer'];
+
+    if (!array_intersect($allowed_roles, $user->roles)) {
+        return '<p>' . esc_html__('You do not have permission to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
     // Load FluentCart's cart assets so window.fluentCartCart is available
     if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
         \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();

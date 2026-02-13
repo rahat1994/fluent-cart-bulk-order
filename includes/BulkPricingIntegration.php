@@ -110,26 +110,23 @@ class BulkPricingIntegration extends BaseIntegrationManager
     private function getTierRepeaterTemplate()
     {
         return '<div class="fcbo-tier-repeater">
-            <div v-if="!settings.tiers || !settings.tiers.length" style="color:#999;margin-bottom:10px;">
+            <div v-if="!settings.tiers || !settings.tiers.length" class="fcbo-tier-empty">
                 No discount tiers configured. Click "Add Tier" to create one.
             </div>
-            <div v-for="(tier, index) in settings.tiers" :key="index"
-                 style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:10px;border-radius:4px;">
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#666;margin-bottom:2px;">Min Qty</label>
-                    <el-input-number v-model="tier.min_qty" :min="1" :step="1" size="small" style="width:100%;" />
+            <div v-for="(tier, index) in settings.tiers" :key="index" class="fcbo-tier-row">
+                <div class="fcbo-tier-field">
+                    <label>Min Qty</label>
+                    <el-input-number v-model="tier.min_qty" :min="1" :step="1" size="small" />
                 </div>
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#666;margin-bottom:2px;">Max Qty (0 = no limit)</label>
-                    <el-input-number v-model="tier.max_qty" :min="0" :step="1" size="small" style="width:100%;" />
+                <div class="fcbo-tier-field">
+                    <label>Max Qty (0 = no limit)</label>
+                    <el-input-number v-model="tier.max_qty" :min="0" :step="1" size="small" />
                 </div>
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#666;margin-bottom:2px;">Discount %</label>
-                    <el-input-number v-model="tier.discount_value" :min="0" :max="100" :step="1" :precision="2" size="small" style="width:100%;" />
+                <div class="fcbo-tier-field">
+                    <label>Discount %</label>
+                    <el-input-number v-model="tier.discount_value" :min="0" :max="100" :step="1" :precision="2" size="small" />
                 </div>
-                <el-button type="danger" size="small" icon="el-icon-delete" circle
-                    @click="settings.tiers.splice(index, 1)"
-                    style="margin-top:16px;" />
+                <el-button type="danger" size="small" class="fcbo-tier-remove" @click="settings.tiers.splice(index, 1)">&times;</el-button>
             </div>
             <el-button type="primary" size="small" @click="settings.tiers.push({min_qty:1,max_qty:0,discount_type:\'percent\',discount_value:0})">
                 + Add Tier

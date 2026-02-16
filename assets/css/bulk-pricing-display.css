@@ -1,0 +1,156 @@
+/* Bulk Pricing Display – Single Product Page */
+
+.fcbo-bp-wrap {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.fcbo-bp-heading {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Simple product – compact tier list */
+.fcbo-bp-simple ul {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+}
+
+.fcbo-bp-simple li {
+    padding: 5px 0;
+    font-size: 14px;
+    color: #555;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.fcbo-bp-simple li:last-child {
+    border-bottom: none;
+}
+
+/* Tier info table (variable products) */
+.fcbo-bp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.fcbo-bp-table th,
+.fcbo-bp-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid #e0e0e0;
+}
+
+.fcbo-bp-table th {
+    background: #f7f7f7;
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+}
+
+.fcbo-bp-table td[rowspan] {
+    vertical-align: middle;
+    font-weight: 500;
+}
+
+/* Discount highlight (green) */
+.fcbo-bp-discount {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* Strikethrough original price */
+.fcbo-bp-original {
+    color: #999;
+    font-weight: 400;
+    margin-right: 4px;
+}
+
+/* Muted placeholder */
+.fcbo-bp-muted {
+    color: #ccc;
+}
+
+/* Order table */
+.fcbo-bp-order-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.fcbo-bp-order-table th,
+.fcbo-bp-order-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid #e0e0e0;
+}
+
+.fcbo-bp-order-table th {
+    background: #f7f7f7;
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+}
+
+.fcbo-bp-order-table tfoot td {
+    border-top: 2px solid #d0d0d0;
+}
+
+/* Quantity input */
+.fcbo-bp-qty-input {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.fcbo-bp-qty-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* Price cell */
+.fcbo-bp-price-cell {
+    white-space: nowrap;
+}
+
+/* Grand total cell */
+.fcbo-bp-grand-total {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Checkout button row */
+.fcbo-bp-checkout-row {
+    margin-top: 12px;
+    text-align: right;
+}
+
+.fcbo-bp-checkout-btn {
+    padding: 10px 28px;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.fcbo-bp-checkout-btn:hover {
+    background: #15803d;
+}
+
+.fcbo-bp-checkout-btn.fcbo-bp-loading {
+    opacity: 0.6;
+    cursor: wait;
+}

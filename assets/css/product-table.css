@@ -1,0 +1,225 @@
+/* Fluent Cart Product Table */
+
+.fcbo-pt-wrap {
+    max-width: 960px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 14px;
+}
+
+/* Search bar */
+.fcbo-pt-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.fcbo-pt-search {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 260px;
+    box-sizing: border-box;
+}
+
+.fcbo-pt-search:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+/* Table */
+.fcbo-pt-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.fcbo-pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 580px;
+}
+
+.fcbo-pt-table thead th {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+}
+
+.fcbo-pt-table tbody td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    vertical-align: middle;
+}
+
+.fcbo-pt-table tbody tr:hover {
+    background: #fafafa;
+}
+
+/* Column widths */
+.fcbo-pt-col-id {
+    width: 60px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+}
+
+.fcbo-pt-col-title {
+    min-width: 200px;
+}
+
+.fcbo-pt-title-link {
+    color: #2271b1;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.fcbo-pt-title-link:hover {
+    color: #135e96;
+    text-decoration: underline;
+}
+
+.fcbo-pt-col-price {
+    width: 110px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.fcbo-pt-col-qty {
+    width: 90px;
+}
+
+.fcbo-pt-col-action {
+    width: 130px;
+    text-align: center;
+}
+
+/* Qty input */
+.fcbo-pt-qty {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.fcbo-pt-qty:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.fcbo-pt-qty:disabled {
+    background: #f5f5f5;
+    color: #999;
+}
+
+/* Add to Cart button */
+.fcbo-pt-add-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #2271b1;
+    color: #fff;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.fcbo-pt-add-btn:hover:not(:disabled) {
+    background: #135e96;
+}
+
+.fcbo-pt-add-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #999;
+}
+
+/* Out of stock row */
+.fcbo-pt-out-of-stock {
+    opacity: 0.6;
+}
+
+/* Loading / empty state */
+.fcbo-pt-loading {
+    text-align: center;
+    padding: 24px 12px;
+    color: #999;
+    font-size: 13px;
+}
+
+/* Pagination */
+.fcbo-pt-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.fcbo-pt-page-btn {
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.fcbo-pt-page-btn:hover:not(:disabled) {
+    background: #f0f0f0;
+}
+
+.fcbo-pt-page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.fcbo-pt-page-info {
+    font-size: 13px;
+    color: #555;
+}
+
+/* Status messages */
+.fcbo-pt-status {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.fcbo-pt-status-error {
+    background: #fef0f0;
+    color: #d63638;
+    border: 1px solid #f5c6c6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .fcbo-pt-wrap {
+        margin: 10px;
+    }
+
+    .fcbo-pt-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .fcbo-pt-search {
+        width: 100%;
+    }
+}

@@ -36,6 +36,7 @@ add_action('plugins_loaded', function () {
     }
 
     add_shortcode('fluent_cart_bulk_order', 'fcbo_render_shortcode');
+    add_shortcode('fluent_cart_product_table', 'fcbo_render_product_table');
     add_action('rest_api_init', 'fcbo_register_routes');
 
     add_action('fluent_cart/init', function () {
@@ -55,6 +56,9 @@ add_action('plugins_loaded', function () {
             FCBO_VERSION
         );
     });
+
+    // Display bulk pricing tiers on single product page
+    add_action('fluent_cart/product/single/after_quantity_block', 'fcbo_render_single_product_tiers', 10, 1);
 
     // Apply bulk pricing discount when items are added/updated in FluentCart's cart
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
@@ -170,6 +174,26 @@ function fcbo_register_routes()
             ],
         ],
     ]);
+
+    register_rest_route('fcbo/v1', '/catalog', [
+        'methods'             => 'GET',
+        'callback'            => 'fcbo_list_catalog',
+        'permission_callback' => '__return_true',
+        'args'                => [
+            'page' => [
+                'default'           => 1,
+                'sanitize_callback' => 'absint',
+            ],
+            'per_page' => [
+                'default'           => 20,
+                'sanitize_callback' => 'absint',
+            ],
+            'search' => [
+                'default'           => '',
+                'sanitize_callback' => 'sanitize_text_field',
+            ],
+        ],
+    ]);
 }
 
 function fcbo_search_products(\WP_REST_Request $request)
@@ -238,6 +262,148 @@ function fcbo_search_products(\WP_REST_Request $request)
     }
 
     return new \WP_REST_Response(['products' => $results], 200);
+}
+
+function fcbo_render_product_table()
+{
+    if (!is_user_logged_in()) {
+        return '<p>' . esc_html__('Please log in to access the product table.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
+    $user = wp_get_current_user();
+    $allowed_roles = ['administrator', 'wholesale-customer'];
+
+    if (!array_intersect($allowed_roles, $user->roles)) {
+        return '<p>' . esc_html__('You do not have permission to access the product table.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
+    if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
+        \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
+        \FluentCart\App\Modules\Templating\AssetLoader::loadSingleProductAssets();
+    }
+
+    wp_enqueue_style(
+        'fcbo-product-table',
+        FCBO_URL . 'assets/css/product-table.css',
+        [],
+        FCBO_VERSION
+    );
+
+    wp_enqueue_script(
+        'fcbo-product-table',
+        FCBO_URL . 'assets/js/product-table.js',
+        ['fluent-cart-app'],
+        FCBO_VERSION,
+        true
+    );
+
+    $currency_sign = '$';
+    if (class_exists(\FluentCart\Api\CurrencySettings::class)) {
+        $currency = \FluentCart\Api\CurrencySettings::get();
+        if (!empty($currency['currency_sign'])) {
+            $currency_sign = $currency['currency_sign'];
+        }
+    }
+
+    wp_localize_script('fcbo-product-table', 'fcboPtConfig', [
+        'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
+        'nonce'         => wp_create_nonce('wp_rest'),
+        'currency_sign' => $currency_sign,
+        'per_page'      => 5,
+    ]);
+
+    ob_start();
+    ?>
+    <div id="fcbo-product-table" class="fcbo-pt-wrap">
+        <div class="fcbo-pt-toolbar">
+            <input type="text" id="fcbo-pt-search" class="fcbo-pt-search"
+                   placeholder="<?php esc_attr_e('Search products...', 'fluent-cart-bulk-order'); ?>" />
+        </div>
+
+        <div class="fcbo-pt-table-scroll">
+            <table class="fcbo-pt-table">
+                <thead>
+                    <tr>
+                        <th class="fcbo-pt-col-id"><?php esc_html_e('ID', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-pt-col-title"><?php esc_html_e('Title', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-pt-col-price"><?php esc_html_e('Price', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-pt-col-qty"><?php esc_html_e('Quantity', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-pt-col-action"><?php esc_html_e('Action', 'fluent-cart-bulk-order'); ?></th>
+                    </tr>
+                </thead>
+                <tbody id="fcbo-pt-tbody">
+                    <tr><td colspan="5" class="fcbo-pt-loading"><?php esc_html_e('Loading products...', 'fluent-cart-bulk-order'); ?></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="fcbo-pt-pagination">
+            <button type="button" id="fcbo-pt-prev" class="fcbo-pt-page-btn" disabled>&laquo; <?php esc_html_e('Prev', 'fluent-cart-bulk-order'); ?></button>
+            <span id="fcbo-pt-page-info" class="fcbo-pt-page-info"><?php esc_html_e('Page 1 of 1', 'fluent-cart-bulk-order'); ?></span>
+            <button type="button" id="fcbo-pt-next" class="fcbo-pt-page-btn" disabled><?php esc_html_e('Next', 'fluent-cart-bulk-order'); ?> &raquo;</button>
+        </div>
+
+        <div id="fcbo-pt-status" class="fcbo-pt-status" style="display:none;"></div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+function fcbo_list_catalog(\WP_REST_Request $request)
+{
+    $page     = max(1, $request->get_param('page'));
+    $per_page = min(100, max(1, $request->get_param('per_page')));
+    $search   = $request->get_param('search');
+
+    $productModel = new \FluentCart\App\Models\Product();
+
+    $query = $productModel::published()
+        ->with(['variants' => function ($q) {
+            $q->where('item_status', 'active');
+        }]);
+
+    if ($search && strlen($search) >= 2) {
+        $query->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%');
+    }
+
+    $total = $query->count();
+    $totalPages = max(1, (int) ceil($total / $per_page));
+
+    $products = $query
+        ->orderBy('ID', 'DESC')
+        ->offset(($page - 1) * $per_page)
+        ->limit($per_page)
+        ->get();
+
+    $results = [];
+    foreach ($products as $product) {
+        $variants = [];
+        if ($product->variants) {
+            foreach ($product->variants as $variant) {
+                $variants[] = [
+                    'id'              => $variant->id,
+                    'variation_title' => $variant->variation_title ?: 'Default',
+                    'item_price'      => (int) $variant->item_price,
+                    'stock_status'    => $variant->stock_status ?: 'in-stock',
+                    'manage_stock'    => (int) ($variant->manage_stock ?? 0),
+                    'available'       => (int) ($variant->available ?? 0),
+                ];
+            }
+        }
+
+        $results[] = [
+            'id'       => $product->ID,
+            'title'    => $product->post_title,
+            'variants' => $variants,
+        ];
+    }
+
+    return new \WP_REST_Response([
+        'products'    => $results,
+        'total'       => $total,
+        'total_pages' => $totalPages,
+        'page'        => $page,
+    ], 200);
 }
 
 /**
@@ -327,6 +493,257 @@ function fcbo_resolve_tiers($pricingData, $productId, $variantId)
 
     // Fall back to global tiers
     return $pricingData['global'] ?? [];
+}
+
+/**
+ * Get the store currency sign.
+ *
+ * @return string
+ */
+function fcbo_get_currency_sign()
+{
+    static $sign = null;
+    if ($sign === null) {
+        $sign = '$';
+        if (class_exists(\FluentCart\Api\CurrencySettings::class)) {
+            $currency = \FluentCart\Api\CurrencySettings::get();
+            if (!empty($currency['currency_sign'])) {
+                $sign = $currency['currency_sign'];
+            }
+        }
+    }
+    return $sign;
+}
+
+/**
+ * Enqueue CSS and JS for the bulk pricing display.
+ */
+function fcbo_enqueue_bulk_pricing_assets()
+{
+    static $enqueued = false;
+    if ($enqueued) {
+        return;
+    }
+    $enqueued = true;
+
+    wp_enqueue_style(
+        'fcbo-bulk-pricing-display',
+        FCBO_URL . 'assets/css/bulk-pricing-display.css',
+        [],
+        FCBO_VERSION
+    );
+
+    wp_enqueue_script(
+        'fcbo-bulk-pricing-display',
+        FCBO_URL . 'assets/js/bulk-pricing-display.js',
+        [],
+        FCBO_VERSION,
+        true
+    );
+
+    wp_localize_script('fcbo-bulk-pricing-display', 'fcboBpConfig', [
+        'currency_sign' => fcbo_get_currency_sign(),
+    ]);
+}
+
+/**
+ * Render the order table rows for variants.
+ *
+ * Each row has: title, quantity input, price cell (updated by JS).
+ * Footer row has: grand total + Add to Cart button.
+ *
+ * @param array  $variants [{id, title, price, tiers}]
+ * @param string $titleHeader Column header for the first column
+ */
+function fcbo_render_order_table($variants, $titleHeader)
+{
+    echo '<table class="fcbo-bp-order-table">';
+    echo '<thead><tr>';
+    echo '<th>' . esc_html($titleHeader) . '</th>';
+    echo '<th>' . esc_html__('Quantity', 'fluent-cart-bulk-order') . '</th>';
+    echo '<th>' . esc_html__('Total', 'fluent-cart-bulk-order') . '</th>';
+    echo '</tr></thead><tbody>';
+
+    foreach ($variants as $v) {
+        $dataAttr = esc_attr(wp_json_encode([
+            'id'    => (int) $v['id'],
+            'price' => (int) $v['price'],
+            'tiers' => $v['tiers'],
+        ]));
+
+        printf(
+            '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
+            $dataAttr,
+            esc_html($v['title'])
+        );
+    }
+
+    echo '</tbody><tfoot><tr>';
+    echo '<td><strong>' . esc_html__('Total', 'fluent-cart-bulk-order') . '</strong></td>';
+    echo '<td></td>';
+    echo '<td class="fcbo-bp-grand-total"><span class="fcbo-bp-muted">&mdash;</span></td>';
+    echo '</tr></tfoot></table>';
+    echo '<div class="fcbo-bp-checkout-row">';
+    echo '<button type="button" class="fcbo-bp-checkout-btn">' . esc_html__('Add to Cart', 'fluent-cart-bulk-order') . '</button>';
+    echo '</div>';
+}
+
+/**
+ * Render bulk pricing tiers on the single product page.
+ *
+ * Shows tier info followed by an order table with quantity inputs, live totals,
+ * and a single Add to Cart button.
+ *
+ * @param array $args ['product' => Product, 'scope' => string]
+ */
+function fcbo_render_single_product_tiers($args)
+{
+    if (empty($args['product'])) {
+        return;
+    }
+
+    $product = $args['product'];
+    $pricingData = fcbo_get_all_bulk_pricing([$product->ID]);
+    $isSimple = isset($product->detail->variation_type) && $product->detail->variation_type === 'simple';
+
+    if ($isSimple) {
+        $variant = $product->variants->first();
+        if (!$variant) {
+            return;
+        }
+
+        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id);
+        if (empty($tiers)) {
+            return;
+        }
+
+        fcbo_enqueue_bulk_pricing_assets();
+
+        echo '<div class="fcbo-bp-wrap">';
+        echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
+        echo '<div class="fcbo-bp-simple"><ul>';
+        foreach ($tiers as $tier) {
+            $minQty   = (int) ($tier['min_qty'] ?? 0);
+            $maxQty   = (int) ($tier['max_qty'] ?? 0);
+            $discount = (float) ($tier['discount_value'] ?? 0);
+
+            $range = $maxQty > 0
+                ? sprintf('%d – %d', $minQty, $maxQty)
+                : sprintf('%d+', $minQty);
+
+            printf(
+                '<li>' . esc_html__('Buy %s:', 'fluent-cart-bulk-order') . ' <span class="fcbo-bp-discount">%s%% ' . esc_html__('off', 'fluent-cart-bulk-order') . '</span></li>',
+                esc_html($range),
+                esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.'))
+            );
+        }
+        echo '</ul></div>';
+
+        fcbo_render_order_table([
+            [
+                'id'    => $variant->id,
+                'title' => $product->post_title,
+                'price' => (int) $variant->item_price,
+                'tiers' => $tiers,
+            ],
+        ], __('Product', 'fluent-cart-bulk-order'));
+
+        echo '</div>';
+        return;
+    }
+
+    // Variable product: collect variants that have tiers
+    $variantsWithTiers = [];
+    foreach ($product->variants as $variant) {
+        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id);
+        if (empty($tiers)) {
+            continue;
+        }
+        $variantsWithTiers[] = [
+            'id'    => $variant->id,
+            'title' => $variant->variation_title ?: 'Default',
+            'price' => (int) $variant->item_price,
+            'tiers' => $tiers,
+        ];
+    }
+
+    if (empty($variantsWithTiers)) {
+        return;
+    }
+
+    fcbo_enqueue_bulk_pricing_assets();
+
+    // Check if all variants share identical tiers — collapse if so
+    $allSame = true;
+    $firstTiers = $variantsWithTiers[0]['tiers'];
+    for ($i = 1, $len = count($variantsWithTiers); $i < $len; $i++) {
+        if ($variantsWithTiers[$i]['tiers'] !== $firstTiers) {
+            $allSame = false;
+            break;
+        }
+    }
+
+    echo '<div class="fcbo-bp-wrap">';
+    echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
+
+    // Tier info table
+    echo '<table class="fcbo-bp-table">';
+    if ($allSame) {
+        echo '<thead><tr>';
+        echo '<th>' . esc_html__('Qty Range', 'fluent-cart-bulk-order') . '</th>';
+        echo '<th>' . esc_html__('Discount', 'fluent-cart-bulk-order') . '</th>';
+        echo '</tr></thead><tbody>';
+
+        foreach ($firstTiers as $tier) {
+            $minQty   = (int) ($tier['min_qty'] ?? 0);
+            $maxQty   = (int) ($tier['max_qty'] ?? 0);
+            $discount = (float) ($tier['discount_value'] ?? 0);
+            $range = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
+
+            printf(
+                '<tr><td>%s</td><td class="fcbo-bp-discount">%s%% %s</td></tr>',
+                esc_html($range),
+                esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.')),
+                esc_html__('off', 'fluent-cart-bulk-order')
+            );
+        }
+    } else {
+        echo '<thead><tr>';
+        echo '<th>' . esc_html__('Variant', 'fluent-cart-bulk-order') . '</th>';
+        echo '<th>' . esc_html__('Qty Range', 'fluent-cart-bulk-order') . '</th>';
+        echo '<th>' . esc_html__('Discount', 'fluent-cart-bulk-order') . '</th>';
+        echo '</tr></thead><tbody>';
+
+        foreach ($variantsWithTiers as $entry) {
+            foreach ($entry['tiers'] as $idx => $tier) {
+                $minQty   = (int) ($tier['min_qty'] ?? 0);
+                $maxQty   = (int) ($tier['max_qty'] ?? 0);
+                $discount = (float) ($tier['discount_value'] ?? 0);
+                $range = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
+
+                echo '<tr>';
+                if ($idx === 0) {
+                    printf(
+                        '<td rowspan="%d">%s</td>',
+                        count($entry['tiers']),
+                        esc_html($entry['title'])
+                    );
+                }
+                printf(
+                    '<td>%s</td><td class="fcbo-bp-discount">%s%% %s</td>',
+                    esc_html($range),
+                    esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.')),
+                    esc_html__('off', 'fluent-cart-bulk-order')
+                );
+                echo '</tr>';
+            }
+        }
+    }
+    echo '</tbody></table>';
+
+    fcbo_render_order_table($variantsWithTiers, __('Variant', 'fluent-cart-bulk-order'));
+
+    echo '</div>';
 }
 
 /**

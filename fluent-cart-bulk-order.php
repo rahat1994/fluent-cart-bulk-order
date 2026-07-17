@@ -270,7 +270,17 @@ function fcbo_search_products(\WP_REST_Request $request)
         ->with(['detail', 'variants' => function ($query) {
             $query->where('item_status', 'active');
         }])
-        ->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%')
+        ->where(function ($q) use ($search) {
+            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
+            $q->where('post_title', 'LIKE', $like)
+              ->orWhereHas('variants', function ($vq) use ($like) {
+                  $vq->where('item_status', 'active')
+                     ->where(function ($inner) use ($like) {
+                         $inner->where('sku', 'LIKE', $like)
+                               ->orWhere('variation_title', 'LIKE', $like);
+                     });
+              });
+        })
         ->limit(20)
         ->get();
 
@@ -420,7 +430,17 @@ function fcbo_list_catalog(\WP_REST_Request $request)
         }]);
 
     if ($search && strlen($search) >= 2) {
-        $query->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%');
+        $query->where(function ($q) use ($search) {
+            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
+            $q->where('post_title', 'LIKE', $like)
+              ->orWhereHas('variants', function ($vq) use ($like) {
+                  $vq->where('item_status', 'active')
+                     ->where(function ($inner) use ($like) {
+                         $inner->where('sku', 'LIKE', $like)
+                               ->orWhere('variation_title', 'LIKE', $like);
+                     });
+              });
+        });
     }
 
     $total = $query->count();

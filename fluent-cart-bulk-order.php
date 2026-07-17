@@ -64,6 +64,69 @@ add_action('plugins_loaded', function () {
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
 });
 
+/**
+ * Roles allowed to use the FCBO surfaces (bulk order form, product table, REST routes).
+ *
+ * Single source of truth for access control. Filterable so other features can
+ * extend the set without re-duplicating the list.
+ *
+ * @return string[] Role slugs.
+ */
+function fcbo_get_allowed_roles()
+{
+    return apply_filters('fcbo/allowed_roles', ['administrator', 'wholesale-customer']);
+}
+
+/**
+ * Whether the current user may access FCBO surfaces.
+ *
+ * @return bool
+ */
+function fcbo_current_user_can_access()
+{
+    if (!is_user_logged_in()) {
+        return false;
+    }
+
+    // Super admins (and single-site administrators) always have access — role-slug
+    // checks alone would lock out a multisite super admin who isn't a member of the
+    // current subsite.
+    if (is_super_admin()) {
+        return true;
+    }
+
+    return (bool) array_intersect(fcbo_get_allowed_roles(), wp_get_current_user()->roles);
+}
+
+/**
+ * REST permission callback for the FCBO endpoints.
+ *
+ * Mirrors the shortcode access gate: unauthenticated requests get 401,
+ * authenticated-but-unauthorized requests get 403.
+ *
+ * @return true|\WP_Error
+ */
+function fcbo_rest_permission_check()
+{
+    if (!is_user_logged_in()) {
+        return new \WP_Error(
+            'fcbo_rest_unauthorized',
+            __('You must be logged in to access this resource.', 'fluent-cart-bulk-order'),
+            ['status' => 401]
+        );
+    }
+
+    if (!fcbo_current_user_can_access()) {
+        return new \WP_Error(
+            'fcbo_rest_forbidden',
+            __('You do not have permission to access this resource.', 'fluent-cart-bulk-order'),
+            ['status' => 403]
+        );
+    }
+
+    return true;
+}
+
 function fcbo_render_shortcode()
 {
     // Only administrators and wholesale customers can access the bulk order form
@@ -71,10 +134,7 @@ function fcbo_render_shortcode()
         return '<p>' . esc_html__('Please log in to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
     }
 
-    $user = wp_get_current_user();
-    $allowed_roles = ['administrator', 'wholesale-customer'];
-
-    if (!array_intersect($allowed_roles, $user->roles)) {
+    if (!fcbo_current_user_can_access()) {
         return '<p>' . esc_html__('You do not have permission to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
     }
 
@@ -166,7 +226,7 @@ function fcbo_register_routes()
     register_rest_route('fcbo/v1', '/products', [
         'methods'             => 'GET',
         'callback'            => 'fcbo_search_products',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'fcbo_rest_permission_check',
         'args'                => [
             'search' => [
                 'required'          => true,
@@ -178,7 +238,7 @@ function fcbo_register_routes()
     register_rest_route('fcbo/v1', '/catalog', [
         'methods'             => 'GET',
         'callback'            => 'fcbo_list_catalog',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'fcbo_rest_permission_check',
         'args'                => [
             'page' => [
                 'default'           => 1,
@@ -270,10 +330,7 @@ function fcbo_render_product_table()
         return '<p>' . esc_html__('Please log in to access the product table.', 'fluent-cart-bulk-order') . '</p>';
     }
 
-    $user = wp_get_current_user();
-    $allowed_roles = ['administrator', 'wholesale-customer'];
-
-    if (!array_intersect($allowed_roles, $user->roles)) {
+    if (!fcbo_current_user_can_access()) {
         return '<p>' . esc_html__('You do not have permission to access the product table.', 'fluent-cart-bulk-order') . '</p>';
     }
 

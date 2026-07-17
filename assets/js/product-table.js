@@ -2,6 +2,9 @@
     'use strict';
 
     var CONFIG = window.fcboPtConfig || {};
+    var ALL_COLUMNS = ['id', 'title', 'price', 'qty', 'action'];
+    var COLUMNS = (CONFIG.columns && CONFIG.columns.length) ? CONFIG.columns : ALL_COLUMNS;
+    var COLSPAN = COLUMNS.length;
     var tbody = null;
     var currentPage = 1;
     var totalPages = 1;
@@ -43,12 +46,15 @@
     }
 
     function loadProducts() {
-        tbody.innerHTML = '<tr><td colspan="5" class="fcbo-pt-loading">Loading products...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">Loading products...</td></tr>';
         updatePaginationUI();
 
         var url = CONFIG.rest_url + 'catalog?page=' + currentPage + '&per_page=' + (CONFIG.per_page || 5);
         if (currentSearch.length >= 2) {
             url += '&search=' + encodeURIComponent(currentSearch);
+        }
+        if (CONFIG.category) {
+            url += '&category=' + encodeURIComponent(CONFIG.category);
         }
 
         fetch(url, {
@@ -61,13 +67,43 @@
             updatePaginationUI();
         })
         .catch(function () {
-            tbody.innerHTML = '<tr><td colspan="5" class="fcbo-pt-loading">Failed to load products.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">Failed to load products.</td></tr>';
         });
+    }
+
+    // Build a single <td> for the given column so the JS body stays aligned with the
+    // server-rendered header (both driven by the same resolved COLUMNS allowlist).
+    function buildCell(col, p, v, title, outOfStock) {
+        switch (col) {
+            case 'id':
+                return '<td class="fcbo-pt-col-id">' + escapeHtml(String(p.id)) + '</td>';
+            case 'title':
+                return '<td class="fcbo-pt-col-title">' +
+                    '<a href="#" class="fcbo-pt-title-link" data-product-id="' + p.id + '">' +
+                    escapeHtml(title) + '</a>' +
+                    '</td>';
+            case 'price':
+                return '<td class="fcbo-pt-col-price">' + escapeHtml(formatPrice(v.item_price)) + '</td>';
+            case 'qty':
+                return '<td class="fcbo-pt-col-qty">' +
+                    '<input type="number" class="fcbo-pt-qty" value="1" min="1" step="1"' +
+                    (outOfStock ? ' disabled' : '') + ' />' +
+                    '</td>';
+            case 'action':
+                return '<td class="fcbo-pt-col-action">' +
+                    '<button type="button" class="fcbo-pt-add-btn"' +
+                    (outOfStock ? ' disabled' : '') + '>' +
+                    (outOfStock ? 'Out of Stock' : 'Add to Cart') +
+                    '</button>' +
+                    '</td>';
+            default:
+                return '';
+        }
     }
 
     function renderProducts(products) {
         if (!products.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="fcbo-pt-loading">No products found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">No products found.</td></tr>';
             return;
         }
 
@@ -84,24 +120,14 @@
                     title += ' — ' + v.variation_title;
                 }
 
+                var cells = '';
+                for (var c = 0; c < COLUMNS.length; c++) {
+                    cells += buildCell(COLUMNS[c], p, v, title, outOfStock);
+                }
+
                 html += '<tr data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
                     (outOfStock ? ' class="fcbo-pt-out-of-stock"' : '') + '>' +
-                    '<td class="fcbo-pt-col-id">' + escapeHtml(String(p.id)) + '</td>' +
-                    '<td class="fcbo-pt-col-title">' +
-                        '<a href="#" class="fcbo-pt-title-link" data-product-id="' + p.id + '">' +
-                        escapeHtml(title) + '</a>' +
-                    '</td>' +
-                    '<td class="fcbo-pt-col-price">' + escapeHtml(formatPrice(v.item_price)) + '</td>' +
-                    '<td class="fcbo-pt-col-qty">' +
-                        '<input type="number" class="fcbo-pt-qty" value="1" min="1" step="1"' +
-                        (outOfStock ? ' disabled' : '') + ' />' +
-                    '</td>' +
-                    '<td class="fcbo-pt-col-action">' +
-                        '<button type="button" class="fcbo-pt-add-btn"' +
-                        (outOfStock ? ' disabled' : '') + '>' +
-                        (outOfStock ? 'Out of Stock' : 'Add to Cart') +
-                        '</button>' +
-                    '</td>' +
+                    cells +
                 '</tr>';
             }
         }
@@ -132,7 +158,9 @@
         var btn = this;
         var row = btn.closest('tr');
         var variantId = row.dataset.variantId;
-        var qty = parseInt(row.querySelector('.fcbo-pt-qty').value, 10) || 1;
+        // The qty column may be hidden via the `columns` attribute; default to 1 then.
+        var qtyInput = row.querySelector('.fcbo-pt-qty');
+        var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
             showStatus('FluentCart cart is not available. Please refresh the page.', 'error');

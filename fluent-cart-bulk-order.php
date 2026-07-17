@@ -80,9 +80,23 @@ function fcbo_get_allowed_roles()
 /**
  * Whether the current user may access FCBO surfaces.
  *
+ * @param string[] $extraRoles Additional role slugs (e.g. from a shortcode `roles`
+ *                             attribute) that EXTEND the baseline allowed set for
+ *                             this render. The baseline from fcbo_get_allowed_roles()
+ *                             always remains — extra roles can only widen, never
+ *                             replace, the security baseline.
+ *
+ * CAVEAT: extra roles passed here only widen the SHORTCODE/UI gate. The REST routes
+ * (`/products`, `/catalog`) call fcbo_current_user_can_access() with NO extra roles
+ * (via fcbo_rest_permission_check), so they enforce only the GLOBAL set from
+ * fcbo_get_allowed_roles(). A role granted access solely through a per-shortcode
+ * `roles` attribute can render the UI but its AJAX product calls will still be
+ * rejected. To widen REST access too, add the role via the global `fcbo/allowed_roles`
+ * filter.
+ *
  * @return bool
  */
-function fcbo_current_user_can_access()
+function fcbo_current_user_can_access($extraRoles = [])
 {
     if (!is_user_logged_in()) {
         return false;
@@ -95,7 +109,107 @@ function fcbo_current_user_can_access()
         return true;
     }
 
-    return (bool) array_intersect(fcbo_get_allowed_roles(), wp_get_current_user()->roles);
+    $allowed = fcbo_get_allowed_roles();
+
+    if (!empty($extraRoles)) {
+        // Merge onto (never replace) the baseline so admin + wholesale always remain.
+        $allowed = array_merge($allowed, array_map('sanitize_key', (array) $extraRoles));
+    }
+
+    return (bool) array_intersect($allowed, wp_get_current_user()->roles);
+}
+
+/**
+ * Parse a comma-separated shortcode `roles` attribute into sanitized role slugs.
+ *
+ * Each token is trimmed and passed through sanitize_key; empty tokens are dropped.
+ * A malformed value such as " , ," degrades to an empty array (baseline only).
+ *
+ * @param string $rolesAttr Raw attribute value.
+ * @return string[] Sanitized role slugs.
+ */
+function fcbo_parse_roles_attr($rolesAttr)
+{
+    if (empty($rolesAttr) || !is_string($rolesAttr)) {
+        return [];
+    }
+
+    $roles = array_map('sanitize_key', array_map('trim', explode(',', $rolesAttr)));
+
+    return array_values(array_filter($roles));
+}
+
+/**
+ * Sanitize a `category` value to a slug or a numeric term ID.
+ *
+ * @param mixed $value Raw attribute or request value.
+ * @return string Sanitized slug or numeric ID as a string; '' when empty.
+ */
+function fcbo_sanitize_category_param($value)
+{
+    if (is_string($value)) {
+        $value = trim($value);
+    }
+
+    if ($value === '' || $value === null) {
+        return '';
+    }
+
+    if (is_numeric($value)) {
+        return (string) absint($value);
+    }
+
+    return sanitize_title((string) $value);
+}
+
+/**
+ * Resolve a slug-or-ID category value to a `product-categories` WP term.
+ *
+ * @param string $category Slug or numeric term ID.
+ * @return \WP_Term|null The resolved term, or null when it does not exist.
+ */
+function fcbo_resolve_category_term($category)
+{
+    if ($category === '' || $category === null) {
+        return null;
+    }
+
+    if (is_numeric($category)) {
+        $term = get_term((int) $category, 'product-categories');
+    } else {
+        $term = get_term_by('slug', $category, 'product-categories');
+    }
+
+    if (!$term || is_wp_error($term)) {
+        return null;
+    }
+
+    return $term;
+}
+
+/**
+ * Resolve a shortcode `columns` attribute to an ordered allowlist of columns.
+ *
+ * Unknown tokens are ignored; an empty/absent value yields all columns. Ordering is
+ * fixed to the canonical column order (column reordering is a non-goal) so the PHP
+ * header and the JS body stay aligned.
+ *
+ * @param string   $columnsAttr Raw attribute value.
+ * @param string[] $allColumns  Canonical, ordered column list.
+ * @return string[] Resolved column list (never empty).
+ */
+function fcbo_parse_columns_attr($columnsAttr, $allColumns)
+{
+    if (empty($columnsAttr) || !is_string($columnsAttr)) {
+        return $allColumns;
+    }
+
+    $requested = array_map('sanitize_key', array_map('trim', explode(',', strtolower($columnsAttr))));
+
+    // Intersect in canonical order so header/body order is deterministic.
+    $resolved = array_values(array_intersect($allColumns, $requested));
+
+    return empty($resolved) ? $allColumns : $resolved;
 }
 
 /**
@@ -127,14 +241,24 @@ function fcbo_rest_permission_check()
     return true;
 }
 
-function fcbo_render_shortcode()
+function fcbo_render_shortcode($atts = [])
 {
-    // Only administrators and wholesale customers can access the bulk order form
+    $atts = shortcode_atts([
+        'roles'    => '',
+        'redirect' => '',
+    ], $atts, 'fluent_cart_bulk_order');
+
+    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set for this
+    // placement. See the caveat on fcbo_current_user_can_access(): this only widens the
+    // UI gate, not the REST routes.
+    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
+
+    // Only administrators, wholesale customers, and any extra roles can access the form
     if (!is_user_logged_in()) {
         return '<p>' . esc_html__('Please log in to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
     }
 
-    if (!fcbo_current_user_can_access()) {
+    if (!fcbo_current_user_can_access($extraRoles)) {
         return '<p>' . esc_html__('You do not have permission to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
     }
 
@@ -162,6 +286,17 @@ function fcbo_render_shortcode()
     $checkout_url = '';
     if (class_exists(\FluentCart\Api\StoreSettings::class)) {
         $checkout_url = (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
+    }
+
+    // Optional `redirect` override: only honored when it is a valid same-site URL.
+    // wp_validate_redirect() returns the fallback ('') for off-site or malformed URLs,
+    // so an invalid value degrades safely to the store checkout page.
+    $redirect = trim((string) $atts['redirect']);
+    if ($redirect !== '') {
+        $validated = wp_validate_redirect($redirect, '');
+        if ($validated !== '') {
+            $checkout_url = $validated;
+        }
     }
 
     $currency_sign = '$';
@@ -252,6 +387,10 @@ function fcbo_register_routes()
                 'default'           => '',
                 'sanitize_callback' => 'sanitize_text_field',
             ],
+            'category' => [
+                'default'           => '',
+                'sanitize_callback' => 'fcbo_sanitize_category_param',
+            ],
         ],
     ]);
 }
@@ -324,15 +463,50 @@ function fcbo_search_products(\WP_REST_Request $request)
     return new \WP_REST_Response(['products' => $results], 200);
 }
 
-function fcbo_render_product_table()
+function fcbo_render_product_table($atts = [])
 {
+    $atts = shortcode_atts([
+        'per_page' => 5,
+        'columns'  => '',
+        'search'   => 'true',
+        'category' => '',
+        'roles'    => '',
+    ], $atts, 'fluent_cart_product_table');
+
+    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set for this
+    // placement. See the caveat on fcbo_current_user_can_access(): this only widens the
+    // UI gate — the /catalog REST route still enforces the global fcbo_get_allowed_roles().
+    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
+
     if (!is_user_logged_in()) {
         return '<p>' . esc_html__('Please log in to access the product table.', 'fluent-cart-bulk-order') . '</p>';
     }
 
-    if (!fcbo_current_user_can_access()) {
+    if (!fcbo_current_user_can_access($extraRoles)) {
         return '<p>' . esc_html__('You do not have permission to access the product table.', 'fluent-cart-bulk-order') . '</p>';
     }
+
+    // Resolve display attributes (degrade safely to defaults on bad input).
+    $per_page = absint($atts['per_page']);
+    if ($per_page < 1) {
+        $per_page = 5; // Non-numeric or zero → default.
+    }
+    $per_page = min(100, max(1, $per_page)); // Clamp to the REST cap.
+
+    $allColumns = ['id', 'title', 'price', 'qty', 'action'];
+    $columns    = fcbo_parse_columns_attr($atts['columns'], $allColumns);
+
+    $columnDefs = [
+        'id'     => ['class' => 'fcbo-pt-col-id',     'label' => __('ID', 'fluent-cart-bulk-order')],
+        'title'  => ['class' => 'fcbo-pt-col-title',  'label' => __('Title', 'fluent-cart-bulk-order')],
+        'price'  => ['class' => 'fcbo-pt-col-price',  'label' => __('Price', 'fluent-cart-bulk-order')],
+        'qty'    => ['class' => 'fcbo-pt-col-qty',    'label' => __('Quantity', 'fluent-cart-bulk-order')],
+        'action' => ['class' => 'fcbo-pt-col-action', 'label' => __('Action', 'fluent-cart-bulk-order')],
+    ];
+
+    $colspan    = count($columns);
+    $showSearch = filter_var($atts['search'], FILTER_VALIDATE_BOOLEAN);
+    $category   = fcbo_sanitize_category_param($atts['category']);
 
     if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
         \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
@@ -366,30 +540,32 @@ function fcbo_render_product_table()
         'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
         'nonce'         => wp_create_nonce('wp_rest'),
         'currency_sign' => $currency_sign,
-        'per_page'      => 5,
+        'per_page'      => $per_page,
+        'columns'       => $columns,
+        'category'      => $category,
     ]);
 
     ob_start();
     ?>
     <div id="fcbo-product-table" class="fcbo-pt-wrap">
+        <?php if ($showSearch) : ?>
         <div class="fcbo-pt-toolbar">
             <input type="text" id="fcbo-pt-search" class="fcbo-pt-search"
                    placeholder="<?php esc_attr_e('Search products...', 'fluent-cart-bulk-order'); ?>" />
         </div>
+        <?php endif; ?>
 
         <div class="fcbo-pt-table-scroll">
             <table class="fcbo-pt-table">
                 <thead>
                     <tr>
-                        <th class="fcbo-pt-col-id"><?php esc_html_e('ID', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-pt-col-title"><?php esc_html_e('Title', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-pt-col-price"><?php esc_html_e('Price', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-pt-col-qty"><?php esc_html_e('Quantity', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-pt-col-action"><?php esc_html_e('Action', 'fluent-cart-bulk-order'); ?></th>
+                        <?php foreach ($columns as $col) : ?>
+                        <th class="<?php echo esc_attr($columnDefs[$col]['class']); ?>"><?php echo esc_html($columnDefs[$col]['label']); ?></th>
+                        <?php endforeach; ?>
                     </tr>
                 </thead>
                 <tbody id="fcbo-pt-tbody">
-                    <tr><td colspan="5" class="fcbo-pt-loading"><?php esc_html_e('Loading products...', 'fluent-cart-bulk-order'); ?></td></tr>
+                    <tr><td colspan="<?php echo esc_attr($colspan); ?>" class="fcbo-pt-loading"><?php esc_html_e('Loading products...', 'fluent-cart-bulk-order'); ?></td></tr>
                 </tbody>
             </table>
         </div>
@@ -411,6 +587,7 @@ function fcbo_list_catalog(\WP_REST_Request $request)
     $page     = max(1, $request->get_param('page'));
     $per_page = min(100, max(1, $request->get_param('per_page')));
     $search   = $request->get_param('search');
+    $category = $request->get_param('category');
 
     $productModel = new \FluentCart\App\Models\Product();
 
@@ -421,6 +598,24 @@ function fcbo_list_catalog(\WP_REST_Request $request)
 
     if ($search && strlen($search) >= 2) {
         $query->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%');
+    }
+
+    // Category filter (separate block, kept out of the search `if` above). Constrain via
+    // the FluentCart Product `wpTerms` taxonomy relation, mirroring scopeFilterByTaxonomy.
+    // Applied before count() so pagination reflects the scoped set.
+    if ($category !== '' && $category !== null) {
+        $term = fcbo_resolve_category_term($category);
+        if ($term) {
+            $termId = (int) $term->term_id;
+            $query->whereHas('wpTerms', function ($q) use ($termId) {
+                // Unqualified `term_id` (matches Product::scopeFilterByTaxonomy). It is
+                // unambiguous: the joined term_relationships table has no term_id column.
+                $q->where('term_id', $termId);
+            });
+        } else {
+            // Unknown category → empty result set, no error (R5).
+            $query->where('ID', 0);
+        }
     }
 
     $total = $query->count();

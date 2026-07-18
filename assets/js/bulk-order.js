@@ -12,6 +12,9 @@
         document.getElementById('fcbo-add-row').addEventListener('click', addRow);
         document.getElementById('fcbo-checkout').addEventListener('click', handleCheckout);
 
+        var saveBtn = document.getElementById('fcbo-save-order');
+        if (saveBtn) { saveBtn.addEventListener('click', handleSaveOrder); }
+
         initQuickOrder();
         addRow();
     }
@@ -453,6 +456,68 @@
 
         updateRowTotal(row);
         updateGrandTotal();
+    }
+
+    // --- Save order ---
+
+    function handleSaveOrder() {
+        var rows = tbody.querySelectorAll('tr');
+
+        // Collect non-empty rows, consolidating duplicate variants (as checkout does).
+        var consolidated = {};
+        var order = [];
+        for (var i = 0; i < rows.length; i++) {
+            var variantId = rows[i].dataset.variantId;
+            if (!variantId) continue;
+            var qty = parseInt(rows[i].querySelector('.fcbo-qty-input').value, 10) || 1;
+            if (consolidated[variantId]) {
+                consolidated[variantId].qty += qty;
+            } else {
+                consolidated[variantId] = { variantId: parseInt(variantId, 10), qty: qty };
+                order.push(variantId);
+            }
+        }
+
+        var items = order.map(function (k) { return consolidated[k]; });
+
+        if (!items.length) {
+            showStatus('Add at least one product before saving.', 'error');
+            return;
+        }
+
+        var name = window.prompt('Name this saved order:');
+        if (name === null) return; // cancelled
+        name = name.trim();
+        if (!name) {
+            showStatus('Please enter a name for the saved order.', 'error');
+            return;
+        }
+
+        var btn = document.getElementById('fcbo-save-order');
+        if (btn) { btn.disabled = true; }
+        showStatus('Saving order...', 'loading');
+
+        fetch(CONFIG.rest_url + 'saved-lists', {
+            method: 'POST',
+            headers: { 'X-WP-Nonce': CONFIG.nonce, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, items: items })
+        })
+        .then(function (res) {
+            return res.json().then(function (body) { return { ok: res.ok, body: body }; });
+        })
+        .then(function (r) {
+            if (!r.ok) {
+                showStatus((r.body && r.body.message) ? r.body.message : 'Could not save the order.', 'error');
+            } else {
+                showStatus('Saved order "' + name + '".', 'success');
+            }
+        })
+        .catch(function () {
+            showStatus('Could not save the order. Please try again.', 'error');
+        })
+        .then(function () {
+            if (btn) { btn.disabled = false; }
+        });
     }
 
     // --- Checkout ---

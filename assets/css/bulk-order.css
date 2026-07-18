@@ -228,6 +228,12 @@
     align-items: center;
 }
 
+.fcbo-actions-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .fcbo-btn {
     padding: 10px 20px;
     border: none;
@@ -444,6 +450,11 @@
 
     .fcbo-actions {
         flex-direction: column;
+    }
+
+    .fcbo-actions-left {
+        flex-direction: column;
+        width: 100%;
     }
 
     .fcbo-btn {

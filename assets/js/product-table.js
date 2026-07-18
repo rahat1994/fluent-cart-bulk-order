@@ -106,9 +106,53 @@
         return v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
     }
 
-    function qtyInputHtml(outOfStock) {
-        return '<input type="number" class="fcbo-pt-qty" value="1" min="1" step="1"' +
-            (outOfStock ? ' disabled' : '') + ' />';
+    // --- Order rules ---
+    //
+    // These three mirror the PHP helpers of the same intent
+    // (fcbo_normalize_order_rules / fcbo_normalize_qty) and the copies in
+    // bulk-order.js. All three must change together: the server rejects any
+    // quantity these would have altered.
+
+    function orderRules(v) {
+        var raw = (v && v.order_rules) || {};
+        return {
+            min_qty: Math.max(0, parseInt(raw.min_qty, 10) || 0),
+            step: Math.max(1, parseInt(raw.step, 10) || 1)
+        };
+    }
+
+    // Rounds UP only, so a shopper never silently receives less than they asked for.
+    function normalizeQty(qty, rules) {
+        qty = Math.max(1, parseInt(qty, 10) || 1, rules.min_qty);
+        if (rules.step > 1) {
+            qty = Math.ceil(qty / rules.step) * rules.step;
+        }
+        return qty;
+    }
+
+    function describeRule(rules) {
+        if (rules.min_qty > 0 && rules.step > 1) {
+            return 'Min ' + rules.min_qty + ', in ' + rules.step + 's';
+        }
+        if (rules.step > 1) {
+            return 'Sold in ' + rules.step + 's';
+        }
+        if (rules.min_qty > 0) {
+            return 'Min ' + rules.min_qty;
+        }
+        return '';
+    }
+
+    function qtyInputHtml(outOfStock, v) {
+        var rules = orderRules(v);
+        var start = normalizeQty(1, rules);
+        var hint = describeRule(rules);
+
+        return '<input type="number" class="fcbo-pt-qty" value="' + start + '"' +
+            ' min="' + Math.max(1, rules.min_qty) + '" step="' + rules.step + '"' +
+            ' data-min-qty="' + rules.min_qty + '" data-step="' + rules.step + '"' +
+            (outOfStock ? ' disabled' : '') + ' />' +
+            (hint ? '<span class="fcbo-pt-qty-hint">' + escapeHtml(hint) + '</span>' : '');
     }
 
     function addBtnHtml(outOfStock) {
@@ -127,7 +171,7 @@
                 idText: String(p.id),
                 titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>',
                 priceText: formatPrice(v.item_price),
-                qtyHtml: qtyInputHtml(oos),
+                qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
             }
         );
@@ -163,7 +207,7 @@
                 idText: '',
                 titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>',
                 priceText: formatPrice(v.item_price),
-                qtyHtml: qtyInputHtml(oos),
+                qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
             }
         );
@@ -201,6 +245,27 @@
         for (var m = 0; m < productRows.length; m++) {
             productRows[m].addEventListener('click', handleProductToggle);
         }
+
+        // Correct a typed quantity when it is committed ('change', not 'input',
+        // so a half-typed value is not snapped mid-keystroke).
+        var qtyInputs = tbody.querySelectorAll('.fcbo-pt-qty:not([disabled])');
+        for (var n = 0; n < qtyInputs.length; n++) {
+            qtyInputs[n].addEventListener('change', handleQtyChange);
+        }
+    }
+
+    function handleQtyChange() {
+        var rules = {
+            min_qty: Math.max(0, parseInt(this.dataset.minQty, 10) || 0),
+            step: Math.max(1, parseInt(this.dataset.step, 10) || 1)
+        };
+        var requested = parseInt(this.value, 10) || 0;
+        var settled = normalizeQty(requested, rules);
+
+        if (settled !== requested) {
+            this.value = settled;
+            showStatus('Quantity adjusted to ' + settled + ' to meet this product\'s order rules.', 'error');
+        }
     }
 
     // Expand/collapse a variable product's variant accordion.
@@ -228,8 +293,22 @@
         var row = btn.closest('tr');
         var variantId = row.dataset.variantId;
         // The qty column may be hidden via the `columns` attribute; default to 1 then.
+        // The rules are read back off the input's data attributes so a hidden qty
+        // column still starts from a rule-valid quantity rather than a bare 1.
         var qtyInput = row.querySelector('.fcbo-pt-qty');
-        var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+        var rules = {
+            min_qty: Math.max(0, parseInt(qtyInput && qtyInput.dataset.minQty, 10) || 0),
+            step: Math.max(1, parseInt(qtyInput && qtyInput.dataset.step, 10) || 1)
+        };
+        var requested = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+        var qty = normalizeQty(requested, rules);
+
+        // Correct in place and say so, rather than adding a different quantity
+        // than the one on screen.
+        if (qty !== requested) {
+            if (qtyInput) { qtyInput.value = qty; }
+            showStatus('Quantity adjusted to ' + qty + ' to meet this product\'s order rules.', 'error');
+        }
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
             showStatus('FluentCart cart is not available. Please refresh the page.', 'error');

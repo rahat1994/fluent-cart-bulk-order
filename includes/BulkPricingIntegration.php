@@ -54,6 +54,16 @@ class BulkPricingIntegration extends BaseIntegrationManager
             // are dropped at save time (see validateFeedData), so a feed the owner
             // never scoped to a role persists the legacy `{tiers: [...]}` shape.
             'role_tiers' => (object) [],
+            // Order rules (Plan 009). Defaults are the historical no-op: no
+            // minimum and a step of 1, so an upgraded feed behaves exactly as
+            // before until the owner sets something. FluentCart hydrates an
+            // existing feed with wp_parse_args($feedValue, $defaults), which is a
+            // shallow top-level merge — so a feed saved before this key existed
+            // still arrives at the Vue model with `order_rules` present.
+            'order_rules' => [
+                'min_qty' => 0,
+                'step'    => 1,
+            ],
         ];
     }
 
@@ -84,6 +94,14 @@ class BulkPricingIntegration extends BaseIntegrationManager
                     'label'           => __('Role-specific Pricing', 'fluent-cart-bulk-order'),
                     'component'       => 'custom_component',
                     'render_template' => $this->getRoleTiersTemplate(),
+                ],
+                // Same whitelist rule as role_tiers above — order_rules only
+                // survives the save because it is declared here.
+                'order_rules' => [
+                    'key'             => 'order_rules',
+                    'label'           => __('Order Rules', 'fluent-cart-bulk-order'),
+                    'component'       => 'custom_component',
+                    'render_template' => $this->getOrderRulesTemplate(),
                 ],
             ],
             'button_require_list'                  => false,
@@ -123,9 +141,42 @@ class BulkPricingIntegration extends BaseIntegrationManager
             unset($data['role_tiers']);
         }
 
+        // Plan 009: per-product order rules. Always persisted (unlike role_tiers)
+        // because the no-op default is meaningful data, not an absent feature.
+        $data['order_rules'] = $this->sanitizeOrderRules(isset($data['order_rules']) ? $data['order_rules'] : []);
+
         $data['event_trigger'] = $this->describeVariationScope($data);
 
         return $data;
+    }
+
+    /**
+     * Sanitize the per-product order rules into a clamped, self-consistent pair.
+     *
+     * `step` floors at 1 and `min_qty` at 0, so a blank/garbage submission lands
+     * on the historical no-op. When both are set, `min_qty` is rounded UP to the
+     * nearest multiple of `step` — otherwise the smallest orderable quantity
+     * would itself violate the case-pack rule, and every shopper would be
+     * bounced by a minimum they could not legally satisfy.
+     *
+     * @param mixed $rules Raw ['min_qty' => mixed, 'step' => mixed].
+     * @return array{min_qty:int, step:int}
+     */
+    private function sanitizeOrderRules($rules)
+    {
+        $rules = is_array($rules) ? $rules : [];
+
+        $step   = max(1, intval($rules['step'] ?? 1));
+        $minQty = max(0, intval($rules['min_qty'] ?? 0));
+
+        if ($minQty > 0 && $step > 1) {
+            $minQty = (int) (ceil($minQty / $step) * $step);
+        }
+
+        return [
+            'min_qty' => $minQty,
+            'step'    => $step,
+        ];
     }
 
     /**
@@ -364,5 +415,33 @@ class BulkPricingIntegration extends BaseIntegrationManager
                 <p class="fcbo-tier-hint">' . esc_html__('Optional. Give specific roles their own price list. A shopper falls back to the default Discount Tiers above when their role has no list.', 'fluent-cart-bulk-order') . '</p>'
                 . $groups
                 . '</div>';
+    }
+
+    /**
+     * Vue markup for the per-product order rules (Plan 009).
+     *
+     * Both inputs bind straight onto `settings.order_rules`, which always exists
+     * on the model thanks to getIntegrationDefaults() plus FluentCart's
+     * wp_parse_args hydration — so no v-if guard is needed for legacy feeds.
+     *
+     * @return string
+     */
+    private function getOrderRulesTemplate()
+    {
+        return '
+            <div class="fcbo-tier-repeater fcbo-order-rules">
+                <p class="fcbo-tier-hint">' . esc_html__('Optional. Constrain how much of this product can be ordered per line. Leave at the defaults (0 and 1) for no restriction.', 'fluent-cart-bulk-order') . '</p>
+                <div class="fcbo-tier-row">
+                    <div class="fcbo-tier-field">
+                        <label>' . esc_html__('Minimum qty', 'fluent-cart-bulk-order') . '</label>
+                        <el-input-number v-model="settings.order_rules.min_qty" :min="0" :step="1" size="small" />
+                    </div>
+                    <div class="fcbo-tier-field">
+                        <label>' . esc_html__('Sold in multiples of', 'fluent-cart-bulk-order') . '</label>
+                        <el-input-number v-model="settings.order_rules.step" :min="1" :step="1" size="small" />
+                    </div>
+                </div>
+                <p class="fcbo-tier-hint">' . esc_html__('The minimum is rounded up to a whole multiple when you save — a minimum of 20 with multiples of 12 becomes 24.', 'fluent-cart-bulk-order') . '</p>
+            </div>';
     }
 }

@@ -28,6 +28,20 @@ class Settings
     const OPTION_NAME = 'fcbo_apply_to_roles';
 
     /**
+     * Minimum order total, in integer cents. 0 = no minimum.
+     */
+    const OPTION_MIN_TOTAL = 'fcbo_min_order_total';
+
+    /**
+     * Roles the minimum order total applies to.
+     *
+     * NOTE the inverted default relative to OPTION_NAME: an empty list here
+     * means "nobody is subject", so an unconfigured minimum can never start
+     * blocking checkouts on upgrade.
+     */
+    const OPTION_MIN_TOTAL_ROLES = 'fcbo_min_order_total_roles';
+
+    /**
      * Admin page slug.
      */
     const PAGE_SLUG = 'fcbo-settings';
@@ -84,6 +98,74 @@ class Settings
             self::PAGE_SLUG,
             'fcbo_policy_section'
         );
+
+        // ---- Minimum order total (Plan 009 · U6) ----
+        // Self-contained on purpose, so Plan 011's consolidated settings page can
+        // absorb it without untangling it from the role policy above.
+
+        register_setting(
+            self::OPTION_GROUP,
+            self::OPTION_MIN_TOTAL,
+            [
+                'type'              => 'integer',
+                'sanitize_callback' => [$this, 'sanitizeMinOrderTotal'],
+                'default'           => 0,
+            ]
+        );
+
+        register_setting(
+            self::OPTION_GROUP,
+            self::OPTION_MIN_TOTAL_ROLES,
+            [
+                'type'              => 'array',
+                'sanitize_callback' => [$this, 'sanitizeRoles'],
+                'default'           => [],
+            ]
+        );
+
+        add_settings_section(
+            'fcbo_min_order_section',
+            __('Minimum Order Total', 'fluent-cart-bulk-order'),
+            [$this, 'renderMinOrderIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_min_order_total_field',
+            __('Minimum order total', 'fluent-cart-bulk-order'),
+            [$this, 'renderMinOrderTotalField'],
+            self::PAGE_SLUG,
+            'fcbo_min_order_section'
+        );
+
+        add_settings_field(
+            'fcbo_min_order_total_roles_field',
+            __('Require it of', 'fluent-cart-bulk-order'),
+            [$this, 'renderMinOrderRolesField'],
+            self::PAGE_SLUG,
+            'fcbo_min_order_section'
+        );
+    }
+
+    /**
+     * Convert the entered amount (major units, e.g. 500.00) to integer cents.
+     *
+     * The owner types currency the way they think about it; the whole plugin
+     * compares totals in cents, so the conversion happens once, here. Blank or
+     * junk input collapses to 0, which means "no minimum".
+     *
+     * @param mixed $value Raw submitted value.
+     * @return int Cents (>= 0).
+     */
+    public function sanitizeMinOrderTotal($value)
+    {
+        $value = is_scalar($value) ? trim((string) $value) : '';
+
+        if ($value === '' || !is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, (int) round(((float) $value) * 100));
     }
 
     /**
@@ -98,7 +180,7 @@ class Settings
     public function sanitizeRoles($value)
     {
         $value = is_array($value) ? $value : [];
-        $editable = array_keys(get_editable_roles());
+        $editable = array_keys($this->getEditableRoles());
 
         $clean = [];
         foreach ($value as $slug) {
@@ -123,23 +205,44 @@ class Settings
     }
 
     /**
-     * Render the role checklist bound to fcbo_apply_to_roles.
+     * Editable role slugs, with the admin include guaranteed.
+     *
+     * get_editable_roles() lives in wp-admin/includes/user.php, which is not
+     * loaded outside admin page loads. These callbacks only run in admin today,
+     * but the guard costs nothing and removes a trap for whoever reuses them.
+     *
+     * @return array<string, array> Role slug => role details.
      */
-    public function renderRolesField()
+    private function getEditableRoles()
     {
-        $selected = (array) get_option(self::OPTION_NAME, []);
-        $roles = get_editable_roles();
+        if (!function_exists('get_editable_roles')) {
+            require_once ABSPATH . 'wp-admin/includes/user.php';
+        }
+
+        return (array) get_editable_roles();
+    }
+
+    /**
+     * Render a role checklist bound to an arbitrary option.
+     *
+     * @param string $option      Option name holding the selected slugs.
+     * @param string $description Help text shown beneath the list.
+     */
+    private function renderRoleChecklist($option, $description)
+    {
+        $selected = (array) get_option($option, []);
+        $roles = $this->getEditableRoles();
 
         // Hidden field guarantees the option is submitted even when nothing is
-        // checked, so sanitizeRoles() runs and stores an empty array (everyone).
-        echo '<input type="hidden" name="' . esc_attr(self::OPTION_NAME) . '[]" value="" />';
+        // checked, so sanitizeRoles() runs and stores an empty array.
+        echo '<input type="hidden" name="' . esc_attr($option) . '[]" value="" />';
 
         echo '<fieldset>';
         foreach ($roles as $slug => $details) {
             $label = isset($details['name']) ? $details['name'] : $slug;
             printf(
                 '<label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
-                esc_attr(self::OPTION_NAME),
+                esc_attr($option),
                 esc_attr($slug),
                 checked(in_array($slug, $selected, true), true, false),
                 esc_html($label)
@@ -147,10 +250,61 @@ class Settings
         }
         echo '</fieldset>';
 
-        echo '<p class="description">' . esc_html__(
-            'Leave all unchecked = bulk pricing applies to everyone (default).',
+        echo '<p class="description">' . esc_html($description) . '</p>';
+    }
+
+    /**
+     * Render the role checklist bound to fcbo_apply_to_roles.
+     */
+    public function renderRolesField()
+    {
+        $this->renderRoleChecklist(
+            self::OPTION_NAME,
+            __('Leave all unchecked = bulk pricing applies to everyone (default).', 'fluent-cart-bulk-order')
+        );
+    }
+
+    /**
+     * Section intro for the minimum order total.
+     */
+    public function renderMinOrderIntro()
+    {
+        echo '<p>' . esc_html__(
+            'Require a minimum order value from specific roles. This is enforced at checkout on the server, so it cannot be bypassed by editing the page.',
             'fluent-cart-bulk-order'
         ) . '</p>';
+    }
+
+    /**
+     * Render the amount input. Stored in cents, shown in major units.
+     */
+    public function renderMinOrderTotalField()
+    {
+        $cents = (int) get_option(self::OPTION_MIN_TOTAL, 0);
+        $shown = $cents > 0 ? number_format($cents / 100, 2, '.', '') : '';
+
+        printf(
+            '<input type="number" name="%1$s" value="%2$s" min="0" step="0.01" class="regular-text" placeholder="0.00" /> <span>%3$s</span>',
+            esc_attr(self::OPTION_MIN_TOTAL),
+            esc_attr($shown),
+            esc_html(function_exists('fcbo_get_currency_sign') ? fcbo_get_currency_sign() : '')
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'Leave blank or 0 for no minimum (default). Compared against the order subtotal, before shipping and tax.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Render the role checklist that scopes the minimum order total.
+     */
+    public function renderMinOrderRolesField()
+    {
+        $this->renderRoleChecklist(
+            self::OPTION_MIN_TOTAL_ROLES,
+            __('Leave all unchecked = the minimum applies to nobody. Unlike the setting above, this one is opt-in.', 'fluent-cart-bulk-order')
+        );
     }
 
     /**

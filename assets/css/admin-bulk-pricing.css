@@ -81,3 +81,13 @@
     padding-top: 8px;
     border-top: 1px dashed var(--fcbo-line-soft);
 }
+
+/* Order rules: a single fixed row of two numbers rather than a repeater, so it
+   should not stretch its fields the way the tier rows do. */
+.fcbo-order-rules .fcbo-tier-row {
+    flex-wrap: wrap;
+}
+
+.fcbo-order-rules .fcbo-tier-field {
+    flex: 0 0 auto;
+}

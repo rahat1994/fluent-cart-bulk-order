@@ -8,6 +8,15 @@ defined('ABSPATH') || exit;
 
 class BulkPricingIntegration extends BaseIntegrationManager
 {
+    /**
+     * Allowed discount types. `percent` is a percentage (0..100); the two money
+     * types are entered and stored in MAJOR currency units (e.g. dollars) — the
+     * single major-units -> cents conversion lives in the effective-price helpers
+     * (fcbo_apply_tier_to_price + its two JS mirrors), never in storage. See the
+     * "Cents vs major units" note in the feature plan for why storage stays major.
+     */
+    const DISCOUNT_TYPES = ['percent', 'fixed_unit_price', 'amount_off'];
+
     public function __construct()
     {
         parent::__construct(
@@ -36,9 +45,15 @@ class BulkPricingIntegration extends BaseIntegrationManager
     public function getIntegrationDefaults($settings)
     {
         return [
-            'enabled' => 'yes',
-            'name'    => '',
-            'tiers'   => [],
+            'enabled'    => 'yes',
+            'name'       => '',
+            'tiers'      => [],
+            // Keyed map of role-slug => tier-set (Part B). Defaulted to an object so
+            // `settings.role_tiers` always exists on the Vue model — reassigning it in
+            // the repeater is then reactive under both Vue 2 and Vue 3. Empty groups
+            // are dropped at save time (see validateFeedData), so a feed the owner
+            // never scoped to a role persists the legacy `{tiers: [...]}` shape.
+            'role_tiers' => (object) [],
         ];
     }
 
@@ -68,16 +83,68 @@ class BulkPricingIntegration extends BaseIntegrationManager
 
     public function validateFeedData($data, $args = [])
     {
-        $tiers = isset($data['tiers']) ? $data['tiers'] : [];
+        // Default tier-set (everyone).
+        $data['tiers'] = $this->sanitizeTiers(isset($data['tiers']) ? $data['tiers'] : []);
+
+        // Part B: per-role tier-sets. Each group is validated with the exact same
+        // per-tier path as the default set, keyed by a sanitized, editable role slug.
+        // Unknown/empty slugs and groups that sanitize to zero tiers are dropped, so a
+        // feed with no configured role pricing persists today's `{tiers: [...]}` shape.
+        $roleTiers = [];
+        $submitted = isset($data['role_tiers']) ? (array) $data['role_tiers'] : [];
+        if (!empty($submitted)) {
+            $editable = array_keys(get_editable_roles());
+            foreach ($submitted as $slug => $tiers) {
+                $slug = sanitize_key($slug);
+                if ($slug === '' || !in_array($slug, $editable, true)) {
+                    continue;
+                }
+                $clean = $this->sanitizeTiers(is_array($tiers) ? $tiers : []);
+                if (!empty($clean)) {
+                    $roleTiers[$slug] = $clean;
+                }
+            }
+        }
+
+        if (!empty($roleTiers)) {
+            $data['role_tiers'] = $roleTiers;
+        } else {
+            unset($data['role_tiers']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Sanitize a single tier-set (the default set or one role group).
+     *
+     * Type-appropriate validation: percent stays bounded 0..100; money types
+     * accept any non-negative amount, stored in major currency units. Values are
+     * kept in the unit the owner entered — see DISCOUNT_TYPES.
+     *
+     * @param mixed $tiers Raw tier array from the repeater.
+     * @return array Sanitized, min_qty-sorted tier list.
+     */
+    private function sanitizeTiers($tiers)
+    {
         $sanitized = [];
 
-        foreach ($tiers as $tier) {
+        foreach ((array) $tiers as $tier) {
             $minQty        = max(1, intval($tier['min_qty'] ?? 0));
             $maxQty        = max(0, intval($tier['max_qty'] ?? 0));
             $discountValue = floatval($tier['discount_value'] ?? 0);
-            $discountType  = 'percent';
 
-            if ($discountValue < 0 || $discountValue > 100) {
+            $discountType = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
+            if (!in_array($discountType, self::DISCOUNT_TYPES, true)) {
+                $discountType = 'percent';
+            }
+
+            if ($discountType === 'percent') {
+                if ($discountValue < 0 || $discountValue > 100) {
+                    continue;
+                }
+            } elseif ($discountValue < 0) {
+                // Money types: any non-negative amount is valid.
                 continue;
             }
 
@@ -97,9 +164,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
             return $a['min_qty'] - $b['min_qty'];
         });
 
-        $data['tiers'] = $sanitized;
-
-        return $data;
+        return $sanitized;
     }
 
     public function processAction($order, $eventData)
@@ -109,28 +174,120 @@ class BulkPricingIntegration extends BaseIntegrationManager
 
     private function getTierRepeaterTemplate()
     {
-        return '<div class="fcbo-tier-repeater">
-            <div v-if="!settings.tiers || !settings.tiers.length" class="fcbo-tier-empty">
-                No discount tiers configured. Click "Add Tier" to create one.
+        $default = '<div class="fcbo-tier-repeater">
+            <div class="fcbo-tier-group-label">' . esc_html__('Default pricing (all qualifying customers)', 'fluent-cart-bulk-order') . '</div>'
+            . $this->getTierRowsMarkup('settings.tiers', 'default')
+            . $this->getRoleTiersMarkup()
+            . '</div>';
+
+        return $default;
+    }
+
+    /**
+     * Vue markup for one tier-set editor bound to a JS collection expression.
+     *
+     * Reused by the default set and every role group so the row fields stay in
+     * lock-step. `$collection` is the JS expression for the tier array (e.g.
+     * `settings.tiers` or `settings.role_tiers['wholesale-vip']`); `$keyPrefix`
+     * disambiguates the v-for keys between editors.
+     *
+     * @param string $collection JS expression resolving to the tier array.
+     * @param string $keyPrefix  Unique prefix for :key.
+     * @return string
+     */
+    private function getTierRowsMarkup($collection, $keyPrefix)
+    {
+        $newTier = "{min_qty:1,max_qty:0,discount_type:'percent',discount_value:0}";
+
+        return '
+            <div v-if="!' . $collection . ' || !' . $collection . '.length" class="fcbo-tier-empty">
+                ' . esc_html__('No discount tiers configured. Click "Add Tier" to create one.', 'fluent-cart-bulk-order') . '
             </div>
-            <div v-for="(tier, index) in settings.tiers" :key="index" class="fcbo-tier-row">
+            <div v-for="(tier, index) in ' . $collection . '" :key="\'' . $keyPrefix . '-\'+index" class="fcbo-tier-row">
                 <div class="fcbo-tier-field">
-                    <label>Min Qty</label>
+                    <label>' . esc_html__('Min Qty', 'fluent-cart-bulk-order') . '</label>
                     <el-input-number v-model="tier.min_qty" :min="1" :step="1" size="small" />
                 </div>
                 <div class="fcbo-tier-field">
-                    <label>Max Qty (0 = no limit)</label>
+                    <label>' . esc_html__('Max Qty (0 = no limit)', 'fluent-cart-bulk-order') . '</label>
                     <el-input-number v-model="tier.max_qty" :min="0" :step="1" size="small" />
                 </div>
                 <div class="fcbo-tier-field">
-                    <label>Discount %</label>
-                    <el-input-number v-model="tier.discount_value" :min="0" :max="100" :step="1" :precision="2" size="small" />
+                    <label>' . esc_html__('Type', 'fluent-cart-bulk-order') . '</label>
+                    <el-select v-model="tier.discount_type" size="small" style="width:150px">
+                        <el-option label="' . esc_attr__('Percent off (%)', 'fluent-cart-bulk-order') . '" value="percent"></el-option>
+                        <el-option label="' . esc_attr__('Fixed unit price', 'fluent-cart-bulk-order') . '" value="fixed_unit_price"></el-option>
+                        <el-option label="' . esc_attr__('Amount off', 'fluent-cart-bulk-order') . '" value="amount_off"></el-option>
+                    </el-select>
                 </div>
-                <el-button type="danger" size="small" class="fcbo-tier-remove" @click="settings.tiers.splice(index, 1)">&times;</el-button>
+                <div class="fcbo-tier-field">
+                    <label v-if="tier.discount_type === \'percent\'">' . esc_html__('Discount %', 'fluent-cart-bulk-order') . '</label>
+                    <label v-else-if="tier.discount_type === \'fixed_unit_price\'">' . esc_html__('Unit price', 'fluent-cart-bulk-order') . '</label>
+                    <label v-else>' . esc_html__('Amount off', 'fluent-cart-bulk-order') . '</label>
+                    <el-input-number v-if="tier.discount_type === \'percent\'" v-model="tier.discount_value" :min="0" :max="100" :step="1" :precision="2" size="small" />
+                    <el-input-number v-else v-model="tier.discount_value" :min="0" :step="0.5" :precision="2" size="small" />
+                </div>
+                <el-button type="danger" size="small" class="fcbo-tier-remove" @click="' . $collection . '.splice(index, 1)">&times;</el-button>
             </div>
-            <el-button type="primary" size="small" @click="settings.tiers.push({min_qty:1,max_qty:0,discount_type:\'percent\',discount_value:0})">
-                + Add Tier
-            </el-button>
-        </div>';
+            <el-button type="primary" size="small" @click="' . $collection . '.push(' . $newTier . ')">
+                ' . esc_html__('+ Add Tier', 'fluent-cart-bulk-order') . '
+            </el-button>';
+    }
+
+    /**
+     * Vue markup for the optional per-role tier-sets (Part B).
+     *
+     * One collapsible group per editable role, generated server-side so the role
+     * slugs are known at build time (no dynamic Vue data property is needed).
+     * Enable/remove reassign `settings.role_tiers` to a fresh object — a single
+     * expression that is reactive under Vue 2 and Vue 3 alike — while tier edits
+     * use array push/splice on the pre-existing group.
+     *
+     * @return string
+     */
+    private function getRoleTiersMarkup()
+    {
+        $roles = get_editable_roles();
+        if (empty($roles)) {
+            return '';
+        }
+
+        $newTier = "{min_qty:1,max_qty:0,discount_type:'percent',discount_value:0}";
+
+        $groups = '';
+        foreach ($roles as $slug => $details) {
+            $slug  = sanitize_key($slug);
+            if ($slug === '') {
+                continue;
+            }
+            $name  = isset($details['name']) ? $details['name'] : $slug;
+            $col   = "settings.role_tiers['" . $slug . "']";
+            $has   = "settings.role_tiers && settings.role_tiers['" . $slug . "']";
+            // Enable: add the slug with one starter tier, preserving existing groups.
+            $enable = "settings.role_tiers = Object.assign({}, settings.role_tiers, {'" . $slug . "':[" . $newTier . "]})";
+            // Remove: rebuild the map without this slug (single-expression, Vue 2/3 safe).
+            $remove = "settings.role_tiers = Object.keys(settings.role_tiers || {}).reduce(function(o,k){ if(k!=='" . $slug . "'){ o[k]=settings.role_tiers[k]; } return o; }, {})";
+
+            $groups .= '
+                <div class="fcbo-role-group">
+                    <div class="fcbo-role-group-head">
+                        <strong>' . esc_html($name) . '</strong>
+                        <el-button v-if="!(' . $has . ')" size="small" @click="' . $enable . '">'
+                            . esc_html__('+ Add role pricing', 'fluent-cart-bulk-order') . '</el-button>
+                        <el-button v-else type="danger" plain size="small" @click="' . $remove . '">'
+                            . esc_html__('Remove', 'fluent-cart-bulk-order') . '</el-button>
+                    </div>
+                    <div v-if="' . $has . '" class="fcbo-role-group-body">
+                        ' . $this->getTierRowsMarkup($col, 'role-' . $slug) . '
+                    </div>
+                </div>';
+        }
+
+        return '
+            <div class="fcbo-role-tiers">
+                <div class="fcbo-tier-group-label">' . esc_html__('Role-specific pricing (optional)', 'fluent-cart-bulk-order') . '</div>
+                <p class="fcbo-tier-hint">' . esc_html__('Give specific roles their own price list. A shopper falls back to the default pricing above when their role has no list.', 'fluent-cart-bulk-order') . '</p>'
+                . $groups
+                . '</div>';
     }
 }

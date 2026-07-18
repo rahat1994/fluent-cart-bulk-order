@@ -29,6 +29,52 @@
     width: 100%;
 }
 
+.fcbo-tier-repeater .fcbo-tier-field .el-select {
+    width: 100%;
+}
+
 .fcbo-tier-repeater .fcbo-tier-remove {
     margin-top: 16px;
+}
+
+/* Section labels + role-scoped pricing groups (Part B) */
+
+.fcbo-tier-repeater .fcbo-tier-group-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+    margin-bottom: 6px;
+}
+
+.fcbo-tier-repeater .fcbo-tier-hint {
+    font-size: 12px;
+    color: #666;
+    margin: 0 0 10px;
+}
+
+.fcbo-tier-repeater .fcbo-role-tiers {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.fcbo-tier-repeater .fcbo-role-group {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.fcbo-tier-repeater .fcbo-role-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.fcbo-tier-repeater .fcbo-role-group-body {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #d5d5d5;
 }

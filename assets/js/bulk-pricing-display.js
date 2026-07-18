@@ -5,16 +5,37 @@
         return currencySign + (cents / 100).toFixed(2);
     }
 
-    function resolveDiscount(tiers, qty) {
+    function resolveTier(tiers, qty) {
         for (var i = 0; i < tiers.length; i++) {
             var t = tiers[i];
             var min = parseInt(t.min_qty, 10) || 0;
             var max = parseInt(t.max_qty, 10) || 0;
             if (qty >= min && (max === 0 || qty <= max)) {
-                return parseFloat(t.discount_value) || 0;
+                return t;
             }
         }
-        return 0;
+        return null;
+    }
+
+    // Mirrors PHP fcbo_apply_tier_to_price(): the ONE effective-price formula for
+    // this surface. Money tier values are stored in major units, so they convert to
+    // cents here. Keep in lock-step with the PHP helper and bulk-order.js.
+    function applyTierToPrice(priceCents, tier) {
+        if (!tier) return priceCents;
+
+        var type = tier.discount_type || 'percent';
+        var value = parseFloat(tier.discount_value) || 0;
+        var result;
+
+        if (type === 'fixed_unit_price') {
+            result = Math.round(value * 100);
+        } else if (type === 'amount_off') {
+            result = priceCents - Math.round(value * 100);
+        } else {
+            result = Math.round(priceCents * (1 - value / 100));
+        }
+
+        return result < 0 ? 0 : result;
     }
 
     function recalcTable(table) {
@@ -29,16 +50,19 @@
             var qty = parseInt(input.value, 10) || 0;
             if (qty < 0) qty = 0;
 
+            // Per-unit rounding then × qty, matching the cart filter (which prices
+            // each unit) rather than rounding the line total once.
+            var tier = resolveTier(data.tiers, qty);
+            var effectiveUnit = applyTierToPrice(data.price, tier);
             var originalTotal = data.price * qty;
-            var discount = resolveDiscount(data.tiers, qty);
-            var discountedTotal = Math.round(originalTotal * (1 - discount / 100));
+            var discountedTotal = effectiveUnit * qty;
 
             grandOriginal += originalTotal;
             grandDiscounted += discountedTotal;
 
             if (qty === 0) {
                 priceCell.innerHTML = '<span class="fcbo-bp-muted">&mdash;</span>';
-            } else if (discount > 0) {
+            } else if (discountedTotal < originalTotal) {
                 priceCell.innerHTML = '<del class="fcbo-bp-original">' + formatPrice(originalTotal) + '</del> <span class="fcbo-bp-discount">' + formatPrice(discountedTotal) + '</span>';
             } else {
                 priceCell.innerHTML = formatPrice(originalTotal);

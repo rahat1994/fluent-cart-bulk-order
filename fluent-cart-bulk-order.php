@@ -37,6 +37,7 @@ add_action('plugins_loaded', function () {
 
     add_shortcode('fluent_cart_bulk_order', 'fcbo_render_shortcode');
     add_shortcode('fluent_cart_product_table', 'fcbo_render_product_table');
+    add_shortcode('fluent_cart_saved_orders', 'fcbo_render_saved_orders');
     add_action('rest_api_init', 'fcbo_register_routes');
 
     add_action('fluent_cart/init', function () {
@@ -371,9 +372,14 @@ function fcbo_render_shortcode($atts = [])
         </div>
 
         <div class="fcbo-actions">
-            <button type="button" id="fcbo-add-row" class="fcbo-btn fcbo-btn-secondary">
-                <?php esc_html_e('+ Add Row', 'fluent-cart-bulk-order'); ?>
-            </button>
+            <div class="fcbo-actions-left">
+                <button type="button" id="fcbo-add-row" class="fcbo-btn fcbo-btn-secondary">
+                    <?php esc_html_e('+ Add Row', 'fluent-cart-bulk-order'); ?>
+                </button>
+                <button type="button" id="fcbo-save-order" class="fcbo-btn fcbo-btn-secondary">
+                    <?php esc_html_e('Save order', 'fluent-cart-bulk-order'); ?>
+                </button>
+            </div>
             <button type="button" id="fcbo-checkout" class="fcbo-btn fcbo-btn-primary">
                 <?php esc_html_e('Proceed to Checkout', 'fluent-cart-bulk-order'); ?>
             </button>
@@ -439,6 +445,52 @@ function fcbo_register_routes()
                 'sanitize_callback' => 'fcbo_sanitize_skus_param',
             ],
         ],
+    ]);
+
+    // Per-user saved orders: list / create-or-replace / delete. All owner-scoped
+    // to the current user inside the callbacks; no user id is accepted from the
+    // request.
+    register_rest_route('fcbo/v1', '/saved-lists', [
+        [
+            'methods'             => 'GET',
+            'callback'            => 'fcbo_rest_get_saved_lists',
+            'permission_callback' => 'fcbo_rest_permission_check',
+        ],
+        [
+            'methods'             => 'POST',
+            'callback'            => 'fcbo_rest_save_list',
+            'permission_callback' => 'fcbo_rest_permission_check',
+            'args'                => [
+                'name'  => [
+                    'required'          => true,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'items' => [
+                    'required' => true,
+                    'type'     => 'array',
+                ],
+            ],
+        ],
+        [
+            'methods'             => 'DELETE',
+            'callback'            => 'fcbo_rest_delete_saved_list',
+            'permission_callback' => 'fcbo_rest_permission_check',
+            'args'                => [
+                'name' => [
+                    'required'          => true,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ],
+    ]);
+
+    // Read-only: the current user's recent paid orders, for one-click reorder.
+    register_rest_route('fcbo/v1', '/past-orders', [
+        'methods'             => 'GET',
+        'callback'            => 'fcbo_rest_get_past_orders',
+        'permission_callback' => 'fcbo_rest_permission_check',
     ]);
 }
 
@@ -1364,4 +1416,543 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     }
 
     return $variation;
+}
+
+/* -------------------------------------------------------------------------
+ * Saved orders (Phase 2 · Item 2)
+ *
+ * A user's saved orders live in the user_meta key `fcbo_saved_lists` as an
+ * array of { name, created_at, updated_at, items:[{variantId, qty}] }. All
+ * access is scoped to the current user; ownership is never a request field.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The user-meta key that stores a user's saved orders.
+ */
+const FCBO_SAVED_LISTS_META = 'fcbo_saved_lists';
+
+/**
+ * Normalize a raw saved-lists meta value into a clean, typed structure.
+ *
+ * @param mixed $raw
+ * @return array<int, array{name:string, created_at:int, updated_at:int, items:array}>
+ */
+function fcbo_normalize_saved_lists($raw)
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $lists = [];
+    foreach ($raw as $list) {
+        if (empty($list['name']) || !is_string($list['name'])) {
+            continue;
+        }
+
+        $items = [];
+        if (!empty($list['items']) && is_array($list['items'])) {
+            foreach ($list['items'] as $item) {
+                $variantId = isset($item['variantId']) ? absint($item['variantId']) : 0;
+                $qty       = isset($item['qty']) ? absint($item['qty']) : 0;
+                if ($variantId < 1 || $qty < 1) {
+                    continue;
+                }
+                $items[] = ['variantId' => $variantId, 'qty' => $qty];
+            }
+        }
+
+        $lists[] = [
+            'name'       => (string) $list['name'],
+            'created_at' => isset($list['created_at']) ? (int) $list['created_at'] : 0,
+            'updated_at' => isset($list['updated_at']) ? (int) $list['updated_at'] : 0,
+            'items'      => $items,
+        ];
+    }
+
+    return $lists;
+}
+
+/**
+ * Get the current (or given) user's saved orders.
+ *
+ * @param int|null $userId Defaults to the current user.
+ * @return array
+ */
+function fcbo_get_saved_lists($userId = null)
+{
+    $userId = $userId ?: get_current_user_id();
+    if (!$userId) {
+        return [];
+    }
+
+    return fcbo_normalize_saved_lists(get_user_meta($userId, FCBO_SAVED_LISTS_META, true));
+}
+
+/**
+ * Sanitize a raw items list to [{variantId:int, qty:int}], dropping invalid rows.
+ *
+ * @param mixed $items
+ * @return array
+ */
+function fcbo_sanitize_saved_items($items)
+{
+    $clean = [];
+    if (!is_array($items)) {
+        return $clean;
+    }
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $variantId = isset($item['variantId']) ? absint($item['variantId']) : 0;
+        $qty       = isset($item['qty']) ? absint($item['qty']) : 0;
+        if ($variantId < 1 || $qty < 1) {
+            continue;
+        }
+        $clean[] = ['variantId' => $variantId, 'qty' => $qty];
+        if (count($clean) >= 200) {
+            break; // defensive cap
+        }
+    }
+
+    return $clean;
+}
+
+/**
+ * Create or replace (upsert by name, case-insensitive) a saved order for the
+ * current user.
+ *
+ * @param string $name
+ * @param mixed  $items
+ * @param int|null $userId
+ * @return array|\WP_Error The updated saved-list set, or a WP_Error on bad input.
+ */
+function fcbo_save_list($name, $items, $userId = null)
+{
+    $userId = $userId ?: get_current_user_id();
+    if (!$userId) {
+        return new \WP_Error('fcbo_not_logged_in', __('You must be logged in.', 'fluent-cart-bulk-order'), ['status' => 401]);
+    }
+
+    $name = sanitize_text_field(trim((string) $name));
+    if ($name === '') {
+        return new \WP_Error('fcbo_empty_name', __('Please enter a name for this order.', 'fluent-cart-bulk-order'), ['status' => 400]);
+    }
+
+    $cleanItems = fcbo_sanitize_saved_items($items);
+    if (empty($cleanItems)) {
+        return new \WP_Error('fcbo_empty_items', __('There are no valid items to save.', 'fluent-cart-bulk-order'), ['status' => 400]);
+    }
+
+    $lists = fcbo_get_saved_lists($userId);
+    $now   = time();
+    $found = false;
+
+    foreach ($lists as &$list) {
+        if (strcasecmp($list['name'], $name) === 0) {
+            $list['name']       = $name; // adopt the latest spelling
+            $list['items']      = $cleanItems;
+            $list['updated_at'] = $now;
+            if (empty($list['created_at'])) {
+                $list['created_at'] = $now;
+            }
+            $found = true;
+            break;
+        }
+    }
+    unset($list);
+
+    if (!$found) {
+        $lists[] = [
+            'name'       => $name,
+            'created_at' => $now,
+            'updated_at' => $now,
+            'items'      => $cleanItems,
+        ];
+    }
+
+    update_user_meta($userId, FCBO_SAVED_LISTS_META, $lists);
+
+    return $lists;
+}
+
+/**
+ * Delete a saved order by name (case-insensitive) for the current user.
+ *
+ * @param string $name
+ * @param int|null $userId
+ * @return array The updated saved-list set.
+ */
+function fcbo_delete_saved_list($name, $userId = null)
+{
+    $userId = $userId ?: get_current_user_id();
+    if (!$userId) {
+        return [];
+    }
+
+    $name  = sanitize_text_field(trim((string) $name));
+    $lists = fcbo_get_saved_lists($userId);
+
+    $filtered = [];
+    foreach ($lists as $list) {
+        if (strcasecmp($list['name'], $name) === 0) {
+            continue;
+        }
+        $filtered[] = $list;
+    }
+
+    update_user_meta($userId, FCBO_SAVED_LISTS_META, $filtered);
+
+    return $filtered;
+}
+
+/**
+ * Resolve a batch of variant IDs to current catalog payloads in one query.
+ *
+ * Mirrors fcbo_resolve_skus() but keys on the variant ID (saved orders store
+ * IDs, not SKUs). Reuses the shared payload builders so the shape matches the
+ * search / resolve-skus endpoints.
+ *
+ * @param int[] $variantIds
+ * @return array<int, array> Map of variantId => payload {productId,title,thumbnail,categories,variant}.
+ */
+function fcbo_resolve_variant_ids($variantIds)
+{
+    $variantIds = array_values(array_unique(array_filter(array_map('absint', (array) $variantIds))));
+    if (empty($variantIds)) {
+        return [];
+    }
+
+    $productModel = new \FluentCart\App\Models\Product();
+
+    $products = $productModel::published()
+        ->with(['detail', 'variants' => function ($query) {
+            $query->where('item_status', 'active')->with('media');
+        }])
+        ->whereHas('variants', function ($vq) use ($variantIds) {
+            $vq->where('item_status', 'active')->whereIn('id', $variantIds);
+        })
+        ->get();
+
+    $productIds = [];
+    foreach ($products as $product) {
+        $productIds[] = $product->ID;
+    }
+
+    $pricingData = fcbo_get_all_bulk_pricing($productIds);
+
+    $byId = [];
+    foreach ($products as $product) {
+        if (!$product->variants) {
+            continue;
+        }
+        $catList = fcbo_build_category_list($product->ID);
+        foreach ($product->variants as $variant) {
+            $vid = (int) $variant->id;
+            if (!in_array($vid, $variantIds, true)) {
+                continue;
+            }
+            $byId[$vid] = [
+                'productId'  => $product->ID,
+                'title'      => $product->post_title,
+                'thumbnail'  => $variant->thumbnail ?: ($product->thumbnail ?: ''),
+                'categories' => $catList,
+                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData),
+            ];
+        }
+    }
+
+    return $byId;
+}
+
+/**
+ * Expand a stored saved order into a display payload: line items resolved to
+ * current data, unavailable variants flagged, with a computed subtotal.
+ *
+ * @param array $list        A normalized saved list.
+ * @param array $resolvedMap From fcbo_resolve_variant_ids().
+ * @return array
+ */
+function fcbo_expand_saved_list($list, $resolvedMap)
+{
+    $items    = [];
+    $subtotal = 0;
+
+    foreach ($list['items'] as $item) {
+        $vid = (int) $item['variantId'];
+        $qty = (int) $item['qty'];
+
+        if (isset($resolvedMap[$vid])) {
+            $p = $resolvedMap[$vid];
+            $v = $p['variant'];
+            $lineTotal = (int) $v['item_price'] * $qty;
+            $subtotal += $lineTotal;
+
+            $items[] = [
+                'variantId'       => $vid,
+                'qty'             => $qty,
+                'available'       => true,
+                'title'           => $p['title'],
+                'variation_title' => $v['variation_title'],
+                'sku'             => $v['sku'],
+                'item_price'      => (int) $v['item_price'],
+                'line_total'      => $lineTotal,
+                'payment_type'    => $v['payment_type'],
+                'stock_status'    => $v['stock_status'],
+                'manage_stock'    => $v['manage_stock'],
+                'available_qty'   => $v['available'],
+                'thumbnail'       => $p['thumbnail'],
+            ];
+        } else {
+            $items[] = [
+                'variantId' => $vid,
+                'qty'       => $qty,
+                'available' => false,
+            ];
+        }
+    }
+
+    $dateFormat = get_option('date_format') ?: 'M j, Y';
+
+    return [
+        'name'                 => $list['name'],
+        'created_at'           => $list['created_at'],
+        'updated_at'           => $list['updated_at'],
+        'created_at_formatted' => $list['created_at'] ? wp_date($dateFormat, $list['created_at']) : '',
+        'item_count'           => count($items),
+        'subtotal'             => $subtotal,
+        'items'                => $items,
+    ];
+}
+
+/**
+ * Build the full saved-orders response for the current user: every saved order
+ * with its line items resolved to current catalog data.
+ *
+ * @return array
+ */
+function fcbo_build_saved_orders_response()
+{
+    $lists = fcbo_get_saved_lists();
+
+    $allIds = [];
+    foreach ($lists as $list) {
+        foreach ($list['items'] as $item) {
+            $allIds[] = (int) $item['variantId'];
+        }
+    }
+
+    $resolved = fcbo_resolve_variant_ids($allIds);
+
+    $out = [];
+    foreach ($lists as $list) {
+        $expanded = fcbo_expand_saved_list($list, $resolved);
+        $expanded['deletable'] = true;
+        $expanded['source']    = 'saved';
+        $out[] = $expanded;
+    }
+
+    return $out;
+}
+
+/**
+ * Build a "past orders" response for the current user: their recent paid
+ * FluentCart orders, shaped like saved orders (name, date, resolved items),
+ * so the same accordion renders both. Not deletable.
+ *
+ * @param int $limit
+ * @return array
+ */
+function fcbo_build_past_orders_response($limit = 20)
+{
+    $userId = get_current_user_id();
+    if (!$userId || !class_exists(\FluentCart\App\Models\Order::class)) {
+        return [];
+    }
+
+    // Owner scope: only orders whose customer is linked to this WP user.
+    $orders = \FluentCart\App\Models\Order::query()
+        ->with(['order_items'])
+        ->whereHas('customer', function ($c) use ($userId) {
+            $c->where('user_id', $userId);
+        })
+        ->where('payment_status', 'paid')
+        ->orderBy('created_at', 'desc')
+        ->limit($limit)
+        ->get();
+
+    // Shape each order like a saved list; OrderItem.object_id is the variant id
+    // (OrderItem::belongsTo(ProductVariation, 'object_id', 'id')), quantity the qty.
+    $pseudoLists = [];
+    $allIds = [];
+    foreach ($orders as $order) {
+        $items = [];
+        foreach ($order->order_items as $it) {
+            $vid = (int) $it->object_id;
+            $qty = (int) $it->quantity;
+            if ($vid < 1 || $qty < 1) {
+                continue;
+            }
+            $items[] = ['variantId' => $vid, 'qty' => $qty];
+            $allIds[] = $vid;
+        }
+        if (empty($items)) {
+            continue;
+        }
+
+        $created = $order->created_at ? strtotime((string) $order->created_at) : 0;
+        $pseudoLists[] = [
+            'name'       => sprintf(__('Order #%s', 'fluent-cart-bulk-order'), $order->id),
+            'created_at' => $created ?: 0,
+            'updated_at' => $created ?: 0,
+            'items'      => $items,
+        ];
+    }
+
+    $resolved = fcbo_resolve_variant_ids($allIds);
+
+    $out = [];
+    foreach ($pseudoLists as $list) {
+        $expanded = fcbo_expand_saved_list($list, $resolved);
+        $expanded['deletable'] = false;
+        $expanded['source']    = 'past';
+        $out[] = $expanded;
+    }
+
+    return $out;
+}
+
+/**
+ * REST: GET the current user's saved orders (resolved).
+ */
+function fcbo_rest_get_saved_lists(\WP_REST_Request $request)
+{
+    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+}
+
+/**
+ * REST: GET the current user's recent past orders (resolved).
+ */
+function fcbo_rest_get_past_orders(\WP_REST_Request $request)
+{
+    return new \WP_REST_Response(['orders' => fcbo_build_past_orders_response()], 200);
+}
+
+/**
+ * REST: POST — create or replace a saved order for the current user.
+ */
+function fcbo_rest_save_list(\WP_REST_Request $request)
+{
+    $result = fcbo_save_list($request->get_param('name'), $request->get_param('items'));
+    if (is_wp_error($result)) {
+        return $result;
+    }
+
+    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+}
+
+/**
+ * REST: DELETE a saved order by name for the current user.
+ */
+function fcbo_rest_delete_saved_list(\WP_REST_Request $request)
+{
+    fcbo_delete_saved_list($request->get_param('name'));
+
+    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+}
+
+/**
+ * Shortcode: [fluent_cart_saved_orders]
+ *
+ * Renders the current user's saved orders as an accordion (reusing the product
+ * table's accordion styles): one summary row per saved order (name, created
+ * date, item count, total) that expands to reveal its line items, with Reorder
+ * and Delete actions.
+ *
+ * @param array $atts
+ * @return string
+ */
+function fcbo_render_saved_orders($atts = [])
+{
+    $atts = shortcode_atts([
+        'roles' => '',
+    ], $atts, 'fluent_cart_saved_orders');
+
+    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set, matching
+    // the other shortcodes.
+    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
+
+    if (!is_user_logged_in()) {
+        return '<p>' . esc_html__('Please log in to view your saved orders.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
+    if (!fcbo_current_user_can_access($extraRoles)) {
+        return '<p>' . esc_html__('You do not have permission to view saved orders.', 'fluent-cart-bulk-order') . '</p>';
+    }
+
+    // Cart assets are needed so Reorder can add items via window.fluentCartCart.
+    if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
+        \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
+    }
+
+    // Reuse the product table's table + accordion styles, then layer on
+    // saved-order specifics.
+    wp_enqueue_style(
+        'fcbo-product-table',
+        FCBO_URL . 'assets/css/product-table.css',
+        [],
+        FCBO_VERSION
+    );
+    wp_enqueue_style(
+        'fcbo-saved-orders',
+        FCBO_URL . 'assets/css/saved-orders.css',
+        ['fcbo-product-table'],
+        FCBO_VERSION
+    );
+
+    wp_enqueue_script(
+        'fcbo-saved-orders',
+        FCBO_URL . 'assets/js/saved-orders.js',
+        ['fluent-cart-app'],
+        FCBO_VERSION,
+        true
+    );
+
+    $checkout_url = '';
+    if (class_exists(\FluentCart\Api\StoreSettings::class)) {
+        $checkout_url = (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
+    }
+
+    wp_localize_script('fcbo-saved-orders', 'fcboSoConfig', [
+        'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
+        'nonce'         => wp_create_nonce('wp_rest'),
+        'currency_sign' => fcbo_get_currency_sign(),
+        'checkout_url'  => esc_url_raw($checkout_url),
+    ]);
+
+    ob_start();
+    ?>
+    <div id="fcbo-saved-orders" class="fcbo-so-wrap">
+        <div class="fcbo-pt-table-scroll">
+            <table class="fcbo-pt-table fcbo-so-table">
+                <thead>
+                    <tr>
+                        <th class="fcbo-so-col-name"><?php esc_html_e('Order', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-so-col-date"><?php esc_html_e('Created', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-so-col-count"><?php esc_html_e('Items', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-so-col-total"><?php esc_html_e('Total', 'fluent-cart-bulk-order'); ?></th>
+                        <th class="fcbo-so-col-actions"><?php esc_html_e('Actions', 'fluent-cart-bulk-order'); ?></th>
+                    </tr>
+                </thead>
+                <tbody id="fcbo-so-tbody">
+                    <tr><td colspan="5" class="fcbo-pt-loading"><?php esc_html_e('Loading saved orders...', 'fluent-cart-bulk-order'); ?></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="fcbo-so-status" class="fcbo-pt-status" style="display:none;"></div>
+    </div>
+    <?php
+    return ob_get_clean();
 }

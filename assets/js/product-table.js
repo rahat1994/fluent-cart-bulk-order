@@ -5,8 +5,10 @@
     var ALL_COLUMNS = ['id', 'title', 'price', 'qty', 'action'];
     var COLUMNS = (CONFIG.columns && CONFIG.columns.length) ? CONFIG.columns : ALL_COLUMNS;
     var COLSPAN = COLUMNS.length;
-    // 'dropdown' = one row per product (variant picked inline); 'separate' = one row per variant.
-    var MODE = (CONFIG.variations === 'separate') ? 'separate' : 'dropdown';
+    // When true, variant accordions render open (variants shown separately by default).
+    // wp_localize_script serializes the flag as the string "0"/"1", so compare explicitly
+    // (!!"0" would be true).
+    var EXPAND = CONFIG.expand_variants === '1' || CONFIG.expand_variants === 1 || CONFIG.expand_variants === true;
     var tbody = null;
     var currentPage = 1;
     var totalPages = 1;
@@ -51,7 +53,7 @@
         tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">Loading products...</td></tr>';
         updatePaginationUI();
 
-        var url = CONFIG.rest_url + 'catalog?page=' + currentPage + '&per_page=' + (CONFIG.per_page || 5) + '&variations=' + MODE;
+        var url = CONFIG.rest_url + 'catalog?page=' + currentPage + '&per_page=' + (CONFIG.per_page || 5);
         if (currentSearch.length >= 2) {
             url += '&search=' + encodeURIComponent(currentSearch);
         }
@@ -73,63 +75,98 @@
         });
     }
 
-    // Build a single <td> for the given column so the JS body stays aligned with the
-    // server-rendered header (both driven by the same resolved COLUMNS allowlist).
-    function buildCell(col, p, v, title, outOfStock, withSelect) {
+    // Build one <td> for a column from a row "model" so the header and body stay
+    // aligned (both driven by the same resolved COLUMNS allowlist).
+    function renderCell(col, model) {
         switch (col) {
             case 'id':
-                return '<td class="fcbo-pt-col-id">' + escapeHtml(String(p.id)) + '</td>';
+                return '<td class="fcbo-pt-col-id">' + escapeHtml(model.idText || '') + '</td>';
             case 'title':
-                var cell = '<td class="fcbo-pt-col-title">' +
-                    '<a href="#" class="fcbo-pt-title-link" data-product-id="' + p.id + '">' +
-                    escapeHtml(title) + '</a>';
-                // Dropdown mode: inline variant picker when the product has >1 variant.
-                if (withSelect && p.variants.length > 1) {
-                    cell += '<select class="fcbo-pt-variant-select" data-variants=\'' +
-                        escapeAttr(JSON.stringify(p.variants)) + '\'>';
-                    for (var s = 0; s < p.variants.length; s++) {
-                        cell += '<option value="' + s + '">' +
-                            escapeHtml(p.variants[s].variation_title) + '</option>';
-                    }
-                    cell += '</select>';
-                }
-                return cell + '</td>';
+                return '<td class="fcbo-pt-col-title">' + model.titleHtml + '</td>';
             case 'price':
-                return '<td class="fcbo-pt-col-price">' + escapeHtml(formatPrice(v.item_price)) + '</td>';
+                return '<td class="fcbo-pt-col-price">' + escapeHtml(model.priceText) + '</td>';
             case 'qty':
-                return '<td class="fcbo-pt-col-qty">' +
-                    '<input type="number" class="fcbo-pt-qty" value="1" min="1" step="1"' +
-                    (outOfStock ? ' disabled' : '') + ' />' +
-                    '</td>';
+                return '<td class="fcbo-pt-col-qty">' + (model.qtyHtml || '') + '</td>';
             case 'action':
-                return '<td class="fcbo-pt-col-action">' +
-                    '<button type="button" class="fcbo-pt-add-btn"' +
-                    (outOfStock ? ' disabled' : '') + '>' +
-                    (outOfStock ? 'Out of Stock' : 'Add to Cart') +
-                    '</button>' +
-                    '</td>';
+                return '<td class="fcbo-pt-col-action">' + (model.actionHtml || '') + '</td>';
             default:
                 return '';
         }
     }
 
-    function buildRow(p, v, withSelect) {
-        var outOfStock = v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
-        var title = p.title;
-        // Separate mode labels each row with its variant; dropdown mode uses the picker.
-        if (!withSelect && p.variants.length > 1) {
-            title += ' — ' + v.variation_title;
-        }
-
+    function assembleRow(trAttrs, model) {
         var cells = '';
         for (var c = 0; c < COLUMNS.length; c++) {
-            cells += buildCell(COLUMNS[c], p, v, title, outOfStock, withSelect);
+            cells += renderCell(COLUMNS[c], model);
         }
+        return '<tr ' + trAttrs + '>' + cells + '</tr>';
+    }
 
-        return '<tr data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
-            (outOfStock ? ' class="fcbo-pt-out-of-stock"' : '') + '>' +
-            cells +
-        '</tr>';
+    function isOutOfStock(v) {
+        return v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
+    }
+
+    function qtyInputHtml(outOfStock) {
+        return '<input type="number" class="fcbo-pt-qty" value="1" min="1" step="1"' +
+            (outOfStock ? ' disabled' : '') + ' />';
+    }
+
+    function addBtnHtml(outOfStock) {
+        return '<button type="button" class="fcbo-pt-add-btn"' + (outOfStock ? ' disabled' : '') + '>' +
+            (outOfStock ? 'Out of Stock' : 'Add to Cart') + '</button>';
+    }
+
+    // A simple product (single variant): one directly-addable row, no accordion.
+    function simpleRow(p) {
+        var v = p.variants[0];
+        var oos = isOutOfStock(v);
+        return assembleRow(
+            'data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
+                (oos ? ' class="fcbo-pt-out-of-stock"' : ''),
+            {
+                idText: String(p.id),
+                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>',
+                priceText: formatPrice(v.item_price),
+                qtyHtml: qtyInputHtml(oos),
+                actionHtml: addBtnHtml(oos)
+            }
+        );
+    }
+
+    // A variable product: a clickable summary row that toggles its variant accordion.
+    function productSummaryRow(p, open) {
+        var minPrice = p.variants.reduce(function (m, v) {
+            return v.item_price < m ? v.item_price : m;
+        }, p.variants[0].item_price);
+        return assembleRow(
+            'class="fcbo-pt-product-row' + (open ? ' is-open' : '') + '" data-product-id="' + p.id + '"',
+            {
+                idText: String(p.id),
+                titleHtml: '<button type="button" class="fcbo-pt-toggle" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+                    '<span class="fcbo-pt-caret">' + (open ? '▾' : '▸') + '</span> ' +
+                    escapeHtml(p.title) +
+                    ' <span class="fcbo-pt-vcount">(' + p.variants.length + ')</span></button>',
+                priceText: 'from ' + formatPrice(minPrice),
+                qtyHtml: '',
+                actionHtml: '<span class="fcbo-pt-choose">' + (open ? 'Hide' : 'Choose') + '</span>'
+            }
+        );
+    }
+
+    // One accordion row per variant of a variable product (hidden until expanded).
+    function variantRow(p, v, open) {
+        var oos = isOutOfStock(v);
+        return assembleRow(
+            'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') + '"' +
+                ' data-parent-product="' + p.id + '" data-variant-id="' + v.id + '"',
+            {
+                idText: '',
+                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>',
+                priceText: formatPrice(v.item_price),
+                qtyHtml: qtyInputHtml(oos),
+                actionHtml: addBtnHtml(oos)
+            }
+        );
     }
 
     function renderProducts(products) {
@@ -143,13 +180,13 @@
             var p = products[i];
             if (!p.variants || !p.variants.length) continue;
 
-            if (MODE === 'separate') {
-                for (var j = 0; j < p.variants.length; j++) {
-                    html += buildRow(p, p.variants[j], false);
-                }
+            if (p.variants.length === 1) {
+                html += simpleRow(p);
             } else {
-                // Dropdown mode: one row per product, defaulting to the first variant.
-                html += buildRow(p, p.variants[0], true);
+                html += productSummaryRow(p, EXPAND);
+                for (var j = 0; j < p.variants.length; j++) {
+                    html += variantRow(p, p.variants[j], EXPAND);
+                }
             }
         }
 
@@ -160,51 +197,29 @@
             buttons[k].addEventListener('click', handleAddToCart);
         }
 
-        var titleLinks = tbody.querySelectorAll('.fcbo-pt-title-link');
-        for (var m = 0; m < titleLinks.length; m++) {
-            titleLinks[m].addEventListener('click', handleTitleClick);
-        }
-
-        var selects = tbody.querySelectorAll('.fcbo-pt-variant-select');
-        for (var n = 0; n < selects.length; n++) {
-            selects[n].addEventListener('change', handleVariantChange);
+        var productRows = tbody.querySelectorAll('.fcbo-pt-product-row');
+        for (var m = 0; m < productRows.length; m++) {
+            productRows[m].addEventListener('click', handleProductToggle);
         }
     }
 
-    // Dropdown mode: switch the row's active variant when the picker changes.
-    function handleVariantChange() {
-        var select = this;
-        var row = select.closest('tr');
-        var variants;
-        try {
-            variants = JSON.parse(select.dataset.variants);
-        } catch (e) {
-            return;
-        }
-        var v = variants[parseInt(select.value, 10) || 0];
-        if (!v) return;
+    // Expand/collapse a variable product's variant accordion.
+    function handleProductToggle() {
+        var row = this;
+        var pid = row.getAttribute('data-product-id');
+        var open = !row.classList.contains('is-open');
+        row.classList.toggle('is-open', open);
 
-        row.dataset.variantId = v.id;
+        var caret = row.querySelector('.fcbo-pt-caret');
+        if (caret) { caret.textContent = open ? '▾' : '▸'; }
+        var toggle = row.querySelector('.fcbo-pt-toggle');
+        if (toggle) { toggle.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        var choose = row.querySelector('.fcbo-pt-choose');
+        if (choose) { choose.textContent = open ? 'Hide' : 'Choose'; }
 
-        var priceCell = row.querySelector('.fcbo-pt-col-price');
-        if (priceCell) priceCell.textContent = formatPrice(v.item_price);
-
-        var outOfStock = v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
-        var addBtn = row.querySelector('.fcbo-pt-add-btn');
-        if (addBtn) {
-            addBtn.disabled = outOfStock;
-            addBtn.textContent = outOfStock ? 'Out of Stock' : 'Add to Cart';
-        }
-        var qtyInput = row.querySelector('.fcbo-pt-qty');
-        if (qtyInput) qtyInput.disabled = outOfStock;
-    }
-
-    function handleTitleClick(e) {
-        e.preventDefault();
-        var productId = this.dataset.productId;
-
-        if (window.FluentCartSingleProductModal && typeof window.FluentCartSingleProductModal.openModal === 'function') {
-            window.FluentCartSingleProductModal.openModal(productId, this);
+        var variantRows = tbody.querySelectorAll('.fcbo-pt-variant-row[data-parent-product="' + pid + '"]');
+        for (var i = 0; i < variantRows.length; i++) {
+            variantRows[i].classList.toggle('is-open', open);
         }
     }
 
@@ -283,10 +298,6 @@
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
-    }
-
-    function escapeAttr(str) {
-        return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     if (document.readyState === 'loading') {

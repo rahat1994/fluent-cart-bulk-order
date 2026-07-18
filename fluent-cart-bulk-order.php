@@ -391,10 +391,6 @@ function fcbo_register_routes()
                 'default'           => '',
                 'sanitize_callback' => 'fcbo_sanitize_category_param',
             ],
-            'variations' => [
-                'default'           => 'dropdown',
-                'sanitize_callback' => 'sanitize_key',
-            ],
         ],
     ]);
 }
@@ -470,12 +466,12 @@ function fcbo_search_products(\WP_REST_Request $request)
 function fcbo_render_product_table($atts = [])
 {
     $atts = shortcode_atts([
-        'per_page'   => 5,
-        'columns'    => '',
-        'search'     => 'true',
-        'category'   => '',
-        'roles'      => '',
-        'variations' => 'dropdown',
+        'per_page'        => 5,
+        'columns'         => '',
+        'search'          => 'true',
+        'category'        => '',
+        'roles'           => '',
+        'expand_variants' => 'false',
     ], $atts, 'fluent_cart_product_table');
 
     // `roles` EXTENDS (never replaces) the baseline admin + wholesale set for this
@@ -512,10 +508,8 @@ function fcbo_render_product_table($atts = [])
     $colspan    = count($columns);
     $showSearch = filter_var($atts['search'], FILTER_VALIDATE_BOOLEAN);
     $category   = fcbo_sanitize_category_param($atts['category']);
-
-    // Display mode: "dropdown" = one row per product (variant picked inline),
-    // "separate" = one row per variant. Governs how per_page counts rows.
-    $variations = ($atts['variations'] === 'separate') ? 'separate' : 'dropdown';
+    // When true, variant accordions render open by default (variants shown separately).
+    $expandVariants = filter_var($atts['expand_variants'], FILTER_VALIDATE_BOOLEAN);
 
     if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
         \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
@@ -549,10 +543,10 @@ function fcbo_render_product_table($atts = [])
         'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
         'nonce'         => wp_create_nonce('wp_rest'),
         'currency_sign' => $currency_sign,
-        'per_page'      => $per_page,
-        'columns'       => $columns,
-        'category'      => $category,
-        'variations'    => $variations,
+        'per_page'        => $per_page,
+        'columns'         => $columns,
+        'category'        => $category,
+        'expand_variants' => $expandVariants ? 1 : 0,
     ]);
 
     ob_start();
@@ -598,14 +592,6 @@ function fcbo_list_catalog(\WP_REST_Request $request)
     $per_page = min(100, max(1, $request->get_param('per_page')));
     $search   = $request->get_param('search');
     $category = $request->get_param('category');
-
-    // Pagination unit follows the display mode so `per_page` always counts visible rows:
-    //   - "dropdown" (default): one row per product   -> paginate products (below).
-    //   - "separate":           one row per variant   -> paginate variants.
-    $variations = $request->get_param('variations') === 'separate' ? 'separate' : 'dropdown';
-    if ($variations === 'separate') {
-        return fcbo_list_catalog_variants($page, $per_page, $search, $category);
-    }
 
     $productModel = new \FluentCart\App\Models\Product();
 
@@ -666,92 +652,6 @@ function fcbo_list_catalog(\WP_REST_Request $request)
             'title'    => $product->post_title,
             'variants' => $variants,
         ];
-    }
-
-    return new \WP_REST_Response([
-        'products'    => $results,
-        'total'       => $total,
-        'total_pages' => $totalPages,
-        'page'        => $page,
-    ], 200);
-}
-
-/**
- * Catalog listing paginated by variant (the "separate" variations mode).
- *
- * One row per active variant, so `per_page` counts variant rows. Variants are
- * grouped back under their products in the response; a product may therefore span
- * page boundaries. Same response shape as fcbo_list_catalog().
- *
- * @param int    $page
- * @param int    $per_page
- * @param string $search
- * @param string $category
- * @return \WP_REST_Response
- */
-function fcbo_list_catalog_variants($page, $per_page, $search, $category)
-{
-    $categoryTerm      = fcbo_resolve_category_term($category);
-    $categoryRequested = ($category !== '' && $category !== null);
-
-    $query = \FluentCart\App\Models\ProductVariation::where('item_status', 'active')
-        ->whereHas('product', function ($q) use ($search, $categoryTerm, $categoryRequested) {
-            $q->where('post_status', 'publish');
-
-            if ($search && strlen($search) >= 2) {
-                $q->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%');
-            }
-
-            if ($categoryRequested) {
-                if ($categoryTerm) {
-                    $termId = (int) $categoryTerm->term_id;
-                    $q->whereHas('wpTerms', function ($tq) use ($termId) {
-                        $tq->where('term_id', $termId);
-                    });
-                } else {
-                    // Unknown category -> no products match (R5: empty, no error).
-                    $q->where('ID', 0);
-                }
-            }
-        })
-        ->with('product');
-
-    $total      = $query->count();
-    $totalPages = max(1, (int) ceil($total / $per_page));
-
-    $variants = $query
-        ->orderBy('post_id', 'DESC')
-        ->orderBy('id', 'ASC')
-        ->offset(($page - 1) * $per_page)
-        ->limit($per_page)
-        ->get();
-
-    // Group the page's variants under their products for the shared response shape.
-    $grouped = [];
-    $order   = [];
-    foreach ($variants as $variant) {
-        $pid = (int) $variant->post_id;
-        if (!isset($grouped[$pid])) {
-            $grouped[$pid] = [
-                'id'       => $pid,
-                'title'    => $variant->product ? $variant->product->post_title : '',
-                'variants' => [],
-            ];
-            $order[] = $pid;
-        }
-        $grouped[$pid]['variants'][] = [
-            'id'              => $variant->id,
-            'variation_title' => $variant->variation_title ?: 'Default',
-            'item_price'      => (int) $variant->item_price,
-            'stock_status'    => $variant->stock_status ?: 'in-stock',
-            'manage_stock'    => (int) ($variant->manage_stock ?? 0),
-            'available'       => (int) ($variant->available ?? 0),
-        ];
-    }
-
-    $results = [];
-    foreach ($order as $pid) {
-        $results[] = $grouped[$pid];
     }
 
     return new \WP_REST_Response([

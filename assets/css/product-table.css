@@ -223,3 +223,54 @@
         width: 100%;
     }
 }
+
+/* --- Variant accordion --- */
+.fcbo-pt-product-row {
+    cursor: pointer;
+}
+
+.fcbo-pt-toggle {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: #0073aa;
+    cursor: pointer;
+    text-align: left;
+}
+
+.fcbo-pt-caret {
+    display: inline-block;
+    width: 12px;
+    color: #888;
+}
+
+.fcbo-pt-vcount {
+    color: #999;
+    font-size: 12px;
+}
+
+.fcbo-pt-choose {
+    color: #0073aa;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.fcbo-pt-variant-row {
+    display: none;
+}
+
+.fcbo-pt-variant-row.is-open {
+    display: table-row;
+}
+
+.fcbo-pt-variant-row > td {
+    background: #fafafa;
+}
+
+.fcbo-pt-variant-name {
+    display: inline-block;
+    padding-left: 22px;
+    color: #444;
+}

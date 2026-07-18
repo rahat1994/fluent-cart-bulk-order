@@ -74,6 +74,17 @@ class BulkPricingIntegration extends BaseIntegrationManager
                     'component'       => 'custom_component',
                     'render_template' => $this->getTierRepeaterTemplate(),
                 ],
+                // MUST be declared as its own field: FluentCart persists only keys
+                // that appear here. IntegrationHelper::validateAndFormatIntegrationFeedSettings()
+                // builds $validKeys from these field keys and runs
+                // Arr::only($integration, $validKeys) BEFORE validateFeedData() is
+                // filtered in — so an undeclared key is silently dropped on save.
+                'role_tiers' => [
+                    'key'             => 'role_tiers',
+                    'label'           => __('Role-specific Pricing', 'fluent-cart-bulk-order'),
+                    'component'       => 'custom_component',
+                    'render_template' => $this->getRoleTiersTemplate(),
+                ],
             ],
             'button_require_list'                  => false,
             'should_hide_product_variation_selector' => false,
@@ -93,7 +104,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
         $roleTiers = [];
         $submitted = isset($data['role_tiers']) ? (array) $data['role_tiers'] : [];
         if (!empty($submitted)) {
-            $editable = array_keys(get_editable_roles());
+            $editable = array_keys($this->getEditableRoles());
             foreach ($submitted as $slug => $tiers) {
                 $slug = sanitize_key($slug);
                 if ($slug === '' || !in_array($slug, $editable, true)) {
@@ -172,15 +183,30 @@ class BulkPricingIntegration extends BaseIntegrationManager
         // No order-event processing needed
     }
 
+    /**
+     * Editable role slugs, with the admin include guaranteed.
+     *
+     * get_editable_roles() lives in wp-admin/includes/user.php, which is NOT
+     * loaded on REST/AJAX requests — and feed saves run through one. Without this
+     * guard the save path can fatal on an undefined function.
+     *
+     * @return array<string, array> Role slug => role details.
+     */
+    private function getEditableRoles()
+    {
+        if (!function_exists('get_editable_roles')) {
+            require_once ABSPATH . 'wp-admin/includes/user.php';
+        }
+
+        return (array) get_editable_roles();
+    }
+
     private function getTierRepeaterTemplate()
     {
-        $default = '<div class="fcbo-tier-repeater">
-            <div class="fcbo-tier-group-label">' . esc_html__('Default pricing (all qualifying customers)', 'fluent-cart-bulk-order') . '</div>'
+        return '<div class="fcbo-tier-repeater">
+            <p class="fcbo-tier-hint">' . esc_html__('Applies to every qualifying customer unless a role-specific list below overrides it.', 'fluent-cart-bulk-order') . '</p>'
             . $this->getTierRowsMarkup('settings.tiers', 'default')
-            . $this->getRoleTiersMarkup()
             . '</div>';
-
-        return $default;
     }
 
     /**
@@ -245,9 +271,9 @@ class BulkPricingIntegration extends BaseIntegrationManager
      *
      * @return string
      */
-    private function getRoleTiersMarkup()
+    private function getRoleTiersTemplate()
     {
-        $roles = get_editable_roles();
+        $roles = $this->getEditableRoles();
         if (empty($roles)) {
             return '';
         }
@@ -284,9 +310,8 @@ class BulkPricingIntegration extends BaseIntegrationManager
         }
 
         return '
-            <div class="fcbo-role-tiers">
-                <div class="fcbo-tier-group-label">' . esc_html__('Role-specific pricing (optional)', 'fluent-cart-bulk-order') . '</div>
-                <p class="fcbo-tier-hint">' . esc_html__('Give specific roles their own price list. A shopper falls back to the default pricing above when their role has no list.', 'fluent-cart-bulk-order') . '</p>'
+            <div class="fcbo-tier-repeater fcbo-role-tiers">
+                <p class="fcbo-tier-hint">' . esc_html__('Optional. Give specific roles their own price list. A shopper falls back to the default Discount Tiers above when their role has no list.', 'fluent-cart-bulk-order') . '</p>'
                 . $groups
                 . '</div>';
     }

@@ -114,22 +114,23 @@
                 var v = p.variants[j];
                 var outOfStock = v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
                 var label = p.title;
-                if (p.variants.length > 1) {
+                if (v.variation_title && v.variation_title !== 'Default') {
                     label += ' — ' + v.variation_title;
                 }
                 var price = formatPrice(v.item_price);
+                var skuLabel = v.sku ? '  ·  SKU ' + v.sku : '';
                 var stockLabel = outOfStock ? ' (Out of stock)' : '';
 
                 html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') + '"' +
                     ' data-product=\'' + escapeAttr(JSON.stringify({
                         productId: p.id,
                         title: p.title,
-                        thumbnail: p.thumbnail,
+                        thumbnail: v.thumbnail || p.thumbnail,
                         categories: p.categories,
                         variant: v
                     })) + '\'>' +
                     '<span class="fcbo-dd-title">' + escapeHtml(label) + '</span>' +
-                    '<span class="fcbo-dd-meta">' + escapeHtml(price + stockLabel) + '</span>' +
+                    '<span class="fcbo-dd-meta">' + escapeHtml(price + skuLabel + stockLabel) + '</span>' +
                 '</div>';
             }
         }

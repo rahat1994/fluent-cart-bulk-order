@@ -1,6 +1,7 @@
 /* Fluent Cart Saved Orders
    Layers on product-table.css, which provides the table + accordion base
-   (.fcbo-pt-table, .fcbo-pt-product-row, .fcbo-pt-variant-row.is-open, etc.). */
+   (.fcbo-pt-table, .fcbo-pt-product-row, .fcbo-pt-variant-row.is-open, etc.)
+   AND the theme-adaptive --fcbo-* palette this file consumes. */
 
 .fcbo-so-wrap {
     max-width: 960px;
@@ -16,7 +17,7 @@
 
 .fcbo-so-col-date {
     width: 130px;
-    color: #555;
+    color: var(--fcbo-text-2);
     white-space: nowrap;
 }
 
@@ -39,23 +40,23 @@
 
 /* Section divider (Saved orders / Past orders) */
 .fcbo-so-divider > td {
-    background: #f0f0f1;
+    background: var(--fcbo-fill);
     font-weight: 600;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #50575e;
+    color: var(--fcbo-text-2);
     padding: 8px 12px;
 }
 
 .fcbo-so-divider:hover > td {
-    background: #f0f0f1;
+    background: var(--fcbo-fill);
 }
 
 /* Summary row emphasis */
 .fcbo-so-summary .fcbo-pt-toggle {
     font-weight: 600;
-    color: #1d2327;
+    color: inherit;
 }
 
 /* Action buttons */
@@ -65,18 +66,18 @@
 
 .fcbo-so-delete {
     padding: 6px 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
-    background: #fff;
-    color: #d63638;
+    background: transparent;
+    color: var(--fcbo-danger);
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
 }
 
 .fcbo-so-delete:hover:not(:disabled) {
-    background: #fcf0f1;
-    border-color: #d63638;
+    background: color-mix(in srgb, var(--fcbo-danger) 12%, transparent);
+    border-color: var(--fcbo-danger);
 }
 
 .fcbo-so-delete:disabled {
@@ -87,23 +88,23 @@
 /* Line-item detail rows */
 .fcbo-so-item-sku {
     font-size: 12px;
-    color: #777;
+    color: var(--fcbo-text-3);
 }
 
 .fcbo-so-unit {
     font-size: 12px;
-    color: #777;
+    color: var(--fcbo-text-3);
     font-weight: 400;
 }
 
 /* Out-of-stock / unavailable line items */
 .fcbo-so-oos-tag {
-    color: #b26b00;
+    color: var(--fcbo-warning);
     font-size: 12px;
 }
 
 .fcbo-so-unavailable > td {
-    color: #999;
+    color: var(--fcbo-text-3);
     font-style: italic;
 }
 

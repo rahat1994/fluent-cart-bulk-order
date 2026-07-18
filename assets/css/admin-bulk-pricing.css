@@ -1,14 +1,29 @@
 /* Bulk Pricing Integration – Admin Tier Repeater */
 
+/* Structural colors derive from currentColor so the repeater follows the admin
+   color scheme it is rendered in. Deliberately NO prefers-color-scheme block
+   here: the WordPress admin does not follow the OS color scheme, so keying off
+   it would tint these boxes dark inside an otherwise light admin. */
+.fcbo-tier-repeater {
+    --fcbo-line: color-mix(in srgb, currentColor 18%, transparent);
+    --fcbo-line-soft: color-mix(in srgb, currentColor 12%, transparent);
+    --fcbo-fill: color-mix(in srgb, currentColor 4%, transparent);
+    --fcbo-text-2: color-mix(in srgb, currentColor 70%, transparent);
+    --fcbo-text-3: color-mix(in srgb, currentColor 52%, transparent);
+}
+
 .fcbo-tier-repeater .fcbo-tier-empty {
-    color: #999;
+    color: var(--fcbo-text-3);
     margin-bottom: 10px;
 }
 
+/* Bottom-aligned so a label that wraps to two lines on a narrow screen (e.g.
+   "Max Qty (0 = no limit)") grows upward instead of pushing its own input down
+   out of line with the rest of the row. */
 .fcbo-tier-repeater .fcbo-tier-row {
     display: flex;
     gap: 10px;
-    align-items: center;
+    align-items: flex-end;
     margin-bottom: 8px;
     padding: 10px 0px;
     border-radius: 4px;
@@ -21,14 +36,48 @@
 .fcbo-tier-repeater .fcbo-tier-field label {
     display: block;
     font-size: 12px;
-    color: #666;
+    color: var(--fcbo-text-2);
     margin-bottom: 2px;
 }
 
-.fcbo-tier-repeater .fcbo-tier-field .el-input-number {
+.fcbo-tier-repeater .fcbo-tier-field .el-input-number,
+.fcbo-tier-repeater .fcbo-tier-field .el-select {
     width: 100%;
 }
 
+/* No margin-top nudge needed: flex-end already lines the button up with the
+   inputs, whatever height the labels above them end up being. */
 .fcbo-tier-repeater .fcbo-tier-remove {
-    margin-top: 16px;
+    margin-top: 0;
+}
+
+/* Hint text shown above each tier set */
+.fcbo-tier-repeater .fcbo-tier-hint {
+    font-size: 12px;
+    color: var(--fcbo-text-2);
+    margin: 0 0 10px;
+}
+
+/* Role-scoped pricing groups (Part B).
+   `.fcbo-role-tiers` is the field root itself (it also carries
+   .fcbo-tier-repeater), so it is matched directly, not as a descendant. */
+.fcbo-role-tiers .fcbo-role-group {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: var(--fcbo-fill);
+    border: 1px solid var(--fcbo-line);
+    border-radius: 4px;
+}
+
+.fcbo-role-tiers .fcbo-role-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.fcbo-role-tiers .fcbo-role-group-body {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--fcbo-line-soft);
 }

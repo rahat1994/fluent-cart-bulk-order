@@ -1,6 +1,26 @@
 /* Fluent Cart Bulk Order */
 
+/* Theme-adaptive palette — see bulk-pricing-display.css for the rationale.
+   Structural colors derive from currentColor so the form is correct on light
+   and dark themes alike; only brand/semantic hues are tuned per color-scheme. */
 .fcbo-wrap {
+    --fcbo-line: color-mix(in srgb, currentColor 22%, transparent);
+    --fcbo-line-soft: color-mix(in srgb, currentColor 12%, transparent);
+    --fcbo-line-firm: color-mix(in srgb, currentColor 35%, transparent);
+    --fcbo-fill: color-mix(in srgb, currentColor 6%, transparent);
+    --fcbo-fill-soft: color-mix(in srgb, currentColor 3.5%, transparent);
+    --fcbo-text-2: color-mix(in srgb, currentColor 75%, transparent);
+    --fcbo-text-3: color-mix(in srgb, currentColor 55%, transparent);
+    --fcbo-accent: #2271b1;
+    --fcbo-accent-hover: #135e96;
+    --fcbo-success: #00a32a;
+    --fcbo-danger: #d63638;
+    --fcbo-warning: #8a6d1a;
+    /* Opaque surface for the floating dropdown, which must hide content beneath
+       it and therefore cannot be a translucent currentColor tint. */
+    --fcbo-surface: #fff;
+    --fcbo-surface-hover: #f0f7ff;
+
     max-width: 960px;
     margin: 20px auto;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
@@ -20,24 +40,24 @@
 }
 
 .fcbo-table thead th {
-    background: #f7f7f7;
-    border: 1px solid #ddd;
+    background: var(--fcbo-fill);
+    border: 1px solid var(--fcbo-line);
     padding: 10px 12px;
     text-align: left;
     font-weight: 600;
     font-size: 13px;
-    color: #333;
+    color: inherit;
     white-space: nowrap;
 }
 
 .fcbo-table tbody td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--fcbo-line);
     padding: 8px 12px;
     vertical-align: middle;
 }
 
 .fcbo-table tbody tr:hover {
-    background: #fafafa;
+    background: var(--fcbo-fill-soft);
 }
 
 /* Column widths */
@@ -80,21 +100,21 @@
 
 /* Grand total footer */
 .fcbo-table tfoot td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--fcbo-line);
     padding: 10px 12px;
 }
 
 .fcbo-grand-total {
     font-weight: 700;
     font-size: 15px;
-    background: #f7f7f7;
+    background: var(--fcbo-fill);
 }
 
 /* Remove button */
 .fcbo-remove-btn {
     background: none;
     border: none;
-    color: #d63638;
+    color: var(--fcbo-danger);
     font-size: 20px;
     cursor: pointer;
     line-height: 1;
@@ -103,7 +123,7 @@
 }
 
 .fcbo-remove-btn:hover {
-    background: #fee;
+    background: color-mix(in srgb, var(--fcbo-danger) 14%, transparent);
 }
 
 /* Search input */
@@ -114,16 +134,18 @@
 .fcbo-search-input {
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-size: 13px;
     box-sizing: border-box;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-search-input:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
 /* Dropdown */
@@ -132,8 +154,9 @@
     top: 100%;
     left: 0;
     right: 0;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--fcbo-surface);
+    color: var(--fcbo-surface-text, inherit);
+    border: 1px solid var(--fcbo-line-firm);
     border-top: none;
     border-radius: 0 0 4px 4px;
     max-height: 250px;
@@ -149,7 +172,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--fcbo-line-soft);
 }
 
 .fcbo-dd-item:last-child {
@@ -157,18 +180,17 @@
 }
 
 .fcbo-dd-item:hover {
-    background: #f0f7ff;
+    background: var(--fcbo-surface-hover);
 }
 
 .fcbo-dd-item.fcbo-dd-disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background: #f9f9f9;
 }
 
 .fcbo-dd-title {
     font-size: 13px;
-    color: #333;
+    color: inherit;
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -178,14 +200,14 @@
 
 .fcbo-dd-meta {
     font-size: 12px;
-    color: #666;
+    color: var(--fcbo-text-2);
     white-space: nowrap;
 }
 
 .fcbo-dd-empty {
     padding: 12px 10px;
     text-align: center;
-    color: #999;
+    color: var(--fcbo-text-3);
     font-size: 13px;
 }
 
@@ -193,22 +215,24 @@
 .fcbo-qty-input {
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-size: 13px;
     text-align: center;
     box-sizing: border-box;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-qty-input:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
 .fcbo-qty-input:disabled {
-    background: #f5f5f5;
-    color: #999;
+    background: var(--fcbo-fill);
+    color: var(--fcbo-text-3);
 }
 
 /* Thumbnail */
@@ -217,7 +241,7 @@
     height: 48px;
     object-fit: cover;
     border-radius: 4px;
-    border: 1px solid #eee;
+    border: 1px solid var(--fcbo-line-soft);
 }
 
 /* Action buttons */
@@ -250,24 +274,24 @@
 }
 
 .fcbo-btn-secondary {
-    background: #f0f0f0;
-    color: #333;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: inherit;
 }
 
 .fcbo-btn-secondary:hover:not(:disabled) {
-    background: #e0e0e0;
+    background: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .fcbo-btn-primary {
-    background: #2271b1;
+    background: var(--fcbo-accent);
     color: #fff;
 }
 
 .fcbo-btn-primary:hover:not(:disabled) {
-    background: #135e96;
+    background: var(--fcbo-accent-hover);
 }
 
-/* Status messages */
+/* Status messages – tinted from the semantic hue so they work on any ground */
 .fcbo-status {
     margin-top: 12px;
     padding: 10px 14px;
@@ -276,39 +300,39 @@
 }
 
 .fcbo-status-error {
-    background: #fef0f0;
-    color: #d63638;
-    border: 1px solid #f5c6c6;
+    background: color-mix(in srgb, var(--fcbo-danger) 12%, transparent);
+    color: var(--fcbo-danger);
+    border: 1px solid color-mix(in srgb, var(--fcbo-danger) 40%, transparent);
 }
 
 .fcbo-status-success {
-    background: #f0faf0;
-    color: #00a32a;
-    border: 1px solid #b8e6b8;
+    background: color-mix(in srgb, var(--fcbo-success) 12%, transparent);
+    color: var(--fcbo-success);
+    border: 1px solid color-mix(in srgb, var(--fcbo-success) 40%, transparent);
 }
 
 .fcbo-status-loading {
-    background: #f0f6ff;
-    color: #2271b1;
-    border: 1px solid #b8d4e9;
+    background: color-mix(in srgb, var(--fcbo-accent) 12%, transparent);
+    color: var(--fcbo-accent);
+    border: 1px solid color-mix(in srgb, var(--fcbo-accent) 40%, transparent);
 }
 
 /* SKU and category text */
 .fcbo-sku-text,
 .fcbo-cat-text {
     font-size: 13px;
-    color: #555;
+    color: var(--fcbo-text-2);
 }
 
 /* Bulk discount pricing */
 .fcbo-price-original {
     text-decoration: line-through;
-    color: #999;
+    color: var(--fcbo-text-3);
     font-size: 12px;
 }
 
 .fcbo-price-discounted {
-    color: #00a32a;
+    color: var(--fcbo-success);
     font-weight: 600;
 }
 
@@ -323,7 +347,7 @@
     padding: 6px 0;
     font-size: 14px;
     font-weight: 600;
-    color: #2271b1;
+    color: var(--fcbo-accent);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -331,7 +355,7 @@
 }
 
 .fcbo-quick-toggle:hover {
-    color: #135e96;
+    color: var(--fcbo-accent-hover);
 }
 
 .fcbo-quick-caret {
@@ -347,32 +371,34 @@
 .fcbo-quick-panel {
     margin-top: 8px;
     padding: 16px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fcbo-line);
     border-radius: 6px;
-    background: #fafafa;
+    background: var(--fcbo-fill-soft);
 }
 
 .fcbo-quick-help {
     margin: 0 0 10px;
     font-size: 13px;
-    color: #555;
+    color: var(--fcbo-text-2);
 }
 
 .fcbo-quick-input {
     width: 100%;
     padding: 8px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
     box-sizing: border-box;
     resize: vertical;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-quick-input:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
 .fcbo-quick-controls {
@@ -386,7 +412,7 @@
 
 .fcbo-quick-file-label {
     font-size: 13px;
-    color: #555;
+    color: var(--fcbo-text-2);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -420,21 +446,21 @@
 }
 
 .fcbo-quick-line {
-    color: #999;
+    color: var(--fcbo-text-3);
     font-variant-numeric: tabular-nums;
     flex: 0 0 auto;
 }
 
 .fcbo-quick-report-matched {
-    background: #f0faf0;
-    color: #1a7431;
+    background: color-mix(in srgb, var(--fcbo-success) 12%, transparent);
+    color: var(--fcbo-success);
 }
 
 .fcbo-quick-report-unknown,
 .fcbo-quick-report-ambiguous,
 .fcbo-quick-report-invalid {
-    background: #fef6e7;
-    color: #8a6d1a;
+    background: color-mix(in srgb, var(--fcbo-warning) 14%, transparent);
+    color: var(--fcbo-warning);
 }
 
 /* Responsive */
@@ -460,5 +486,24 @@
     .fcbo-btn {
         width: 100%;
         text-align: center;
+    }
+}
+
+/* Hue + opaque-surface tuning. Structure already adapts via currentColor; this
+   lifts saturated hues for contrast on a dark ground and flips the one surface
+   that must be opaque (the floating search dropdown). */
+@media (prefers-color-scheme: dark) {
+    .fcbo-wrap {
+        --fcbo-accent: #5aa4dc;
+        --fcbo-accent-hover: #7db8e8;
+        --fcbo-success: #3fb950;
+        --fcbo-danger: #f0857d;
+        --fcbo-warning: #d9a441;
+        --fcbo-surface: #1c2126;
+        --fcbo-surface-hover: #262d34;
+    }
+
+    .fcbo-btn-primary {
+        color: #0b1015;
     }
 }

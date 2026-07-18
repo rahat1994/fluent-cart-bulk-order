@@ -632,6 +632,25 @@
 
     // --- Bulk Pricing ---
 
+    // Mirrors PHP fcbo_apply_tier_to_price(): the ONE effective-price formula for
+    // this surface. Money tier values are stored in major units, so they convert to
+    // cents here. Keep in lock-step with the PHP helper and bulk-pricing-display.js.
+    function applyTierToPrice(priceCents, tier) {
+        var type = (tier && tier.discount_type) || 'percent';
+        var value = parseFloat(tier && tier.discount_value) || 0;
+        var result;
+
+        if (type === 'fixed_unit_price') {
+            result = Math.round(value * 100);
+        } else if (type === 'amount_off') {
+            result = priceCents - Math.round(value * 100);
+        } else {
+            result = Math.round(priceCents * (1 - value / 100));
+        }
+
+        return result < 0 ? 0 : result;
+    }
+
     function getEffectivePrice(unitPriceCents, qty, tiers) {
         if (!tiers || !tiers.length || qty < 1) {
             return unitPriceCents;
@@ -641,10 +660,9 @@
             var tier = tiers[i];
             var minQty = tier.min_qty || 0;
             var maxQty = tier.max_qty || 0;
-            var discountValue = tier.discount_value || 0;
 
             if (qty >= minQty && (maxQty === 0 || qty <= maxQty)) {
-                return Math.round(unitPriceCents * (1 - discountValue / 100));
+                return applyTierToPrice(unitPriceCents, tier);
             }
         }
 

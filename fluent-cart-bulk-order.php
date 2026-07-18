@@ -569,12 +569,15 @@ function fcbo_build_category_list($productId)
  * consumes them via selectProduct()) see an identical variant shape, including
  * the resolved bulk tiers.
  *
- * @param object $product     Product model (needs ID + thumbnail).
- * @param object $variant     Variant model.
- * @param array  $pricingData From fcbo_get_all_bulk_pricing().
+ * @param object        $product     Product model (needs ID + thumbnail).
+ * @param object        $variant     Variant model.
+ * @param array         $pricingData From fcbo_get_all_bulk_pricing().
+ * @param string[]|null $userRoles   Viewer's role slugs, so bulk_tiers is
+ *                                   role-resolved server-side (the client never
+ *                                   sees other roles' pricing). null = default set.
  * @return array
  */
-function fcbo_build_variant_payload($product, $variant, $pricingData)
+function fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles = null)
 {
     return [
         'id'              => $variant->id,
@@ -586,7 +589,7 @@ function fcbo_build_variant_payload($product, $variant, $pricingData)
         'manage_stock'    => (int) ($variant->manage_stock ?? 0),
         'available'       => (int) ($variant->available ?? 0),
         'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
-        'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id),
+        'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles),
     ];
 }
 
@@ -624,6 +627,9 @@ function fcbo_search_products(\WP_REST_Request $request)
     }
 
     $pricingData = fcbo_get_all_bulk_pricing($productIds);
+    // Serialize role-resolved tiers to the (authenticated) searcher — no role logic
+    // ships to the browser.
+    $userRoles   = (array) wp_get_current_user()->roles;
 
     $results = [];
 
@@ -646,7 +652,7 @@ function fcbo_search_products(\WP_REST_Request $request)
                     continue;
                 }
 
-                $variants[] = fcbo_build_variant_payload($product, $variant, $pricingData);
+                $variants[] = fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles);
             }
         }
 
@@ -710,6 +716,8 @@ function fcbo_resolve_skus(\WP_REST_Request $request)
     }
 
     $pricingData = fcbo_get_all_bulk_pricing($productIds);
+    // Role-resolve tiers for the authenticated requester (see fcbo_build_variant_payload).
+    $userRoles   = (array) wp_get_current_user()->roles;
 
     // Collect every active variant whose SKU was requested, grouped by normalized
     // SKU. A product loaded above carries all its active variants, so filter to
@@ -737,7 +745,7 @@ function fcbo_resolve_skus(\WP_REST_Request $request)
                 'title'      => $product->post_title,
                 'thumbnail'  => $variant->thumbnail ?: ($product->thumbnail ?: ''),
                 'categories' => $catList,
-                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData),
+                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles),
             ];
         }
     }
@@ -990,9 +998,15 @@ function fcbo_get_all_bulk_pricing($productIds)
             ->first();
 
         if ($globalFeed) {
-            $feedData = $globalFeed->meta_value;
-            if (!empty($feedData['enabled']) && $feedData['enabled'] === 'yes' && !empty($feedData['tiers'])) {
-                $globalTiers = $feedData['tiers'];
+            $feedData     = $globalFeed->meta_value;
+            $enabled      = !empty($feedData['enabled']) && $feedData['enabled'] === 'yes';
+            $hasTiers     = !empty($feedData['tiers']);
+            $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
+            if ($enabled && ($hasTiers || $hasRoleTiers)) {
+                $globalTiers = [
+                    'tiers'      => $hasTiers ? $feedData['tiers'] : [],
+                    'role_tiers' => $hasRoleTiers ? $feedData['role_tiers'] : [],
+                ];
             }
         }
     }
@@ -1007,8 +1021,10 @@ function fcbo_get_all_bulk_pricing($productIds)
             ->get();
 
         foreach ($feeds as $feed) {
-            $feedData = $feed->meta_value;
-            if (empty($feedData['enabled']) || $feedData['enabled'] !== 'yes' || empty($feedData['tiers'])) {
+            $feedData     = $feed->meta_value;
+            $hasTiers     = !empty($feedData['tiers']);
+            $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
+            if (empty($feedData['enabled']) || $feedData['enabled'] !== 'yes' || (!$hasTiers && !$hasRoleTiers)) {
                 continue;
             }
 
@@ -1024,7 +1040,8 @@ function fcbo_get_all_bulk_pricing($productIds)
 
             $productFeeds[$pid][] = [
                 'variant_ids' => $variantIds,
-                'tiers'       => $feedData['tiers'],
+                'tiers'       => $hasTiers ? $feedData['tiers'] : [],
+                'role_tiers'  => $hasRoleTiers ? $feedData['role_tiers'] : [],
             ];
         }
     }
@@ -1037,27 +1054,69 @@ function fcbo_get_all_bulk_pricing($productIds)
 
 /**
  * Resolve the effective discount tiers for a specific product variant.
- * Product-specific feeds take precedence over global tiers.
  *
- * @param array $pricingData From fcbo_get_all_bulk_pricing()
- * @param int   $productId
- * @param int   $variantId
+ * Two-stage resolution:
+ *   1. Feed precedence — a product-level feed wins over the global feed; the
+ *      first feed whose variant scope matches applies (unchanged behavior).
+ *   2. Role selection within that feed — if the feed carries role-scoped
+ *      tier-sets, the first of the shopper's roles with a list wins; otherwise
+ *      the feed's default `tiers` apply. See fcbo_select_role_tier_set().
+ *
+ * $userRoles is optional: null/[] always yields the default set, so existing
+ * call sites keep today's behavior until they opt in by passing roles (R6/R8).
+ * Role selection composes with — never replaces — the Plan 002 qualification
+ * gate, which still decides *whether* any bulk pricing applies.
+ *
+ * @param array         $pricingData From fcbo_get_all_bulk_pricing()
+ * @param int           $productId
+ * @param int           $variantId
+ * @param string[]|null $userRoles   Current user's role slugs (null = default set).
  * @return array Tier list (may be empty)
  */
-function fcbo_resolve_tiers($pricingData, $productId, $variantId)
+function fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles = null)
 {
     // Check product-level feeds first
     if (!empty($pricingData['product'][$productId])) {
         foreach ($pricingData['product'][$productId] as $feed) {
             // Empty variant_ids means applies to all variants
             if (empty($feed['variant_ids']) || in_array((int) $variantId, $feed['variant_ids'], true)) {
-                return $feed['tiers'];
+                return fcbo_select_role_tier_set($feed, $userRoles);
             }
         }
     }
 
-    // Fall back to global tiers
-    return $pricingData['global'] ?? [];
+    // Fall back to the global feed
+    if (!empty($pricingData['global'])) {
+        return fcbo_select_role_tier_set($pricingData['global'], $userRoles);
+    }
+
+    return [];
+}
+
+/**
+ * Pick the applicable tier-set within a resolved feed by the shopper's roles.
+ *
+ * The first of the shopper's roles that has a role-scoped list wins; otherwise
+ * the feed's default `tiers` apply. Passing null/[] roles always yields the
+ * default set, so callers that don't know the user get today's behavior.
+ *
+ * @param array         $feed      ['tiers' => array, 'role_tiers' => array]
+ * @param string[]|null $userRoles Current user's role slugs.
+ * @return array Tier list (may be empty).
+ */
+function fcbo_select_role_tier_set($feed, $userRoles)
+{
+    $roleTiers = isset($feed['role_tiers']) && is_array($feed['role_tiers']) ? $feed['role_tiers'] : [];
+
+    if (!empty($roleTiers) && !empty($userRoles)) {
+        foreach ((array) $userRoles as $role) {
+            if (!empty($roleTiers[$role])) {
+                return $roleTiers[$role];
+            }
+        }
+    }
+
+    return isset($feed['tiers']) && is_array($feed['tiers']) ? $feed['tiers'] : [];
 }
 
 /**
@@ -1078,6 +1137,77 @@ function fcbo_get_currency_sign()
         }
     }
     return $sign;
+}
+
+/**
+ * Compute the effective per-unit price (integer cents) for a matched tier.
+ *
+ * This is the ONE place in PHP the per-type discount formula lives; the two JS
+ * live-total surfaces (bulk-order.js, bulk-pricing-display.js) mirror it exactly
+ * and MUST change together with it. Money tier values are stored in major
+ * currency units, so the major-units -> cents conversion happens here — the sole
+ * conversion point on the PHP side. The result is always integer cents, clamped
+ * to >= 0.
+ *
+ *   percent          -> round(price * (1 - value / 100))
+ *   fixed_unit_price -> round(value * 100)              (absolute per-unit price)
+ *   amount_off       -> price - round(value * 100)      (flat per-unit reduction)
+ *
+ * @param int   $itemPriceCents Original per-unit price in cents.
+ * @param array $tier           ['discount_type' => string, 'discount_value' => float]
+ * @return int Effective per-unit price in cents (>= 0).
+ */
+function fcbo_apply_tier_to_price($itemPriceCents, $tier)
+{
+    $type  = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
+    $value = (float) ($tier['discount_value'] ?? 0);
+
+    switch ($type) {
+        case 'fixed_unit_price':
+            $price = (int) round($value * 100);
+            break;
+        case 'amount_off':
+            $price = (int) $itemPriceCents - (int) round($value * 100);
+            break;
+        case 'percent':
+        default:
+            $price = (int) round($itemPriceCents * (1 - $value / 100));
+            break;
+    }
+
+    return max(0, $price);
+}
+
+/**
+ * Human-readable label for a tier's discount, by type.
+ *
+ * Returns raw text — the caller escapes. Money types are formatted in major
+ * units with the store currency sign; percent keeps the "% off" form.
+ *
+ * @param array $tier ['discount_type' => string, 'discount_value' => float]
+ * @return string
+ */
+function fcbo_format_tier_discount_label($tier)
+{
+    $type  = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
+    $value = (float) ($tier['discount_value'] ?? 0);
+    $sign  = fcbo_get_currency_sign();
+
+    switch ($type) {
+        case 'fixed_unit_price':
+            // Money keeps 2 decimals (currency), matching the JS formatPrice() output.
+            /* translators: %s: formatted unit price, e.g. $8.50 */
+            return sprintf(__('%s/unit', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
+        case 'amount_off':
+            /* translators: %s: formatted amount, e.g. $2.00 */
+            return sprintf(__('%s off', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
+        case 'percent':
+        default:
+            // Percent strips trailing zeros (10% not 10.00%) — unchanged from before.
+            $num = rtrim(rtrim(number_format($value, 2), '0'), '.');
+            /* translators: %s: percentage number, e.g. 10 */
+            return sprintf(__('%s%% off', 'fluent-cart-bulk-order'), $num);
+    }
 }
 
 /**
@@ -1175,6 +1305,8 @@ function fcbo_render_single_product_tiers($args)
 
     $product = $args['product'];
     $pricingData = fcbo_get_all_bulk_pricing([$product->ID]);
+    // Resolve tiers against the viewer's roles so the preview matches their cart price.
+    $userRoles = (array) wp_get_current_user()->roles;
     $isSimple = isset($product->detail->variation_type) && $product->detail->variation_type === 'simple';
 
     if ($isSimple) {
@@ -1183,7 +1315,7 @@ function fcbo_render_single_product_tiers($args)
             return;
         }
 
-        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id);
+        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
         if (empty($tiers)) {
             return;
         }
@@ -1194,18 +1326,17 @@ function fcbo_render_single_product_tiers($args)
         echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
         echo '<div class="fcbo-bp-simple"><ul>';
         foreach ($tiers as $tier) {
-            $minQty   = (int) ($tier['min_qty'] ?? 0);
-            $maxQty   = (int) ($tier['max_qty'] ?? 0);
-            $discount = (float) ($tier['discount_value'] ?? 0);
+            $minQty = (int) ($tier['min_qty'] ?? 0);
+            $maxQty = (int) ($tier['max_qty'] ?? 0);
 
             $range = $maxQty > 0
                 ? sprintf('%d – %d', $minQty, $maxQty)
                 : sprintf('%d+', $minQty);
 
             printf(
-                '<li>' . esc_html__('Buy %s:', 'fluent-cart-bulk-order') . ' <span class="fcbo-bp-discount">%s%% ' . esc_html__('off', 'fluent-cart-bulk-order') . '</span></li>',
+                '<li>' . esc_html__('Buy %s:', 'fluent-cart-bulk-order') . ' <span class="fcbo-bp-discount">%s</span></li>',
                 esc_html($range),
-                esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.'))
+                esc_html(fcbo_format_tier_discount_label($tier))
             );
         }
         echo '</ul></div>';
@@ -1226,7 +1357,7 @@ function fcbo_render_single_product_tiers($args)
     // Variable product: collect variants that have tiers
     $variantsWithTiers = [];
     foreach ($product->variants as $variant) {
-        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id);
+        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
         if (empty($tiers)) {
             continue;
         }
@@ -1266,16 +1397,14 @@ function fcbo_render_single_product_tiers($args)
         echo '</tr></thead><tbody>';
 
         foreach ($firstTiers as $tier) {
-            $minQty   = (int) ($tier['min_qty'] ?? 0);
-            $maxQty   = (int) ($tier['max_qty'] ?? 0);
-            $discount = (float) ($tier['discount_value'] ?? 0);
-            $range = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
+            $minQty = (int) ($tier['min_qty'] ?? 0);
+            $maxQty = (int) ($tier['max_qty'] ?? 0);
+            $range  = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
 
             printf(
-                '<tr><td>%s</td><td class="fcbo-bp-discount">%s%% %s</td></tr>',
+                '<tr><td>%s</td><td class="fcbo-bp-discount">%s</td></tr>',
                 esc_html($range),
-                esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.')),
-                esc_html__('off', 'fluent-cart-bulk-order')
+                esc_html(fcbo_format_tier_discount_label($tier))
             );
         }
     } else {
@@ -1287,10 +1416,9 @@ function fcbo_render_single_product_tiers($args)
 
         foreach ($variantsWithTiers as $entry) {
             foreach ($entry['tiers'] as $idx => $tier) {
-                $minQty   = (int) ($tier['min_qty'] ?? 0);
-                $maxQty   = (int) ($tier['max_qty'] ?? 0);
-                $discount = (float) ($tier['discount_value'] ?? 0);
-                $range = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
+                $minQty = (int) ($tier['min_qty'] ?? 0);
+                $maxQty = (int) ($tier['max_qty'] ?? 0);
+                $range  = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
 
                 echo '<tr>';
                 if ($idx === 0) {
@@ -1301,10 +1429,9 @@ function fcbo_render_single_product_tiers($args)
                     );
                 }
                 printf(
-                    '<td>%s</td><td class="fcbo-bp-discount">%s%% %s</td>',
+                    '<td>%s</td><td class="fcbo-bp-discount">%s</td>',
                     esc_html($range),
-                    esc_html(rtrim(rtrim(number_format($discount, 2), '0'), '.')),
-                    esc_html__('off', 'fluent-cart-bulk-order')
+                    esc_html(fcbo_format_tier_discount_label($tier))
                 );
                 echo '</tr>';
             }
@@ -1398,7 +1525,9 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     $variantId = (int) $variation->id;
 
     $pricingData = fcbo_get_all_bulk_pricing([$productId]);
-    $tiers       = fcbo_resolve_tiers($pricingData, $productId, $variantId);
+    // Role selects which tier-set prices this line (composes with the gate above).
+    $userRoles   = (array) wp_get_current_user()->roles;
+    $tiers       = fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles);
 
     if (empty($tiers)) {
         return $variation;
@@ -1409,8 +1538,7 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
         $maxQty = (int) ($tier['max_qty'] ?? 0);
 
         if ($qty >= $minQty && ($maxQty === 0 || $qty <= $maxQty)) {
-            $discountValue = (float) ($tier['discount_value'] ?? 0);
-            $variation->item_price = (int) round($variation->item_price * (1 - $discountValue / 100));
+            $variation->item_price = fcbo_apply_tier_to_price((int) $variation->item_price, $tier);
             break;
         }
     }
@@ -1641,6 +1769,8 @@ function fcbo_resolve_variant_ids($variantIds)
     }
 
     $pricingData = fcbo_get_all_bulk_pricing($productIds);
+    // Saved/past orders render for the authenticated owner — role-resolve their tiers.
+    $userRoles   = (array) wp_get_current_user()->roles;
 
     $byId = [];
     foreach ($products as $product) {
@@ -1658,7 +1788,7 @@ function fcbo_resolve_variant_ids($variantIds)
                 'title'      => $product->post_title,
                 'thumbnail'  => $variant->thumbnail ?: ($product->thumbnail ?: ''),
                 'categories' => $catList,
-                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData),
+                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles),
             ];
         }
     }

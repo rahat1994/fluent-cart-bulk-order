@@ -1,5 +1,23 @@
 /* Fluent Cart Product Table */
 
+/* Theme-adaptive palette — see bulk-pricing-display.css for the rationale.
+   Also consumed by saved-orders.css, which layers on this file. */
+.fcbo-pt-wrap,
+.fcbo-so-wrap {
+    --fcbo-line: color-mix(in srgb, currentColor 22%, transparent);
+    --fcbo-line-soft: color-mix(in srgb, currentColor 12%, transparent);
+    --fcbo-line-firm: color-mix(in srgb, currentColor 35%, transparent);
+    --fcbo-fill: color-mix(in srgb, currentColor 6%, transparent);
+    --fcbo-fill-soft: color-mix(in srgb, currentColor 3.5%, transparent);
+    --fcbo-text-2: color-mix(in srgb, currentColor 75%, transparent);
+    --fcbo-text-3: color-mix(in srgb, currentColor 55%, transparent);
+    --fcbo-accent: #2271b1;
+    --fcbo-accent-hover: #135e96;
+    --fcbo-link: #0073aa;
+    --fcbo-danger: #d63638;
+    --fcbo-warning: #b26b00;
+}
+
 .fcbo-pt-wrap {
     max-width: 960px;
     margin: 20px auto;
@@ -18,17 +36,19 @@
 
 .fcbo-pt-search {
     padding: 8px 12px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-size: 13px;
     width: 260px;
     box-sizing: border-box;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-pt-search:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
 /* Table */
@@ -44,31 +64,31 @@
 }
 
 .fcbo-pt-table thead th {
-    background: #f7f7f7;
-    border: 1px solid #ddd;
+    background: var(--fcbo-fill);
+    border: 1px solid var(--fcbo-line);
     padding: 10px 12px;
     text-align: left;
     font-weight: 600;
     font-size: 13px;
-    color: #333;
+    color: inherit;
     white-space: nowrap;
 }
 
 .fcbo-pt-table tbody td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--fcbo-line);
     padding: 8px 12px;
     vertical-align: middle;
 }
 
 .fcbo-pt-table tbody tr:hover {
-    background: #fafafa;
+    background: var(--fcbo-fill-soft);
 }
 
 /* Column widths */
 .fcbo-pt-col-id {
     width: 60px;
     text-align: center;
-    color: #888;
+    color: var(--fcbo-text-3);
     font-size: 13px;
 }
 
@@ -77,13 +97,13 @@
 }
 
 .fcbo-pt-title-link {
-    color: #2271b1;
+    color: var(--fcbo-accent);
     text-decoration: none;
     font-weight: 500;
 }
 
 .fcbo-pt-title-link:hover {
-    color: #135e96;
+    color: var(--fcbo-accent-hover);
     text-decoration: underline;
 }
 
@@ -106,22 +126,24 @@
 .fcbo-pt-qty {
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-size: 13px;
     text-align: center;
     box-sizing: border-box;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-pt-qty:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
 .fcbo-pt-qty:disabled {
-    background: #f5f5f5;
-    color: #999;
+    background: var(--fcbo-fill);
+    color: var(--fcbo-text-3);
 }
 
 /* Add to Cart button */
@@ -132,20 +154,20 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    background: #2271b1;
+    background: var(--fcbo-accent);
     color: #fff;
     transition: background 0.2s;
     white-space: nowrap;
 }
 
 .fcbo-pt-add-btn:hover:not(:disabled) {
-    background: #135e96;
+    background: var(--fcbo-accent-hover);
 }
 
 .fcbo-pt-add-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    background: #999;
+    background: color-mix(in srgb, currentColor 35%, transparent);
 }
 
 /* Out of stock row */
@@ -157,7 +179,7 @@
 .fcbo-pt-loading {
     text-align: center;
     padding: 24px 12px;
-    color: #999;
+    color: var(--fcbo-text-3);
     font-size: 13px;
 }
 
@@ -172,16 +194,17 @@
 
 .fcbo-pt-page-btn {
     padding: 6px 14px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
-    background: #fff;
+    background: transparent;
+    color: inherit;
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s;
 }
 
 .fcbo-pt-page-btn:hover:not(:disabled) {
-    background: #f0f0f0;
+    background: var(--fcbo-fill);
 }
 
 .fcbo-pt-page-btn:disabled {
@@ -191,7 +214,7 @@
 
 .fcbo-pt-page-info {
     font-size: 13px;
-    color: #555;
+    color: var(--fcbo-text-2);
 }
 
 /* Status messages */
@@ -203,9 +226,9 @@
 }
 
 .fcbo-pt-status-error {
-    background: #fef0f0;
-    color: #d63638;
-    border: 1px solid #f5c6c6;
+    background: color-mix(in srgb, var(--fcbo-danger) 12%, transparent);
+    color: var(--fcbo-danger);
+    border: 1px solid color-mix(in srgb, var(--fcbo-danger) 40%, transparent);
 }
 
 /* Responsive */
@@ -235,7 +258,7 @@
     padding: 0;
     margin: 0;
     font: inherit;
-    color: #0073aa;
+    color: var(--fcbo-link);
     cursor: pointer;
     text-align: left;
 }
@@ -243,16 +266,16 @@
 .fcbo-pt-caret {
     display: inline-block;
     width: 12px;
-    color: #888;
+    color: var(--fcbo-text-3);
 }
 
 .fcbo-pt-vcount {
-    color: #999;
+    color: var(--fcbo-text-3);
     font-size: 12px;
 }
 
 .fcbo-pt-choose {
-    color: #0073aa;
+    color: var(--fcbo-link);
     font-size: 12px;
     white-space: nowrap;
 }
@@ -266,11 +289,27 @@
 }
 
 .fcbo-pt-variant-row > td {
-    background: #fafafa;
+    background: var(--fcbo-fill-soft);
 }
 
 .fcbo-pt-variant-name {
     display: inline-block;
     padding-left: 22px;
-    color: #444;
+    color: var(--fcbo-text-2);
+}
+
+/* Hue tuning for a dark ground — structure already adapts via currentColor. */
+@media (prefers-color-scheme: dark) {
+    .fcbo-pt-wrap,
+    .fcbo-so-wrap {
+        --fcbo-accent: #5aa4dc;
+        --fcbo-accent-hover: #7db8e8;
+        --fcbo-link: #58a6ff;
+        --fcbo-danger: #f0857d;
+        --fcbo-warning: #d9a441;
+    }
+
+    .fcbo-pt-add-btn {
+        color: #0b1015;
+    }
 }

@@ -18,9 +18,9 @@ The access-gated surface that lists the catalog with per-row quantity entry for 
 ## Pricing
 
 ### Bulk Pricing Tier
-A rule mapping a purchase-quantity range to a discount, so larger quantities cost less per unit. *Avoid:* discount tier.
+A rule mapping a purchase-quantity range to a discount, so larger quantities cost less per unit. The discount is one of three types: a percentage off, a fixed per-unit price, or a flat amount off each unit. *Avoid:* discount tier.
 
-Tiers resolve per product variant: a product-level tier set takes precedence over a store-wide default set, and the first matching quantity range wins. The resolved discount applies both to prices shown on the ordering surfaces and to the actual cart line price.
+Tiers resolve per product variant: a product-level tier set takes precedence over a store-wide default set, and the first matching quantity range wins. A tier set can additionally be scoped to a user role, so different roles can see different prices for the same variant; a shopper whose role has no scoped set falls back to the everyone set. Role scoping decides *which* prices a qualifying shopper sees; a separate access policy decides *whether* that shopper gets bulk pricing at all (see Wholesale Customer). The resolved discount applies both to prices shown on the ordering surfaces and to the actual cart line price.
 
 ## Orders
 

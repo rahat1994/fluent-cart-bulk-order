@@ -321,6 +321,31 @@ function fcbo_render_shortcode($atts = [])
     ob_start();
     ?>
     <div id="fcbo-bulk-order" class="fcbo-wrap">
+        <div class="fcbo-quick-order">
+            <button type="button" id="fcbo-quick-toggle" class="fcbo-quick-toggle"
+                    aria-expanded="false" aria-controls="fcbo-quick-panel">
+                <span class="fcbo-quick-caret" aria-hidden="true">&#9656;</span>
+                <?php esc_html_e('Quick order (paste or CSV)', 'fluent-cart-bulk-order'); ?>
+            </button>
+            <div id="fcbo-quick-panel" class="fcbo-quick-panel" hidden>
+                <p class="fcbo-quick-help">
+                    <?php esc_html_e('Paste one "SKU, quantity" per line, or upload a CSV. An optional header row is ignored.', 'fluent-cart-bulk-order'); ?>
+                </p>
+                <textarea id="fcbo-quick-input" class="fcbo-quick-input" rows="6"
+                          placeholder="SKU, Qty&#10;ABC-123, 10&#10;XYZ-9, 5"></textarea>
+                <div class="fcbo-quick-controls">
+                    <label class="fcbo-quick-file-label">
+                        <?php esc_html_e('Upload CSV', 'fluent-cart-bulk-order'); ?>
+                        <input type="file" id="fcbo-quick-file" class="fcbo-quick-file" accept=".csv,text/csv" />
+                    </label>
+                    <button type="button" id="fcbo-quick-add" class="fcbo-btn fcbo-btn-primary">
+                        <?php esc_html_e('Add to order', 'fluent-cart-bulk-order'); ?>
+                    </button>
+                </div>
+                <div id="fcbo-quick-report" class="fcbo-quick-report" style="display:none;"></div>
+            </div>
+        </div>
+
         <div class="fcbo-table-scroll">
             <table class="fcbo-table">
                 <thead>
@@ -397,6 +422,120 @@ function fcbo_register_routes()
             ],
         ],
     ]);
+
+    // Exact, batched SKU -> variant resolver for the paste/CSV quick-order feature.
+    // Kept separate from /products (partial-match autocomplete) so neither regresses:
+    // this route resolves each SKU to exactly one active variant, or reports it as
+    // ambiguous / unknown.
+    register_rest_route('fcbo/v1', '/resolve-skus', [
+        'methods'             => 'POST',
+        'callback'            => 'fcbo_resolve_skus',
+        'permission_callback' => 'fcbo_rest_permission_check',
+        'args'                => [
+            'skus' => [
+                'required'          => true,
+                'type'              => 'array',
+                'items'             => ['type' => 'string'],
+                'sanitize_callback' => 'fcbo_sanitize_skus_param',
+            ],
+        ],
+    ]);
+}
+
+/**
+ * Sanitize the `skus` request param into a de-duplicated list of trimmed strings.
+ *
+ * Non-scalar and blank entries are dropped; duplicates are removed
+ * case-insensitively (first spelling wins). The list is capped to bound the
+ * resolver query for pathological pastes.
+ *
+ * @param mixed $value Raw request value.
+ * @return string[] Clean, de-duplicated SKU strings (max 500).
+ */
+function fcbo_sanitize_skus_param($value)
+{
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $clean = [];
+    $seen  = [];
+
+    foreach ($value as $sku) {
+        if (!is_scalar($sku)) {
+            continue;
+        }
+
+        $sku = trim(sanitize_text_field((string) $sku));
+        if ($sku === '') {
+            continue;
+        }
+
+        $key = strtolower($sku);
+        if (isset($seen[$key])) {
+            continue;
+        }
+
+        $seen[$key] = true;
+        $clean[]    = $sku;
+
+        if (count($clean) >= 500) {
+            break;
+        }
+    }
+
+    return $clean;
+}
+
+/**
+ * Build the category list payload for a product.
+ *
+ * @param int $productId
+ * @return array<int, array{term_id:int, name:string}>
+ */
+function fcbo_build_category_list($productId)
+{
+    $categories = get_the_terms($productId, 'product-categories');
+    $catList = [];
+
+    if ($categories && !is_wp_error($categories)) {
+        foreach ($categories as $cat) {
+            $catList[] = [
+                'term_id' => $cat->term_id,
+                'name'    => $cat->name,
+            ];
+        }
+    }
+
+    return $catList;
+}
+
+/**
+ * Build the per-variant payload shared by the search and resolve-skus endpoints.
+ *
+ * Keeping this in one place guarantees both surfaces (and the client code that
+ * consumes them via selectProduct()) see an identical variant shape, including
+ * the resolved bulk tiers.
+ *
+ * @param object $product     Product model (needs ID + thumbnail).
+ * @param object $variant     Variant model.
+ * @param array  $pricingData From fcbo_get_all_bulk_pricing().
+ * @return array
+ */
+function fcbo_build_variant_payload($product, $variant, $pricingData)
+{
+    return [
+        'id'              => $variant->id,
+        'variation_title' => $variant->variation_title ?: 'Default',
+        'item_price'      => (int) $variant->item_price,
+        'sku'             => $variant->sku ?: '',
+        'stock_status'    => $variant->stock_status ?: 'in-stock',
+        'payment_type'    => $variant->payment_type ?: 'onetime',
+        'manage_stock'    => (int) ($variant->manage_stock ?? 0),
+        'available'       => (int) ($variant->available ?? 0),
+        'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
+        'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id),
+    ];
 }
 
 function fcbo_search_products(\WP_REST_Request $request)
@@ -437,16 +576,7 @@ function fcbo_search_products(\WP_REST_Request $request)
     $results = [];
 
     foreach ($products as $product) {
-        $categories = get_the_terms($product->ID, 'product-categories');
-        $catList = [];
-        if ($categories && !is_wp_error($categories)) {
-            foreach ($categories as $cat) {
-                $catList[] = [
-                    'term_id' => $cat->term_id,
-                    'name'    => $cat->name,
-                ];
-            }
-        }
+        $catList = fcbo_build_category_list($product->ID);
 
         // If the product matched on its title, show all variants (name search).
         // If it matched only through a variant SKU / variation title, surface just
@@ -464,18 +594,7 @@ function fcbo_search_products(\WP_REST_Request $request)
                     continue;
                 }
 
-                $variants[] = [
-                    'id'              => $variant->id,
-                    'variation_title' => $variant->variation_title ?: 'Default',
-                    'item_price'      => (int) $variant->item_price,
-                    'sku'             => $variant->sku ?: '',
-                    'stock_status'    => $variant->stock_status ?: 'in-stock',
-                    'payment_type'    => $variant->payment_type ?: 'onetime',
-                    'manage_stock'    => (int) ($variant->manage_stock ?? 0),
-                    'available'       => (int) ($variant->available ?? 0),
-                    'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
-                    'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id),
-                ];
+                $variants[] = fcbo_build_variant_payload($product, $variant, $pricingData);
             }
         }
 
@@ -489,6 +608,106 @@ function fcbo_search_products(\WP_REST_Request $request)
     }
 
     return new \WP_REST_Response(['products' => $results], 200);
+}
+
+/**
+ * Resolve a batch of SKUs to their exact active variant in a single query.
+ *
+ * Powers the paste/CSV quick-order feature. Each requested SKU is classified:
+ *   - matched   => exactly one active variant carries the SKU (payload included)
+ *   - ambiguous => more than one active variant carries the SKU (candidates included)
+ *   - unknown   => no active variant carries the SKU
+ *
+ * The response is keyed by the case-normalized SKU so the client can look each
+ * pasted line up directly. Matched/candidate payloads use the same shape as
+ * fcbo_search_products() so the client can reuse selectProduct() unchanged.
+ *
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response
+ */
+function fcbo_resolve_skus(\WP_REST_Request $request)
+{
+    $skus = (array) $request->get_param('skus');
+
+    if (empty($skus)) {
+        return new \WP_REST_Response(['resolved' => (object) []], 200);
+    }
+
+    // Map normalized (lowercase) SKU => the spelling the client sent, so every
+    // requested SKU gets a status entry even when it matches nothing.
+    $requested = [];
+    foreach ($skus as $sku) {
+        $requested[strtolower($sku)] = $sku;
+    }
+
+    $productModel = new \FluentCart\App\Models\Product();
+
+    // One query: products having an active variant whose SKU is in the batch.
+    $products = $productModel::published()
+        ->with(['detail', 'variants' => function ($query) {
+            $query->where('item_status', 'active')->with('media');
+        }])
+        ->whereHas('variants', function ($vq) use ($skus) {
+            $vq->where('item_status', 'active')->whereIn('sku', $skus);
+        })
+        ->get();
+
+    $productIds = [];
+    foreach ($products as $product) {
+        $productIds[] = $product->ID;
+    }
+
+    $pricingData = fcbo_get_all_bulk_pricing($productIds);
+
+    // Collect every active variant whose SKU was requested, grouped by normalized
+    // SKU. A product loaded above carries all its active variants, so filter to
+    // only the ones actually asked for.
+    $bySku = [];
+    foreach ($products as $product) {
+        if (!$product->variants) {
+            continue;
+        }
+
+        $catList = fcbo_build_category_list($product->ID);
+
+        foreach ($product->variants as $variant) {
+            if (!$variant->sku) {
+                continue;
+            }
+
+            $key = strtolower(trim($variant->sku));
+            if (!isset($requested[$key])) {
+                continue;
+            }
+
+            $bySku[$key][] = [
+                'productId'  => $product->ID,
+                'title'      => $product->post_title,
+                'thumbnail'  => $variant->thumbnail ?: ($product->thumbnail ?: ''),
+                'categories' => $catList,
+                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData),
+            ];
+        }
+    }
+
+    $resolved = [];
+    foreach ($requested as $key => $original) {
+        if (empty($bySku[$key])) {
+            $resolved[$key] = ['status' => 'unknown'];
+        } elseif (count($bySku[$key]) === 1) {
+            $resolved[$key] = [
+                'status'  => 'matched',
+                'product' => $bySku[$key][0],
+            ];
+        } else {
+            $resolved[$key] = [
+                'status'     => 'ambiguous',
+                'candidates' => $bySku[$key],
+            ];
+        }
+    }
+
+    return new \WP_REST_Response(['resolved' => (object) $resolved], 200);
 }
 
 function fcbo_render_product_table($atts = [])

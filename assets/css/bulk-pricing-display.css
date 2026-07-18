@@ -1,16 +1,35 @@
 /* Bulk Pricing Display – Single Product Page */
 
+/* Theme-adaptive palette.
+   Structural colors (borders, fills, secondary text) are derived from
+   currentColor, so they follow whatever text color the surrounding theme sets.
+   That makes the widget correct on a light theme AND on a dark one, without
+   depending on the visitor's OS color-scheme preference — a theme can be dark
+   by design while the OS is in light mode, and vice versa.
+   Only the brand/semantic hues get a prefers-color-scheme pass (see bottom),
+   because lightening a hue is safe on either ground. */
 .fcbo-bp-wrap {
+    --fcbo-line: color-mix(in srgb, currentColor 22%, transparent);
+    --fcbo-line-soft: color-mix(in srgb, currentColor 12%, transparent);
+    --fcbo-line-firm: color-mix(in srgb, currentColor 35%, transparent);
+    --fcbo-fill: color-mix(in srgb, currentColor 6%, transparent);
+    --fcbo-text-2: color-mix(in srgb, currentColor 75%, transparent);
+    --fcbo-text-3: color-mix(in srgb, currentColor 55%, transparent);
+    --fcbo-text-4: color-mix(in srgb, currentColor 32%, transparent);
+    --fcbo-success: #16a34a;
+    --fcbo-success-hover: #15803d;
+    --fcbo-focus: #3b82f6;
+
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--fcbo-line);
 }
 
 .fcbo-bp-heading {
     margin: 0 0 10px;
     font-size: 15px;
     font-weight: 600;
-    color: #333;
+    color: inherit;
 }
 
 /* Simple product – compact tier list */
@@ -23,8 +42,8 @@
 .fcbo-bp-simple li {
     padding: 5px 0;
     font-size: 14px;
-    color: #555;
-    border-bottom: 1px solid #f0f0f0;
+    color: var(--fcbo-text-2);
+    border-bottom: 1px solid var(--fcbo-line-soft);
 }
 
 .fcbo-bp-simple li:last-child {
@@ -43,13 +62,13 @@
 .fcbo-bp-table td {
     padding: 8px 12px;
     text-align: left;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--fcbo-line);
 }
 
 .fcbo-bp-table th {
-    background: #f7f7f7;
+    background: var(--fcbo-fill);
     font-weight: 600;
-    color: #333;
+    color: inherit;
     font-size: 13px;
 }
 
@@ -60,20 +79,20 @@
 
 /* Discount highlight (green) */
 .fcbo-bp-discount {
-    color: #16a34a;
+    color: var(--fcbo-success);
     font-weight: 600;
 }
 
 /* Strikethrough original price */
 .fcbo-bp-original {
-    color: #999;
+    color: var(--fcbo-text-3);
     font-weight: 400;
     margin-right: 4px;
 }
 
 /* Muted placeholder */
 .fcbo-bp-muted {
-    color: #ccc;
+    color: var(--fcbo-text-4);
 }
 
 /* Order table */
@@ -87,34 +106,36 @@
 .fcbo-bp-order-table td {
     padding: 8px 12px;
     text-align: left;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--fcbo-line);
 }
 
 .fcbo-bp-order-table th {
-    background: #f7f7f7;
+    background: var(--fcbo-fill);
     font-weight: 600;
-    color: #333;
+    color: inherit;
     font-size: 13px;
 }
 
 .fcbo-bp-order-table tfoot td {
-    border-top: 2px solid #d0d0d0;
+    border-top: 2px solid var(--fcbo-line-firm);
 }
 
-/* Quantity input */
+/* Quantity input – transparent so it sits on any theme background */
 .fcbo-bp-qty-input {
     width: 70px;
     padding: 6px 8px;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--fcbo-line-firm);
     border-radius: 4px;
     font-size: 14px;
     text-align: center;
+    background: transparent;
+    color: inherit;
 }
 
 .fcbo-bp-qty-input:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: var(--fcbo-focus);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--fcbo-focus) 25%, transparent);
 }
 
 /* Price cell */
@@ -136,7 +157,7 @@
 
 .fcbo-bp-checkout-btn {
     padding: 10px 28px;
-    background: #16a34a;
+    background: var(--fcbo-success);
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -147,10 +168,22 @@
 }
 
 .fcbo-bp-checkout-btn:hover {
-    background: #15803d;
+    background: var(--fcbo-success-hover);
 }
 
 .fcbo-bp-checkout-btn.fcbo-bp-loading {
     opacity: 0.6;
     cursor: wait;
+}
+
+/* Hue tuning only. Structure already adapts via currentColor above; this just
+   lifts the saturated green so it keeps contrast on a dark ground. Safe when a
+   light theme is viewed with OS dark mode — a slightly brighter green is still
+   perfectly legible on white. */
+@media (prefers-color-scheme: dark) {
+    .fcbo-bp-wrap {
+        --fcbo-success: #3fb950;
+        --fcbo-success-hover: #2ea043;
+        --fcbo-focus: #58a6ff;
+    }
 }

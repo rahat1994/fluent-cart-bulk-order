@@ -306,6 +306,131 @@
     font-weight: 600;
 }
 
+/* Quick order (paste / CSV) */
+.fcbo-quick-order {
+    margin-bottom: 16px;
+}
+
+.fcbo-quick-toggle {
+    background: none;
+    border: none;
+    padding: 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2271b1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fcbo-quick-toggle:hover {
+    color: #135e96;
+}
+
+.fcbo-quick-caret {
+    display: inline-block;
+    font-size: 11px;
+    transition: transform 0.15s;
+}
+
+.fcbo-quick-toggle[aria-expanded="true"] .fcbo-quick-caret {
+    transform: rotate(90deg);
+}
+
+.fcbo-quick-panel {
+    margin-top: 8px;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+.fcbo-quick-help {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #555;
+}
+
+.fcbo-quick-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.fcbo-quick-input:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.fcbo-quick-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.fcbo-quick-file-label {
+    font-size: 13px;
+    color: #555;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fcbo-quick-report {
+    margin-top: 14px;
+    font-size: 13px;
+}
+
+.fcbo-quick-report-summary {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.fcbo-quick-report-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.fcbo-quick-report-list li {
+    padding: 4px 8px;
+    border-radius: 3px;
+    margin-bottom: 3px;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.fcbo-quick-line {
+    color: #999;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+}
+
+.fcbo-quick-report-matched {
+    background: #f0faf0;
+    color: #1a7431;
+}
+
+.fcbo-quick-report-unknown,
+.fcbo-quick-report-ambiguous,
+.fcbo-quick-report-invalid {
+    background: #fef6e7;
+    color: #8a6d1a;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .fcbo-wrap {

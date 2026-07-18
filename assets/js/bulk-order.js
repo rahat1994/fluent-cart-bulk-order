@@ -12,6 +12,7 @@
         document.getElementById('fcbo-add-row').addEventListener('click', addRow);
         document.getElementById('fcbo-checkout').addEventListener('click', handleCheckout);
 
+        initQuickOrder();
         addRow();
     }
 
@@ -79,6 +80,258 @@
                 dropdown.style.display = 'none';
             }
         });
+
+        return tr;
+    }
+
+    // --- Quick Order (paste / CSV) ---
+
+    function initQuickOrder() {
+        var toggle = document.getElementById('fcbo-quick-toggle');
+        var panel = document.getElementById('fcbo-quick-panel');
+        var fileInput = document.getElementById('fcbo-quick-file');
+        var addBtn = document.getElementById('fcbo-quick-add');
+        var textarea = document.getElementById('fcbo-quick-input');
+        if (!toggle || !panel || !addBtn || !textarea) return;
+
+        toggle.addEventListener('click', function () {
+            var open = panel.hasAttribute('hidden');
+            if (open) {
+                panel.removeAttribute('hidden');
+            } else {
+                panel.setAttribute('hidden', '');
+            }
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                var file = fileInput.files && fileInput.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    textarea.value = String(reader.result || '');
+                };
+                reader.onerror = function () {
+                    renderQuickReport([], 0, 'Could not read the file. Please try again.');
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        addBtn.addEventListener('click', function () {
+            processQuickOrder(textarea.value || '');
+        });
+    }
+
+    // Split a CSV-ish line on , ; or tab, respecting double-quoted fields.
+    function splitFields(line) {
+        var result = [];
+        var cur = '';
+        var inQuotes = false;
+        for (var i = 0; i < line.length; i++) {
+            var ch = line.charAt(i);
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (line.charAt(i + 1) === '"') { cur += '"'; i++; }
+                    else { inQuotes = false; }
+                } else {
+                    cur += ch;
+                }
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ',' || ch === ';' || ch === '\t') {
+                result.push(cur);
+                cur = '';
+            } else {
+                cur += ch;
+            }
+        }
+        result.push(cur);
+        return result;
+    }
+
+    function parseQuickOrderLines(text) {
+        var lines = String(text).split(/\r\n|\r|\n/);
+        var records = [];
+        for (var i = 0; i < lines.length; i++) {
+            var raw = lines[i];
+            if (!raw || !raw.trim()) continue; // skip blank lines
+            var fields = splitFields(raw);
+            records.push({
+                lineNo: i + 1,
+                sku: (fields[0] || '').trim(),
+                qtyRaw: (fields[1] || '').trim()
+            });
+        }
+        return records;
+    }
+
+    // A valid quantity is a positive integer; anything else returns null.
+    function parseQty(qtyRaw) {
+        if (!/^\d+$/.test(qtyRaw)) return null;
+        var n = parseInt(qtyRaw, 10);
+        return n >= 1 ? n : null;
+    }
+
+    function processQuickOrder(text) {
+        var records = parseQuickOrderLines(text);
+        if (!records.length) {
+            renderQuickReport([], 0, 'Nothing to import. Paste some "SKU, quantity" lines first.');
+            return;
+        }
+
+        // Skip a header row: if the first of several lines has a non-numeric
+        // quantity, treat it as a header. A lone bad line is kept and reported.
+        if (records.length > 1 && records[0].sku && parseQty(records[0].qtyRaw) === null) {
+            records.shift();
+        }
+
+        // Distinct SKUs (case-insensitive) for a single batched resolve.
+        var seen = {};
+        var skus = [];
+        for (var i = 0; i < records.length; i++) {
+            var sku = records[i].sku;
+            if (!sku) continue;
+            var key = sku.toLowerCase();
+            if (seen[key]) continue;
+            seen[key] = true;
+            skus.push(sku);
+        }
+
+        if (!skus.length) {
+            var missing = [];
+            for (var m = 0; m < records.length; m++) {
+                missing.push({ lineNo: records[m].lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+            }
+            renderQuickReport(missing, 0);
+            return;
+        }
+
+        var addBtn = document.getElementById('fcbo-quick-add');
+        if (addBtn) { addBtn.disabled = true; }
+
+        fetch(CONFIG.rest_url + 'resolve-skus', {
+            method: 'POST',
+            headers: {
+                'X-WP-Nonce': CONFIG.nonce,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ skus: skus })
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            populateFromResolved(records, data.resolved || {});
+        })
+        .catch(function () {
+            renderQuickReport([], 0, 'Could not resolve SKUs. Please try again.');
+        })
+        .then(function () {
+            if (addBtn) { addBtn.disabled = false; }
+        });
+    }
+
+    // Reuse the first empty row, else append a new one.
+    function ensureRow() {
+        var rows = tbody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            if (!rows[i].dataset.variantId) {
+                return rows[i];
+            }
+        }
+        return addRow();
+    }
+
+    function populateFromResolved(records, resolved) {
+        var report = [];
+        var added = 0;
+
+        for (var i = 0; i < records.length; i++) {
+            var r = records[i];
+
+            if (!r.sku) {
+                report.push({ lineNo: r.lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+                continue;
+            }
+
+            var entry = resolved[r.sku.toLowerCase()];
+
+            if (!entry || entry.status === 'unknown') {
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'unknown', detail: 'No matching product' });
+                continue;
+            }
+
+            if (entry.status === 'ambiguous') {
+                var count = (entry.candidates || []).length;
+                report.push({
+                    lineNo: r.lineNo, sku: r.sku, status: 'ambiguous',
+                    detail: 'Matches ' + count + ' variants — add it manually'
+                });
+                continue;
+            }
+
+            var qty = parseQty(r.qtyRaw);
+            if (qty === null) {
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'invalid', detail: 'Invalid quantity "' + r.qtyRaw + '"' });
+                continue;
+            }
+
+            var data = entry.product;
+            var v = data.variant;
+            var row = ensureRow();
+            selectProduct(row, data);
+
+            // selectProduct locks subscription rows to qty 1; only override otherwise.
+            if (v.payment_type !== 'subscription') {
+                var qtyInput = row.querySelector('.fcbo-qty-input');
+                qtyInput.value = qty;
+                updateRowTotal(row);
+            }
+
+            added++;
+            var label = data.title;
+            if (v.variation_title && v.variation_title !== 'Default') {
+                label += ' — ' + v.variation_title;
+            }
+            var shownQty = v.payment_type === 'subscription' ? 1 : qty;
+            report.push({ lineNo: r.lineNo, sku: r.sku, status: 'matched', detail: label + ' × ' + shownQty });
+        }
+
+        updateGrandTotal();
+        renderQuickReport(report, added);
+    }
+
+    function renderQuickReport(report, added, errorMsg) {
+        var el = document.getElementById('fcbo-quick-report');
+        if (!el) return;
+
+        if (errorMsg) {
+            el.innerHTML = '<div class="fcbo-quick-report-summary">' + escapeHtml(errorMsg) + '</div>';
+            el.style.display = 'block';
+            return;
+        }
+
+        var skipped = 0;
+        for (var s = 0; s < report.length; s++) {
+            if (report[s].status !== 'matched') skipped++;
+        }
+
+        var summary = added + (added === 1 ? ' item added' : ' items added');
+        if (skipped) { summary += ', ' + skipped + ' skipped'; }
+
+        var html = '<div class="fcbo-quick-report-summary">' + escapeHtml(summary) + '</div>';
+        html += '<ul class="fcbo-quick-report-list">';
+        for (var i = 0; i < report.length; i++) {
+            var r = report[i];
+            html += '<li class="fcbo-quick-report-' + r.status + '">' +
+                '<span class="fcbo-quick-line">' + escapeHtml('Line ' + r.lineNo) + '</span>' +
+                '<span>' + escapeHtml((r.sku ? r.sku + ' — ' : '') + r.detail) + '</span>' +
+            '</li>';
+        }
+        html += '</ul>';
+
+        el.innerHTML = html;
+        el.style.display = 'block';
     }
 
     // --- Product Search ---

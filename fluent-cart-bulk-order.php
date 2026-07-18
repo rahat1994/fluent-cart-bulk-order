@@ -272,9 +272,19 @@ function fcbo_search_products(\WP_REST_Request $request)
 
     $products = $productModel::published()
         ->with(['detail', 'variants' => function ($query) {
-            $query->where('item_status', 'active');
+            $query->where('item_status', 'active')->with('media');
         }])
-        ->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%')
+        ->where(function ($q) use ($search) {
+            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
+            $q->where('post_title', 'LIKE', $like)
+              ->orWhereHas('variants', function ($vq) use ($like) {
+                  $vq->where('item_status', 'active')
+                     ->where(function ($inner) use ($like) {
+                         $inner->where('sku', 'LIKE', $like)
+                               ->orWhere('variation_title', 'LIKE', $like);
+                     });
+              });
+        })
         ->limit(20)
         ->get();
 
@@ -299,9 +309,22 @@ function fcbo_search_products(\WP_REST_Request $request)
             }
         }
 
+        // If the product matched on its title, show all variants (name search).
+        // If it matched only through a variant SKU / variation title, surface just
+        // the matching variant(s) so a SKU search returns the exact variant instead
+        // of every variant of the product.
+        $titleMatches = stripos($product->post_title, $search) !== false;
+
         $variants = [];
         if ($product->variants) {
             foreach ($product->variants as $variant) {
+                $variantMatches = ($variant->sku && stripos($variant->sku, $search) !== false)
+                    || ($variant->variation_title && stripos($variant->variation_title, $search) !== false);
+
+                if (!$titleMatches && !$variantMatches) {
+                    continue;
+                }
+
                 $variants[] = [
                     'id'              => $variant->id,
                     'variation_title' => $variant->variation_title ?: 'Default',
@@ -311,6 +334,7 @@ function fcbo_search_products(\WP_REST_Request $request)
                     'payment_type'    => $variant->payment_type ?: 'onetime',
                     'manage_stock'    => (int) ($variant->manage_stock ?? 0),
                     'available'       => (int) ($variant->available ?? 0),
+                    'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
                     'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id),
                 ];
             }
@@ -424,7 +448,17 @@ function fcbo_list_catalog(\WP_REST_Request $request)
         }]);
 
     if ($search && strlen($search) >= 2) {
-        $query->where('post_title', 'LIKE', '%' . $GLOBALS['wpdb']->esc_like($search) . '%');
+        $query->where(function ($q) use ($search) {
+            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
+            $q->where('post_title', 'LIKE', $like)
+              ->orWhereHas('variants', function ($vq) use ($like) {
+                  $vq->where('item_status', 'active')
+                     ->where(function ($inner) use ($like) {
+                         $inner->where('sku', 'LIKE', $like)
+                               ->orWhere('variation_title', 'LIKE', $like);
+                     });
+              });
+        });
     }
 
     $total = $query->count();

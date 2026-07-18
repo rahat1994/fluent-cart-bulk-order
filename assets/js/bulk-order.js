@@ -64,6 +64,15 @@
             updateGrandTotal();
         });
 
+        // Normalize on 'change' rather than 'input': 'change' fires when the
+        // value is committed (blur, Enter, spinner), so a half-typed "1" on the
+        // way to "12" is not snapped out from under the shopper mid-keystroke.
+        qtyInput.addEventListener('change', function () {
+            normalizeRowQty(tr, true);
+            updateRowTotal(tr);
+            updateGrandTotal();
+        });
+
         var debounceTimer = null;
         searchInput.addEventListener('input', function () {
             clearTimeout(debounceTimer);
@@ -285,9 +294,13 @@
             selectProduct(row, data);
 
             // selectProduct locks subscription rows to qty 1; only override otherwise.
+            var settledQty = qty;
             if (v.payment_type !== 'subscription') {
                 var qtyInput = row.querySelector('.fcbo-qty-input');
                 qtyInput.value = qty;
+                // Imported rows go through the same normalization as typed ones
+                // (R6). Silent here — the per-line report below carries the news.
+                settledQty = normalizeRowQty(row, false);
                 updateRowTotal(row);
             }
 
@@ -296,8 +309,12 @@
             if (v.variation_title && v.variation_title !== 'Default') {
                 label += ' — ' + v.variation_title;
             }
-            var shownQty = v.payment_type === 'subscription' ? 1 : qty;
-            report.push({ lineNo: r.lineNo, sku: r.sku, status: 'matched', detail: label + ' × ' + shownQty });
+            var shownQty = v.payment_type === 'subscription' ? 1 : settledQty;
+            var detail = label + ' × ' + shownQty;
+            if (settledQty !== qty && v.payment_type !== 'subscription') {
+                detail += ' (adjusted from ' + qty + ' to meet order rules)';
+            }
+            report.push({ lineNo: r.lineNo, sku: r.sku, status: 'matched', detail: detail });
         }
 
         updateGrandTotal();
@@ -427,6 +444,7 @@
         row.dataset.paymentType = v.payment_type;
         row.dataset.unitPrice = v.item_price;
         row.dataset.bulkTiers = JSON.stringify(v.bulk_tiers || []);
+        row.dataset.orderRules = JSON.stringify(v.order_rules || {});
 
         // SKU
         row.querySelector('.fcbo-sku-text').textContent = v.sku || '—';
@@ -443,15 +461,22 @@
             imgWrap.innerHTML = '—';
         }
 
-        // Qty
+        // Qty — the resolved rule drives the spinner's own min/step, so the
+        // browser's arrows already move in valid increments.
         var qtyInput = row.querySelector('.fcbo-qty-input');
+        var rules = orderRulesFor(row);
         qtyInput.disabled = false;
 
         if (v.payment_type === 'subscription') {
+            // Subscriptions are always a single unit, so order rules do not apply.
+            qtyInput.min = 1;
+            qtyInput.step = 1;
             qtyInput.value = 1;
             qtyInput.disabled = true;
         } else {
-            qtyInput.value = 1;
+            qtyInput.min = Math.max(1, rules.min_qty || 0);
+            qtyInput.step = rules.step;
+            qtyInput.value = normalizeQty(1, rules);
         }
 
         updateRowTotal(row);
@@ -461,6 +486,11 @@
     // --- Save order ---
 
     function handleSaveOrder() {
+        // Store rule-valid quantities so a later reorder is not rejected by the
+        // server gate for a violation introduced at save time. Silent: saving is
+        // not the moment to interrupt with a rounding notice.
+        normalizeAllRows(false);
+
         var rows = tbody.querySelectorAll('tr');
 
         // Collect non-empty rows, consolidating duplicate variants (as checkout does).
@@ -523,6 +553,13 @@
     // --- Checkout ---
 
     function handleCheckout() {
+        // Bring every row into rule first — including rows populated by CSV
+        // import that the shopper never focused (R6). If anything moved, stop
+        // and let them see the corrected totals before committing.
+        if (normalizeAllRows(true)) {
+            return;
+        }
+
         var rows = tbody.querySelectorAll('tr');
         var items = [];
         var hasSubscription = false;
@@ -554,6 +591,22 @@
         if (hasSubscription && hasOnetime) {
             showStatus('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'error');
             return;
+        }
+
+        // Order-total floor. CONFIG.min_order_total is already 0 for shoppers the
+        // policy does not cover, so no role logic is needed here. The server
+        // re-checks this at checkout — this is only to save a wasted round trip.
+        var minOrderTotal = parseInt(CONFIG.min_order_total, 10) || 0;
+        if (minOrderTotal > 0) {
+            var grandTotal = computeGrandTotal();
+            if (grandTotal < minOrderTotal) {
+                showStatus(
+                    'Add ' + formatPrice(minOrderTotal - grandTotal) + ' more to reach the ' +
+                    formatPrice(minOrderTotal) + ' minimum order total.',
+                    'error'
+                );
+                return;
+            }
         }
 
         // Consolidate duplicate variants
@@ -677,6 +730,88 @@
         }
     }
 
+    // --- Order rules ---
+
+    // Mirrors PHP fcbo_normalize_order_rules(): coerce whatever the row carries
+    // into a usable pair, defaulting to the no-op rule.
+    function orderRulesFor(row) {
+        var raw = {};
+        try {
+            raw = JSON.parse(row.dataset.orderRules || '{}') || {};
+        } catch (e) {
+            raw = {};
+        }
+        return {
+            min_qty: Math.max(0, parseInt(raw.min_qty, 10) || 0),
+            step: Math.max(1, parseInt(raw.step, 10) || 1)
+        };
+    }
+
+    // Mirrors PHP fcbo_normalize_qty(). Rounds UP only — a shopper is never
+    // silently given less than they asked for. Keep in lock-step with the PHP
+    // helper; the server rejects anything this function would have changed.
+    function normalizeQty(qty, rules) {
+        qty = Math.max(1, parseInt(qty, 10) || 1, rules.min_qty);
+        if (rules.step > 1) {
+            qty = Math.ceil(qty / rules.step) * rules.step;
+        }
+        return qty;
+    }
+
+    // Correct a row's quantity in place, announcing the change only when one
+    // actually happened. Returns the settled quantity.
+    function normalizeRowQty(row, announce) {
+        var input = row.querySelector('.fcbo-qty-input');
+        if (!input || input.disabled || !row.dataset.variantId) {
+            return parseInt(input && input.value, 10) || 1;
+        }
+
+        var rules = orderRulesFor(row);
+        var entered = parseInt(input.value, 10) || 0;
+        var settled = normalizeQty(entered, rules);
+
+        if (settled !== entered) {
+            input.value = settled;
+            if (announce) {
+                showStatus(describeQtyAdjustment(entered, settled, rules), 'error');
+            }
+        }
+
+        return settled;
+    }
+
+    function describeQtyAdjustment(entered, settled, rules) {
+        if (rules.step > 1 && rules.min_qty > 0 && entered < rules.min_qty) {
+            return 'Minimum order is ' + rules.min_qty + ', in multiples of ' +
+                rules.step + '. Quantity set to ' + settled + '.';
+        }
+        if (rules.step > 1) {
+            return 'Sold in multiples of ' + rules.step + '. Quantity rounded up to ' + settled + '.';
+        }
+        return 'Minimum order quantity is ' + rules.min_qty + '. Quantity set to ' + settled + '.';
+    }
+
+    // Normalize every populated row — used before checkout and after a bulk
+    // import, so rows the user never touched are still brought into rule (R6).
+    function normalizeAllRows(announce) {
+        var rows = tbody.querySelectorAll('tr');
+        var changed = false;
+        for (var i = 0; i < rows.length; i++) {
+            var input = rows[i].querySelector('.fcbo-qty-input');
+            var before = parseInt(input && input.value, 10) || 0;
+            if (normalizeRowQty(rows[i], false) !== before) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            updateGrandTotal();
+            if (announce) {
+                showStatus('Some quantities were adjusted to meet this store\'s order rules.', 'error');
+            }
+        }
+        return changed;
+    }
+
     // --- Totals ---
 
     function updateRowTotal(row) {
@@ -705,7 +840,11 @@
         row.querySelector('.fcbo-total-text').textContent = formatPrice(total);
     }
 
-    function updateGrandTotal() {
+    // Sum of discounted line totals, in cents. Split out from updateGrandTotal()
+    // so the checkout gate can compare against the same number the shopper sees.
+    // This basis matches the server's Cart::getItemsSubtotal() — bulk-discounted
+    // line prices, before coupons, shipping, and tax — so the two gates agree.
+    function computeGrandTotal() {
         var rows = tbody.querySelectorAll('tr');
         var grandTotal = 0;
         for (var i = 0; i < rows.length; i++) {
@@ -715,7 +854,11 @@
             var effectivePrice = getEffectivePrice(unitPrice, qty, tiers);
             grandTotal += effectivePrice * qty;
         }
-        document.getElementById('fcbo-grand-total').textContent = formatPrice(grandTotal);
+        return grandTotal;
+    }
+
+    function updateGrandTotal() {
+        document.getElementById('fcbo-grand-total').textContent = formatPrice(computeGrandTotal());
     }
 
     // --- Helpers ---

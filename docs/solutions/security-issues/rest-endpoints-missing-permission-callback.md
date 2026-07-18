@@ -1,7 +1,7 @@
 ---
 title: "Unprotected REST routes leaked catalog and wholesale pricing via __return_true"
 date: 2026-07-18
-category: docs/solutions/security-issues
+category: security-issues
 module: fluent-cart-bulk-order
 problem_type: security_issue
 component: authentication
@@ -71,11 +71,11 @@ register_rest_route('fcbo/v1', '/catalog', [
 ```
 
 After — shared helpers plus a callback that distinguishes 401 from 403
-(`fluent-cart-bulk-order.php:75`, `:85`, `:109`):
+(`fluent-cart-bulk-order.php:112`, `:136`, `:260`):
 
 ```php
 function fcbo_get_allowed_roles() {
-    // single source of truth, filterable for extension (fluent-cart-bulk-order.php:77)
+    // single source of truth, filterable for extension (fluent-cart-bulk-order.php:114)
     return apply_filters('fcbo/allowed_roles', ['administrator', 'wholesale-customer']);
 }
 
@@ -100,9 +100,16 @@ function fcbo_rest_permission_check() {
 }
 ```
 
-Both routes then use `'permission_callback' => 'fcbo_rest_permission_check'`
-(`fluent-cart-bulk-order.php:229`, `:241`), and the two shortcode guards were refactored to
-call the same `fcbo_current_user_can_access()` so the allowed-role list has one definition.
+Both routes then use `'permission_callback' => 'fcbo_rest_permission_check'`, and the two
+shortcode guards were refactored to call the same `fcbo_current_user_can_access()` so the
+allowed-role list has one definition.
+
+**The convention held as the surface grew.** This note was written when the plugin had two
+REST routes. It now registers five (`/products`, `/catalog`, `/resolve-skus`, `/saved-lists`,
+`/past-orders`) across seven method registrations, and all seven `permission_callback` entries
+are `fcbo_rest_permission_check` — `__return_true` no longer appears in any PHP file in the
+repo. That is the outcome this fix was meant to produce. Re-confirm it with the grep below
+whenever new routes land rather than assuming it persists.
 
 Note the message strings use `__()` (not `esc_html__()`): these serialize into a JSON REST
 error body, where HTML-escaping would turn apostrophes into literal `&#039;` entities. The
@@ -130,6 +137,14 @@ Verified live in WordPress across all four principals: logged-out → `401`, `su
   shipping: `grep -rn "__return_true" .`
 - **Gate the data, not just the UI.** If a shortcode/page is role-restricted, its backing
   REST route or AJAX handler must enforce the *same* restriction independently.
+- **When the operation belongs to the host plugin, there is no route to gate.** The two
+  prevention checks above only ever inspect routes *this* plugin registers, so both pass
+  clean while a host-owned mutation path sits completely ungated — FluentCart's cart-add,
+  for instance, registers no REST route at all and runs through the host's own AJAX handler.
+  Enforcement there moves from a `permission_callback` to a host filter whose return value
+  the host actually checks; see
+  [`architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout`](../architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout.md)
+  for how to identify one and which FluentCart hooks qualify.
 - **Authenticate *and* authorize.** `is_user_logged_in()` alone is not access control on a
   site that allows self-registration; check the role/capability.
 - **Prefer `is_super_admin()` / capability checks over bare role-slug lists** where multisite
@@ -141,7 +156,13 @@ Verified live in WordPress across all four principals: logged-out → `401`, `su
 
 - Fixed in PR #2 (`fix/rest-api-permission-lockdown`), merged to `development`.
 - Plan: `docs/plans/2026-07-18-001-fix-rest-api-permission-lockdown-plan.md`.
-- **Known adjacent gap (not fixed here):** the single-product bulk-pricing display
-  (`fcbo_render_single_product_tiers`, `fluent-cart-bulk-order.php:656`) still renders the
-  same discount-tier data publicly on product pages. Closing that is tracked in
-  `docs/plans/2026-07-18-002-feat-role-based-discount-gating-plan.md`.
+- **Formerly-adjacent gap — now governed, no longer unconditional.** This note originally
+  recorded that the single-product bulk-pricing display rendered the same discount-tier data
+  publicly on product pages. That is no longer accurate: `fcbo_render_single_product_tiers()`
+  (`fluent-cart-bulk-order.php:1462`) now returns early unless
+  `fcbo_user_qualifies_for_bulk_pricing(null, 'display')` passes (`:1470`), which is the
+  gating Plan 002 tracked. Read the remaining exposure precisely: the mechanism exists and is
+  enforced, but the policy's default is an empty role list meaning *everyone qualifies*, so a
+  store that has not configured roles still renders tiers to anonymous visitors. The gap moved
+  from "unclosable without code" to "closed by configuring the role policy" — worth knowing
+  before treating this bullet as an open finding.

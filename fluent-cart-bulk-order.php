@@ -64,6 +64,38 @@ add_action('plugins_loaded', function () {
     // Apply bulk pricing discount when items are added/updated in FluentCart's cart
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
 
+    // ---- Server-side order-rule enforcement (Plan 009 · R5) ----
+    //
+    // These two filters are the authoritative gate. Everything the JS does about
+    // min-qty, case-pack steps, and the order minimum is convenience only and is
+    // assumed bypassable; a crafted request is stopped here.
+    //
+    // `fluent_cart/variation/can_purchase_bundle` is named for bundles but is NOT
+    // bundle-specific — it fires inside the generic ProductVariation::canPurchase()
+    // (fluent-cart/app/Models/ProductVariation.php:270), so it reaches every caller
+    // of that method. Do not "correct" it to a more obvious-sounding hook — the
+    // obvious ones cannot veto. Returning a WP_Error preserves our message;
+    // returning bare `false` would be replaced with FluentCart's generic
+    // out-of-stock text.
+    //
+    // Covered: normal add-to-cart (via Cart::addByVariation) and instant checkout
+    // (CartResource::generateCartForInstantCheckout, which tests is_wp_error).
+    //
+    // NOT covered — order bump / variation upgrade. WebCheckoutHandler.php:1065
+    // guards with `!$productVariation->canPurchase()`, and a WP_Error object is
+    // truthy in PHP, so our refusal is discarded and the item is added anyway.
+    // That path also passes no quantity, so there is nothing for a quantity rule
+    // to judge. This is a host-side defect an extension cannot fix from a filter;
+    // it is documented rather than worked around. See
+    // docs/solutions/architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout.md
+    add_filter('fluent_cart/variation/can_purchase_bundle', 'fcbo_validate_cart_item_rules', 10, 2);
+
+    // Checkout backstop for the order minimum. Chosen over
+    // `fluent_cart/checkout/validate_before_process` because this one receives the
+    // resolved $cart, which a whole-cart total rule needs
+    // (fluent-cart/api/Checkout/CheckoutApi.php:1039).
+    add_filter('fluent_cart/checkout/validate_data', 'fcbo_validate_checkout_minimum', 10, 2);
+
     // Admin settings page for the "apply bulk pricing to roles" policy.
     require_once FCBO_DIR . 'includes/Settings.php';
     (new \FluentCartBulkOrder\Settings())->register();
@@ -317,6 +349,9 @@ function fcbo_render_shortcode($atts = [])
         'nonce'         => wp_create_nonce('wp_rest'),
         'checkout_url'  => esc_url_raw($checkout_url),
         'currency_sign' => $currency_sign,
+        // Order-total floor for this shopper. Sent as 0 when they are not
+        // subject, so the client never has to reason about role policy.
+        'min_order_total' => fcbo_user_subject_to_min_order() ? fcbo_get_min_order_total() : 0,
     ]);
 
     ob_start();
@@ -590,6 +625,7 @@ function fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles
         'available'       => (int) ($variant->available ?? 0),
         'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
         'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles),
+        'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
     ];
 }
 
@@ -948,6 +984,14 @@ function fcbo_list_catalog(\WP_REST_Request $request)
         ->limit($per_page)
         ->get();
 
+    // One batched lookup for the whole page, so per-variant rule resolution below
+    // costs no extra queries (same pattern as the /products search endpoint).
+    $productIds = [];
+    foreach ($products as $product) {
+        $productIds[] = $product->ID;
+    }
+    $pricingData = fcbo_get_all_bulk_pricing($productIds);
+
     $results = [];
     foreach ($products as $product) {
         $variants = [];
@@ -960,6 +1004,7 @@ function fcbo_list_catalog(\WP_REST_Request $request)
                     'stock_status'    => $variant->stock_status ?: 'in-stock',
                     'manage_stock'    => (int) ($variant->manage_stock ?? 0),
                     'available'       => (int) ($variant->available ?? 0),
+                    'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
                 ];
             }
         }
@@ -1002,10 +1047,15 @@ function fcbo_get_all_bulk_pricing($productIds)
             $enabled      = !empty($feedData['enabled']) && $feedData['enabled'] === 'yes';
             $hasTiers     = !empty($feedData['tiers']);
             $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
-            if ($enabled && ($hasTiers || $hasRoleTiers)) {
+            // A feed carrying only order rules (no tiers at all) is still live
+            // content — dropping it here would silently disable the rules.
+            $rules        = fcbo_normalize_order_rules($feedData['order_rules'] ?? []);
+            $hasRules     = fcbo_order_rules_are_set($rules);
+            if ($enabled && ($hasTiers || $hasRoleTiers || $hasRules)) {
                 $globalTiers = [
-                    'tiers'      => $hasTiers ? $feedData['tiers'] : [],
-                    'role_tiers' => $hasRoleTiers ? $feedData['role_tiers'] : [],
+                    'tiers'       => $hasTiers ? $feedData['tiers'] : [],
+                    'role_tiers'  => $hasRoleTiers ? $feedData['role_tiers'] : [],
+                    'order_rules' => $rules,
                 ];
             }
         }
@@ -1024,7 +1074,10 @@ function fcbo_get_all_bulk_pricing($productIds)
             $feedData     = $feed->meta_value;
             $hasTiers     = !empty($feedData['tiers']);
             $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
-            if (empty($feedData['enabled']) || $feedData['enabled'] !== 'yes' || (!$hasTiers && !$hasRoleTiers)) {
+            // As above: rules-only feeds must survive this filter.
+            $rules        = fcbo_normalize_order_rules($feedData['order_rules'] ?? []);
+            $hasRules     = fcbo_order_rules_are_set($rules);
+            if (empty($feedData['enabled']) || $feedData['enabled'] !== 'yes' || (!$hasTiers && !$hasRoleTiers && !$hasRules)) {
                 continue;
             }
 
@@ -1042,6 +1095,7 @@ function fcbo_get_all_bulk_pricing($productIds)
                 'variant_ids' => $variantIds,
                 'tiers'       => $hasTiers ? $feedData['tiers'] : [],
                 'role_tiers'  => $hasRoleTiers ? $feedData['role_tiers'] : [],
+                'order_rules' => $rules,
             ];
         }
     }
@@ -1075,22 +1129,136 @@ function fcbo_get_all_bulk_pricing($productIds)
  */
 function fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles = null)
 {
+    $feed = fcbo_match_feed($pricingData, $productId, $variantId);
+
+    return $feed ? fcbo_select_role_tier_set($feed, $userRoles) : [];
+}
+
+/**
+ * Find the one feed that governs a variant: product-scoped beats global.
+ *
+ * The single home for feed precedence. Tiers (fcbo_resolve_tiers) and order
+ * rules (fcbo_resolve_order_rules) both route through here so the two can never
+ * disagree about which feed applies to a given variant.
+ *
+ * Precedence is winner-takes-all, matching the long-standing tier behavior: the
+ * first matching product feed wins outright and the global feed is not consulted
+ * for anything it left unset. A product feed therefore fully replaces the global
+ * one rather than layering on top of it.
+ *
+ * @param array $pricingData From fcbo_get_all_bulk_pricing().
+ * @param int   $productId
+ * @param int   $variantId
+ * @return array|null The governing feed, or null when none applies.
+ */
+function fcbo_match_feed($pricingData, $productId, $variantId)
+{
     // Check product-level feeds first
     if (!empty($pricingData['product'][$productId])) {
         foreach ($pricingData['product'][$productId] as $feed) {
             // Empty variant_ids means applies to all variants
             if (empty($feed['variant_ids']) || in_array((int) $variantId, $feed['variant_ids'], true)) {
-                return fcbo_select_role_tier_set($feed, $userRoles);
+                return $feed;
             }
         }
     }
 
     // Fall back to the global feed
     if (!empty($pricingData['global'])) {
-        return fcbo_select_role_tier_set($pricingData['global'], $userRoles);
+        return $pricingData['global'];
     }
 
-    return [];
+    return null;
+}
+
+/**
+ * Resolve the effective order rules (minimum qty + case-pack step) for a variant.
+ *
+ * Shares fcbo_match_feed()'s precedence with fcbo_resolve_tiers(), so the feed
+ * that prices a variant is always the feed that constrains its quantity. A
+ * variant with no governing feed gets the no-op defaults.
+ *
+ * @param array $pricingData From fcbo_get_all_bulk_pricing().
+ * @param int   $productId
+ * @param int   $variantId
+ * @return array{min_qty:int, step:int}
+ */
+function fcbo_resolve_order_rules($pricingData, $productId, $variantId)
+{
+    $feed = fcbo_match_feed($pricingData, $productId, $variantId);
+
+    return fcbo_normalize_order_rules($feed['order_rules'] ?? []);
+}
+
+/**
+ * Coerce a stored/raw order-rule pair into clamped integers.
+ *
+ * Mirrors BulkPricingIntegration::sanitizeOrderRules() so data that predates the
+ * feature — or that was written by hand — still reads as the no-op default
+ * rather than as a rule of 0 multiples.
+ *
+ * @param mixed $rules
+ * @return array{min_qty:int, step:int}
+ */
+function fcbo_normalize_order_rules($rules)
+{
+    $rules = is_array($rules) ? $rules : [];
+
+    return [
+        'min_qty' => max(0, (int) ($rules['min_qty'] ?? 0)),
+        'step'    => max(1, (int) ($rules['step'] ?? 1)),
+    ];
+}
+
+/**
+ * Whether a rule pair actually constrains anything.
+ *
+ * @param array $rules Normalized rules.
+ * @return bool
+ */
+function fcbo_order_rules_are_set($rules)
+{
+    return ($rules['min_qty'] ?? 0) > 0 || ($rules['step'] ?? 1) > 1;
+}
+
+/**
+ * Round a quantity up to the nearest value the rules permit.
+ *
+ * This is the ONE place in PHP the normalization formula lives; the JS surfaces
+ * mirror it exactly and MUST change together with it. Rounding is always
+ * upward — never downward — so a shopper is never silently given less than they
+ * asked for.
+ *
+ * @param int   $qty
+ * @param array $rules Normalized rules.
+ * @return int Smallest permitted quantity >= $qty (always >= 1).
+ */
+function fcbo_normalize_qty($qty, $rules)
+{
+    $rules = fcbo_normalize_order_rules($rules);
+    $qty   = max(1, (int) $qty, $rules['min_qty']);
+
+    if ($rules['step'] > 1) {
+        $qty = (int) (ceil($qty / $rules['step']) * $rules['step']);
+    }
+
+    return $qty;
+}
+
+/**
+ * Whether a quantity exactly satisfies the rules (server-side gate).
+ *
+ * Deliberately strict where fcbo_normalize_qty() is forgiving: the client
+ * corrects a typo in place, the server refuses anything that did not come
+ * through that correction (KTD4).
+ *
+ * @param int   $qty
+ * @param array $rules Normalized rules.
+ * @return bool
+ */
+function fcbo_qty_is_valid($qty, $rules)
+{
+    return (int) $qty === fcbo_normalize_qty($qty, $rules);
 }
 
 /**
@@ -1499,6 +1667,58 @@ function fcbo_user_qualifies_for_bulk_pricing($user = null, $context = 'cart')
 }
 
 /**
+ * The configured minimum order total, in integer cents.
+ *
+ * Stored as `fcbo_min_order_total`. Zero (the default) means no floor for
+ * anyone, which preserves pre-Plan-009 behavior on upgrade.
+ *
+ * @return int Cents; 0 = no minimum.
+ */
+function fcbo_get_min_order_total()
+{
+    return max(0, (int) get_option('fcbo_min_order_total', 0));
+}
+
+/**
+ * Roles the minimum order total applies to.
+ *
+ * Deliberately a SEPARATE option from `fcbo_apply_to_roles` (KTD5): a store
+ * commonly wants to require a minimum of its wholesale buyers without also
+ * restricting who receives bulk discounts. Unlike the bulk-pricing policy, an
+ * empty list here means "nobody is subject" rather than "everyone" — an
+ * unconfigured minimum must never start blocking retail checkouts on upgrade.
+ *
+ * @return string[] Role slugs; empty = nobody is subject.
+ */
+function fcbo_get_min_order_total_roles()
+{
+    return (array) get_option('fcbo_min_order_total_roles', []);
+}
+
+/**
+ * Whether a user must meet the minimum order total.
+ *
+ * Mirrors fcbo_user_qualifies_for_bulk_pricing()'s shape — including the
+ * escape-hatch filter — but NOT its empty-list semantics; see
+ * fcbo_get_min_order_total_roles() for why the defaults invert.
+ *
+ * @param \WP_User|null $user Defaults to the current user.
+ * @return bool
+ */
+function fcbo_user_subject_to_min_order($user = null)
+{
+    if ($user === null) {
+        $user = wp_get_current_user();
+    }
+
+    $roles     = fcbo_get_min_order_total_roles();
+    $userRoles = isset($user->roles) ? (array) $user->roles : [];
+    $subject   = !empty($roles) && (bool) array_intersect($roles, $userRoles);
+
+    return (bool) apply_filters('fcbo/user_subject_to_min_order', $subject, $user);
+}
+
+/**
  * FluentCart filter callback: apply bulk pricing discount to cart item price.
  *
  * Fires when an item is added or its quantity is updated in the cart.
@@ -1544,6 +1764,138 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     }
 
     return $variation;
+}
+
+/* -------------------------------------------------------------------------
+ * Order rules — server-side enforcement (Plan 009 · R5)
+ *
+ * The authoritative gate. The JS equivalents in bulk-order.js / product-table.js
+ * exist to correct honest mistakes in place; these two callbacks exist to refuse
+ * everything else. Keep the two in lock-step: fcbo_normalize_qty() is the shared
+ * formula, mirrored in JS as normalizeQty().
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Format an integer-cents amount for display in a shopper-facing message.
+ *
+ * @param int $cents
+ * @return string
+ */
+function fcbo_format_money($cents)
+{
+    return fcbo_get_currency_sign() . number_format(((int) $cents) / 100, 2);
+}
+
+/**
+ * Reject an add-to-cart whose quantity violates the variant's order rules.
+ *
+ * Bound to `fluent_cart/variation/can_purchase_bundle`, which despite its name
+ * fires inside the generic ProductVariation::canPurchase() and therefore covers
+ * every add path (see the registration comment for the full rationale).
+ *
+ * @param mixed $result  Prior verdict: null (undecided), false, or WP_Error.
+ * @param array $context ['variation' => object, 'quantity' => int]
+ * @return mixed WP_Error to veto; the untouched $result otherwise.
+ */
+function fcbo_validate_cart_item_rules($result, $context)
+{
+    // Never override a veto another party already cast (e.g. out of stock).
+    if (is_wp_error($result) || $result === false) {
+        return $result;
+    }
+
+    $variation = isset($context['variation']) ? $context['variation'] : null;
+    $qty       = (int) ($context['quantity'] ?? 0);
+
+    if (!$variation || empty($variation->id) || $qty < 1) {
+        return $result;
+    }
+
+    $productId = (int) $variation->post_id;
+    $variantId = (int) $variation->id;
+
+    $rules = fcbo_resolve_order_rules(fcbo_get_all_bulk_pricing([$productId]), $productId, $variantId);
+
+    if (!fcbo_order_rules_are_set($rules) || fcbo_qty_is_valid($qty, $rules)) {
+        return $result;
+    }
+
+    return new \WP_Error('fcbo_order_rule', fcbo_describe_qty_violation($qty, $rules));
+}
+
+/**
+ * Shopper-facing explanation of why a quantity was refused.
+ *
+ * Always names the nearest acceptable quantity so the message is actionable
+ * rather than merely a rejection.
+ *
+ * @param int   $qty   The rejected quantity.
+ * @param array $rules Normalized rules.
+ * @return string
+ */
+function fcbo_describe_qty_violation($qty, $rules)
+{
+    $rules     = fcbo_normalize_order_rules($rules);
+    $suggested = fcbo_normalize_qty($qty, $rules);
+
+    if ($rules['min_qty'] > 0 && $rules['step'] > 1) {
+        /* translators: 1: minimum quantity, 2: case-pack size, 3: nearest valid quantity */
+        $format = __('This product has a minimum of %1$d and is sold in multiples of %2$d. Try %3$d.', 'fluent-cart-bulk-order');
+        return sprintf($format, $rules['min_qty'], $rules['step'], $suggested);
+    }
+
+    if ($rules['step'] > 1) {
+        /* translators: 1: case-pack size, 2: nearest valid quantity */
+        $format = __('This product is sold in multiples of %1$d. Try %2$d.', 'fluent-cart-bulk-order');
+        return sprintf($format, $rules['step'], $suggested);
+    }
+
+    /* translators: 1: minimum quantity */
+    return sprintf(__('This product has a minimum order quantity of %1$d.', 'fluent-cart-bulk-order'), $rules['min_qty']);
+}
+
+/**
+ * Block checkout when a subject shopper's cart is under the order minimum.
+ *
+ * Bound to `fluent_cart/checkout/validate_data`, which receives the resolved
+ * cart and halts checkout when the returned error array is non-empty.
+ *
+ * The comparison basis is the items subtotal — bulk-discounted line prices,
+ * before coupons, shipping, and tax. That deliberately matches what the Bulk
+ * Order Form shows as its grand total, so the client-side warning and this gate
+ * can never disagree about whether a cart clears the floor.
+ *
+ * @param array $errors  Accumulated validation errors (nested: field => code => msg).
+ * @param array $context ['data' => array, 'cart' => object]
+ * @return array
+ */
+function fcbo_validate_checkout_minimum($errors, $context)
+{
+    $minimum = fcbo_get_min_order_total();
+    if ($minimum <= 0 || !fcbo_user_subject_to_min_order()) {
+        return $errors;
+    }
+
+    $cart = isset($context['cart']) ? $context['cart'] : null;
+    if (!$cart || !method_exists($cart, 'getItemsSubtotal')) {
+        return $errors;
+    }
+
+    $subtotal = (int) $cart->getItemsSubtotal();
+    if ($subtotal >= $minimum) {
+        return $errors;
+    }
+
+    /* translators: 1: shortfall amount, 2: minimum order total */
+    $format = __('Add %1$s more to reach the %2$s minimum order total.', 'fluent-cart-bulk-order');
+
+    $errors['fcbo_min_order_total']['minimum'] = sprintf(
+        $format,
+        fcbo_format_money($minimum - $subtotal),
+        fcbo_format_money($minimum)
+    );
+
+    return $errors;
 }
 
 /* -------------------------------------------------------------------------

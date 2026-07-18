@@ -123,7 +123,57 @@ class BulkPricingIntegration extends BaseIntegrationManager
             unset($data['role_tiers']);
         }
 
+        $data['event_trigger'] = $this->describeVariationScope($data);
+
         return $data;
+    }
+
+    /**
+     * Human-readable labels for the variations this feed is scoped to.
+     *
+     * The product Integrations list renders its "Triggers" column directly from
+     * `feed.event_trigger`. Bulk pricing has no order-event triggers, so that
+     * column is otherwise blank — while the thing that actually decides when this
+     * feed applies IS the variation selection. So we surface those names there.
+     *
+     * Reusing this key is safe: both dispatch paths that read it
+     * (IntegrationEventListener and GlobalNotificationHandler::triggerNotification)
+     * test it with in_array($hook, $triggers) against full hook strings such as
+     * "fluent_cart/order_paid", which a variation title will never equal — and
+     * processAction() is a no-op for this integration in any case.
+     *
+     * Note: this is computed at save time, so an existing feed shows its
+     * variations in the list only after it is next saved.
+     *
+     * @param array $data Feed data (post-whitelist, so conditional_variation_ids is present).
+     * @return string[] Labels for the Triggers column.
+     */
+    private function describeVariationScope($data)
+    {
+        $ids = [];
+        if (!empty($data['conditional_variation_ids']) && is_array($data['conditional_variation_ids'])) {
+            $ids = array_values(array_filter(array_map('intval', $data['conditional_variation_ids'])));
+        }
+
+        // Empty selection means the feed runs for every variation.
+        if (empty($ids)) {
+            return [__('All variations', 'fluent-cart-bulk-order')];
+        }
+
+        $variants = \FluentCart\App\Models\ProductVariation::query()
+            ->whereIn('id', $ids)
+            ->get();
+
+        $names = [];
+        foreach ($variants as $variant) {
+            $title = $variant->variation_title;
+            $names[] = ($title === null || $title === '') ? '#' . $variant->id : $title;
+        }
+
+        // A variation that no longer exists simply drops out of the list.
+        sort($names);
+
+        return $names;
     }
 
     /**

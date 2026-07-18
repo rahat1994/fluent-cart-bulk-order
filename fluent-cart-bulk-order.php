@@ -62,6 +62,10 @@ add_action('plugins_loaded', function () {
 
     // Apply bulk pricing discount when items are added/updated in FluentCart's cart
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
+
+    // Admin settings page for the "apply bulk pricing to roles" policy.
+    require_once FCBO_DIR . 'includes/Settings.php';
+    (new \FluentCartBulkOrder\Settings())->register();
 });
 
 /**
@@ -659,6 +663,12 @@ function fcbo_render_single_product_tiers($args)
         return;
     }
 
+    // Hide the tier tables/order widget from shoppers the policy excludes.
+    // Administrators can always preview the display (R5).
+    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'display')) {
+        return;
+    }
+
     $product = $args['product'];
     $pricingData = fcbo_get_all_bulk_pricing([$product->ID]);
     $isSimple = isset($product->detail->variation_type) && $product->detail->variation_type === 'simple';
@@ -804,6 +814,60 @@ function fcbo_render_single_product_tiers($args)
 }
 
 /**
+ * Role slugs that bulk pricing is restricted to.
+ *
+ * Stored as the top-level option `fcbo_apply_to_roles`. An empty array means the
+ * policy is open to everyone — the default, which preserves the pre-policy
+ * behavior on upgrade. Do not change this default.
+ *
+ * @return string[] Role slugs; empty array = everyone qualifies.
+ */
+function fcbo_get_bulk_pricing_roles()
+{
+    return (array) get_option('fcbo_apply_to_roles', []);
+}
+
+/**
+ * Whether a user qualifies for bulk pricing under the stored role policy.
+ *
+ * Truth table:
+ *   - Empty role list                      => true (everyone; default, R3).
+ *   - Context 'display' + administrator    => true (admins can always preview, R5).
+ *   - Otherwise                            => true iff the user holds an allowed role.
+ *
+ * The administrator display exception is intentionally NOT applied on the 'cart'
+ * context: an admin's real order must reflect the real policy (KTD4). Do not
+ * "make it consistent" by extending the admin short-circuit to the cart path.
+ *
+ * The result passes through the `fcbo/user_qualifies_for_bulk_pricing` filter so
+ * developers can implement custom logic (e.g. per-customer overrides) without
+ * editing core (R4).
+ *
+ * @param \WP_User|null $user    User to test; defaults to the current user.
+ * @param string        $context 'cart' (enforcement) or 'display' (preview).
+ * @return bool
+ */
+function fcbo_user_qualifies_for_bulk_pricing($user = null, $context = 'cart')
+{
+    if ($user === null) {
+        $user = wp_get_current_user();
+    }
+
+    $roles = fcbo_get_bulk_pricing_roles();
+    $userRoles = isset($user->roles) ? (array) $user->roles : [];
+
+    if (empty($roles)) {
+        $qualifies = true;
+    } elseif ($context === 'display' && in_array('administrator', $userRoles, true)) {
+        $qualifies = true;
+    } else {
+        $qualifies = (bool) array_intersect($roles, $userRoles);
+    }
+
+    return (bool) apply_filters('fcbo/user_qualifies_for_bulk_pricing', $qualifies, $user, $context);
+}
+
+/**
  * FluentCart filter callback: apply bulk pricing discount to cart item price.
  *
  * Fires when an item is added or its quantity is updated in the cart.
@@ -816,6 +880,12 @@ function fcbo_render_single_product_tiers($args)
 function fcbo_apply_cart_bulk_pricing($variation, $context)
 {
     if (!$variation || empty($context['quantity'])) {
+        return $variation;
+    }
+
+    // Gate the discount by the stored role policy. Non-qualifying shoppers keep
+    // the full price. Admins are NOT exempt on the cart path (KTD4).
+    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
         return $variation;
     }
 

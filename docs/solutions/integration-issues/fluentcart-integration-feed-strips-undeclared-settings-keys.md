@@ -52,7 +52,7 @@ Per-role bulk pricing (`role_tiers`) configured in the plugin's FluentCart integ
 
 ## Solution
 
-Declare `role_tiers` as its own settings field, with its own render template, in `getSettingsFields()` — `includes/BulkPricingIntegration.php:82-87` (the method begins at `:60`):
+Declare `role_tiers` as its own settings field, with its own render template, in `getSettingsFields()` — `includes/BulkPricingIntegration.php:92-97` (the method begins at `:70`):
 
 ```php
 'role_tiers' => [
@@ -65,7 +65,7 @@ Declare `role_tiers` as its own settings field, with its own render template, in
 
 That single declaration does two jobs: it whitelists `role_tiers` so the key survives the save pipeline, and it gives the role groups a properly labelled section of their own instead of squatting inside the `tiers` template.
 
-**Secondary defect fixed in the same change.** `get_editable_roles()` is defined in `wp-admin/includes/user.php`, which is *not* loaded on REST or AJAX requests — and both `getSettingsFields()` and `validateFeedData()` run on the save path. Every call now routes through a guarded wrapper at `includes/BulkPricingIntegration.php:245`:
+**Secondary defect fixed in the same change.** `get_editable_roles()` is defined in `wp-admin/includes/user.php`, which is *not* loaded on REST or AJAX requests — and both `getSettingsFields()` and `validateFeedData()` run on the save path. Every call now routes through a guarded wrapper at `includes/BulkPricingIntegration.php:296`:
 
 ```php
 private function getEditableRoles()
@@ -90,19 +90,19 @@ Diagnosed and verified in PR #8.
 4. `:60` — `$validatedData = Arr::only($integration, $validKeys);` — **every undeclared key is discarded here, silently, with no error and no log entry.**
 5. `:62` — *only now* applies `fluent_cart/integration/integration_saving_data_{provider}`.
 
-Our `validateFeedData()` is bound to that last filter by `fluent-cart/app/Modules/Integrations/BaseIntegrationManager.php:57`, so it receives data that has *already* been stripped. With `getSettingsFields()` declaring only `name` and `tiers`, `role_tiers` was never in `$validKeys`. The browser sent it; step 4 dropped it; our validator at `includes/BulkPricingIntegration.php:105` found nothing under `role_tiers` and correctly concluded "no role pricing configured". `tiers` survived for the one reason that matters: it *was* declared. The global scope failed the same way because `fluent-cart/app/Modules/Integrations/GlobalIntegrationSettings.php:320` calls the identical helper.
+Our `validateFeedData()` is bound to that last filter by `fluent-cart/app/Modules/Integrations/BaseIntegrationManager.php:57`, so it receives data that has *already* been stripped. With `getSettingsFields()` declaring only `name` and `tiers`, `role_tiers` was never in `$validKeys`. The browser sent it; step 4 dropped it; our validator at `includes/BulkPricingIntegration.php:123` found nothing under `role_tiers` and correctly concluded "no role pricing configured". `tiers` survived for the one reason that matters: it *was* declared. The global scope failed the same way because `fluent-cart/app/Modules/Integrations/GlobalIntegrationSettings.php:320` calls the identical helper.
 
 **The asymmetry is the durable insight.** Because the whitelist runs *before* the filter:
 
 - Keys you expect to arrive **from the client** must be declared fields — otherwise they are stripped before you ever see them.
 - Keys you **add inside `validateFeedData()`** persist just fine — the whitelist has already run and nothing re-filters the return value.
 
-Nothing in the API signals this asymmetry; both directions look like "keys in the settings array". We now deliberately exploit the second half: `includes/BulkPricingIntegration.php:126` sets `$data['event_trigger'] = $this->describeVariationScope($data);` purely for admin display, and it persists without ever being a declared field.
+Nothing in the API signals this asymmetry; both directions look like "keys in the settings array". We now deliberately exploit the second half: `includes/BulkPricingIntegration.php:148` sets `$data['event_trigger'] = $this->describeVariationScope($data);` purely for admin display, and it persists without ever being a declared field.
 
 ## Prevention
 
 - **The rule:** any key you expect to receive *from the client* must be a declared field in `getSettingsFields()` with a matching `key`. If you only need a value persisted for display or bookkeeping, add it inside `validateFeedData()` instead — do not declare a phantom field for it.
-- **A declared field is the whitelist, not just the UI.** Never bury a new settings key inside another field's `render_template`. If it round-trips through the browser, it earns its own entry in `getSettingsFields()`. The comment at `includes/BulkPricingIntegration.php:77-81` states this at the site where it's easiest to get wrong.
+- **A declared field is the whitelist, not just the UI.** Never bury a new settings key inside another field's `render_template`. If it round-trips through the browser, it earns its own entry in `getSettingsFields()`. The comment at `includes/BulkPricingIntegration.php:87-91` states this at the site where it's easiest to get wrong.
 - **Prove it in one command instead of guessing.** Round-trip a payload through the real helper with `wp eval-file` and diff input keys against output keys:
 
   ```php
@@ -118,12 +118,14 @@ Nothing in the API signals this asymmetry; both directions look like "keys in th
   wp-cli on this machine floods stdout with PHP 8 deprecation notices; filter with
   `2>/dev/null | grep -aivE 'deprecated|dynamic property|longdesc|WP_CLI|phar://|^\s*$'`.
 
-- **Treat `wp-admin/includes/*` functions as unavailable by default.** `get_editable_roles()`, and anything else from `wp-admin/includes/`, is not loaded on REST/AJAX/cron. Guard with `function_exists()` + `require_once ABSPATH . 'wp-admin/includes/…'` before calling it from any code reachable on a save path — as at `includes/BulkPricingIntegration.php:245`. An absent fatal in `debug.log` proves the current request context happened to have it loaded, not that the call is safe.
+- **Treat `wp-admin/includes/*` functions as unavailable by default.** `get_editable_roles()`, and anything else from `wp-admin/includes/`, is not loaded on REST/AJAX/cron. Guard with `function_exists()` + `require_once ABSPATH . 'wp-admin/includes/…'` before calling it from any code reachable on a save path — as at `includes/BulkPricingIntegration.php:296`. An absent fatal in `debug.log` proves the current request context happened to have it loaded, not that the call is safe.
 - **When a host-plugin integration silently loses data, read the host's pipeline before your own.** Find where the host filters or validates your payload and confirm the ordering of its hooks relative to yours. "Success response, missing field, empty log" is the signature of a whitelist, not of your own validation.
+- **The general rule, of which the above is one case: when a host hook underdelivers, the evidence is the host's call site — never the hook's name or signature.** Silently dropped data is one symptom; a silently *ignored return value* is another, and neither is visible from the extension side. The same reading discipline resolves both — the only difference is whether you read what the host does to your payload before your filter runs, or what it does with your filter's result afterward. See [`architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout`](../architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout.md) for the return-value half.
 
 ## Related
 
 - [`architecture-patterns/fluentcart-order-model-user-orders-and-variants`](../architecture-patterns/fluentcart-order-model-user-orders-and-variants.md) — the read-side counterpart. That note documents undocumented FluentCart *read* internals (the `Order` → `Customer` → WP user chain and `OrderItem.object_id`); this one documents the *write* side, how FluentCart's feed-save pipeline constrains what this plugin may persist. Both depend on FluentCart behavior that is not a public contract and can shift on upgrade, so treat them as a pair.
-- [`security-issues/rest-endpoints-missing-permission-callback`](../security-issues/rest-endpoints-missing-permission-callback.md) — shares the non-admin request context that motivates the `get_editable_roles()` guard here: `wp-admin/includes/*` is absent on exactly the REST requests that doc argues must enforce role checks independently of the admin UI. Its closing note about publicly rendered discount-tier data also now understates the exposure, since `role_tiers` widens that payload with per-role price lists.
+- [`security-issues/rest-endpoints-missing-permission-callback`](../security-issues/rest-endpoints-missing-permission-callback.md) — shares the non-admin request context that motivates the `get_editable_roles()` guard here: `wp-admin/includes/*` is absent on exactly the REST requests that doc argues must enforce role checks independently of the admin UI. (An earlier version of this line claimed that doc's public-exposure note *understated* the exposure once `role_tiers` landed. That was wrong on both counts and has been corrected: the single-product renderer only ever emitted tier `min_qty`, never the role-scoped price lists, and it is now gated on the display-context role policy in any case.)
+- [`architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout`](../architecture-patterns/fluentcart-veto-capable-hooks-for-cart-and-checkout.md) — the same method applied to the other half of the host contract, and the best evidence that this note's rule holds up. Order rules persist only because the rule here was applied a second time: `order_rules` is declared as its own settings field at `includes/BulkPricingIntegration.php:98`, whose comment cites this rule by name ("Same whitelist rule as role_tiers above"). Declaring the key is necessary but not sufficient — that doc covers binding it to a hook that can actually reject.
 - PR #8 — declares `role_tiers` as a settings field and guards `get_editable_roles()`. Verified end-to-end in wp-admin (a "Wholesale Customer" 12% list saved to product meta and re-hydrated on reload). Also checked against an ad hoc 32-assertion PHP verification script run through `wp eval-file`; note that script was scratch tooling and was never committed, so this repo has no re-runnable test suite to confirm that count against.
 - [`docs/plans/2026-07-18-008-feat-richer-pricing-rules-plan.md`](../../plans/2026-07-18-008-feat-richer-pricing-rules-plan.md) — the plan this work implemented (Part B, per-role price lists).

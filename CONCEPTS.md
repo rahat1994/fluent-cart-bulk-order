@@ -2,6 +2,13 @@
 
 Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then accretes as ce-compound and ce-compound-refresh process learnings; direct edits are fine. Glossary only, not a spec or catch-all.
 
+## Catalog
+
+### Product Variant
+A single orderable version of a product — one size, colour, or configuration — carrying its own price, SKU, and stock. *Avoid:* variation, item.
+
+The variant, not the product, is the unit almost everything here operates on: prices resolve per variant, an Integration Feed may be restricted to specific variants, an Order Rule constrains a variant, and a Saved Order stores variants. A product is a grouping that may hold one variant or many, and conflating the two is a recurring source of error — counting or paginating products when the surface actually displays variant rows yields the wrong totals, because the two quantities differ for any product with more than one variant.
+
 ## Access
 
 ### Wholesale Customer

@@ -17,10 +17,13 @@
     margin-bottom: 10px;
 }
 
+/* Bottom-aligned so a label that wraps to two lines on a narrow screen (e.g.
+   "Max Qty (0 = no limit)") grows upward instead of pushing its own input down
+   out of line with the rest of the row. */
 .fcbo-tier-repeater .fcbo-tier-row {
     display: flex;
     gap: 10px;
-    align-items: center;
+    align-items: flex-end;
     margin-bottom: 8px;
     padding: 10px 0px;
     border-radius: 4px;
@@ -42,8 +45,10 @@
     width: 100%;
 }
 
+/* No margin-top nudge needed: flex-end already lines the button up with the
+   inputs, whatever height the labels above them end up being. */
 .fcbo-tier-repeater .fcbo-tier-remove {
-    margin-top: 16px;
+    margin-top: 0;
 }
 
 /* Hint text shown above each tier set */

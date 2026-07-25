@@ -16,10 +16,6 @@
     --fcbo-success: #00a32a;
     --fcbo-danger: #d63638;
     --fcbo-warning: #8a6d1a;
-    /* Opaque surface for the floating dropdown, which must hide content beneath
-       it and therefore cannot be a translucent currentColor tint. */
-    --fcbo-surface: #fff;
-    --fcbo-surface-hover: #f0f7ff;
 
     max-width: 960px;
     margin: 20px auto;
@@ -148,14 +144,36 @@
     box-shadow: 0 0 0 1px var(--fcbo-accent);
 }
 
-/* Dropdown */
+/* Dropdown.
+
+   The one surface in this widget that cannot be a translucent currentColor
+   tint: it floats over page content and has to hide it, so it needs a real
+   opaque colour — and therefore its own text colour to go with it.
+
+   Canvas/CanvasText are a system colour PAIR. The browser guarantees they
+   contrast, and it picks them from the page's own `color-scheme`, so a theme
+   that declares itself dark gets a dark popup and every other theme gets a
+   light one.
+
+   Deliberately NOT keyed off prefers-color-scheme. That reports the visitor's
+   OS setting, which says nothing about how the theme is painted. The previous
+   version flipped only the background on it while the text kept inheriting
+   from the page, so a light theme viewed from a dark-mode machine rendered
+   near-black text on a near-black panel (1.07:1). Flipping a surface on the OS
+   preference is unsafe; only hue lifts are, which is what the rest of this
+   file's dark block does.
+
+   The hex pair is the fallback for browsers without system colours — readable
+   on its own, just not theme-aware. */
 .fcbo-dropdown {
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--fcbo-surface);
-    color: var(--fcbo-surface-text, inherit);
+    background: #fff;
+    color: #1a1a1a;
+    background: Canvas;
+    color: CanvasText;
     border: 1px solid var(--fcbo-line-firm);
     border-top: none;
     border-radius: 0 0 4px 4px;
@@ -179,8 +197,11 @@
     border-bottom: none;
 }
 
+/* A tint of the dropdown's OWN text colour, not the page's — inside this panel
+   currentColor is CanvasText, so the highlight lands correctly whether the
+   panel came out light or dark. */
 .fcbo-dd-item:hover {
-    background: var(--fcbo-surface-hover);
+    background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .fcbo-dd-item.fcbo-dd-disabled {
@@ -489,9 +510,11 @@
     }
 }
 
-/* Hue + opaque-surface tuning. Structure already adapts via currentColor; this
-   lifts saturated hues for contrast on a dark ground and flips the one surface
-   that must be opaque (the floating search dropdown). */
+/* Hue tuning ONLY. Structure already adapts via currentColor, and lifting a
+   saturated hue is safe on either ground — a brighter blue stays legible on
+   white. Surfaces must never be flipped here: this media query reports the
+   visitor's OS setting, not how the theme is painted, so a surface flipped on
+   it can land under text that did not flip. @see .fcbo-dropdown */
 @media (prefers-color-scheme: dark) {
     .fcbo-wrap {
         --fcbo-accent: #5aa4dc;
@@ -499,8 +522,6 @@
         --fcbo-success: #3fb950;
         --fcbo-danger: #f0857d;
         --fcbo-warning: #d9a441;
-        --fcbo-surface: #1c2126;
-        --fcbo-surface-hover: #262d34;
     }
 
     .fcbo-btn-primary {

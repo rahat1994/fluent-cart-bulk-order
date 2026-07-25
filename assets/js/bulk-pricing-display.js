@@ -5,16 +5,29 @@
         return currencySign + (cents / 100).toFixed(2);
     }
 
+    // Mirrors PHP fcbo_match_tier(): several tiers can match one quantity (an
+    // open-ended "30+" still matches at 70 when a "60+" exists), so the most
+    // specific match wins — the highest min_qty, not the first one found.
     function resolveTier(tiers, qty) {
+        var best = null;
+        var bestMin = -1;
+
         for (var i = 0; i < tiers.length; i++) {
             var t = tiers[i];
             var min = parseInt(t.min_qty, 10) || 0;
             var max = parseInt(t.max_qty, 10) || 0;
-            if (qty >= min && (max === 0 || qty <= max)) {
-                return t;
+
+            if (qty < min || (max > 0 && qty > max)) {
+                continue;
+            }
+
+            if (min >= bestMin) {
+                best = t;
+                bestMin = min;
             }
         }
-        return null;
+
+        return best;
     }
 
     // Mirrors PHP fcbo_apply_tier_to_price(): the ONE effective-price formula for

@@ -709,17 +709,28 @@
             return unitPriceCents;
         }
 
+        // Mirrors PHP fcbo_match_tier(): several tiers can match one quantity (an
+        // open-ended "30+" still matches at 70 when a "60+" exists), so the most
+        // specific match wins — the highest min_qty, not the first one found.
+        var best = null;
+        var bestMin = -1;
+
         for (var i = 0; i < tiers.length; i++) {
             var tier = tiers[i];
             var minQty = tier.min_qty || 0;
             var maxQty = tier.max_qty || 0;
 
-            if (qty >= minQty && (maxQty === 0 || qty <= maxQty)) {
-                return applyTierToPrice(unitPriceCents, tier);
+            if (qty < minQty || (maxQty > 0 && qty > maxQty)) {
+                continue;
+            }
+
+            if (minQty >= bestMin) {
+                best = tier;
+                bestMin = minQty;
             }
         }
 
-        return unitPriceCents;
+        return best ? applyTierToPrice(unitPriceCents, best) : unitPriceCents;
     }
 
     function parseTiers(row) {

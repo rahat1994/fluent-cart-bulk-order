@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Fluent Cart Bulk Order
  * Description: Adds a [fluent_cart_bulk_order] shortcode that renders an interactive bulk order table for FluentCart stores.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Rahat Baksh
  * Requires PHP: 7.4
  * Text Domain: fluent-cart-bulk-order
@@ -10,7 +10,7 @@
 
 defined('ABSPATH') || exit;
 
-define('FCBO_VERSION', '1.0.0');
+define('FCBO_VERSION', '1.0.1');
 define('FCBO_DIR', plugin_dir_path(__FILE__));
 define('FCBO_URL', plugin_dir_url(__FILE__));
 
@@ -1347,6 +1347,46 @@ function fcbo_apply_tier_to_price($itemPriceCents, $tier)
 }
 
 /**
+ * Pick the tier that prices a given quantity.
+ *
+ * A tier matches when qty >= min_qty and (max_qty is 0 or qty <= max_qty).
+ * Several tiers can match at once — an open-ended "30+" tier still matches at
+ * qty 70 even when a "60+" tier exists — so the FIRST match is not the right
+ * answer. The most specific one wins: the highest min_qty among the matches
+ * (ties broken by the later tier, which is the one the admin added last).
+ *
+ * This is the ONE tier-matching rule in PHP; resolveTier() in
+ * bulk-pricing-display.js and getEffectivePrice() in bulk-order.js mirror it
+ * and MUST change together with it.
+ *
+ * @param array $tiers Sanitized tier list (any order).
+ * @param int   $qty   Quantity being priced.
+ * @return array|null The winning tier, or null when nothing matches.
+ */
+function fcbo_match_tier($tiers, $qty)
+{
+    $qty   = (int) $qty;
+    $best  = null;
+    $bestMin = -1;
+
+    foreach ((array) $tiers as $tier) {
+        $minQty = (int) ($tier['min_qty'] ?? 0);
+        $maxQty = (int) ($tier['max_qty'] ?? 0);
+
+        if ($qty < $minQty || ($maxQty > 0 && $qty > $maxQty)) {
+            continue;
+        }
+
+        if ($minQty >= $bestMin) {
+            $best    = $tier;
+            $bestMin = $minQty;
+        }
+    }
+
+    return $best;
+}
+
+/**
  * Human-readable label for a tier's discount, by type.
  *
  * Returns raw text — the caller escapes. Money types are formatted in major
@@ -1753,14 +1793,9 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
         return $variation;
     }
 
-    foreach ($tiers as $tier) {
-        $minQty = (int) ($tier['min_qty'] ?? 0);
-        $maxQty = (int) ($tier['max_qty'] ?? 0);
-
-        if ($qty >= $minQty && ($maxQty === 0 || $qty <= $maxQty)) {
-            $variation->item_price = fcbo_apply_tier_to_price((int) $variation->item_price, $tier);
-            break;
-        }
+    $tier = fcbo_match_tier($tiers, $qty);
+    if ($tier) {
+        $variation->item_price = fcbo_apply_tier_to_price((int) $variation->item_price, $tier);
     }
 
     return $variation;

@@ -83,6 +83,8 @@ class BulkOrderForm extends AbstractShortcode
             'min_order_total' => AccessPolicy::userSubjectToMinOrder()
                 ? AccessPolicy::minOrderTotal()
                 : 0,
+            // Savings/nudge sentences, translated server-side. @see fcbo_savings_strings()
+            'i18n'            => fcbo_savings_strings(),
         ]));
 
         ob_start();
@@ -130,7 +132,10 @@ class BulkOrderForm extends AbstractShortcode
                     <tbody id="fcbo-tbody"></tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="7"></td>
+                            <!-- The grand saving rides in the spanned cell so it lands
+                                 beside the total without the total cell having to hold
+                                 two values. Filled by bulk-order.js. -->
+                            <td colspan="7" class="fcbo-grand-saving-cell"><span id="fcbo-grand-saving" class="fcbo-grand-saving"></span></td>
                             <td class="fcbo-col-total fcbo-grand-total" id="fcbo-grand-total"><?php echo esc_html($currency_sign); ?>0.00</td>
                         </tr>
                     </tfoot>

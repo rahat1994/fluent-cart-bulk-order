@@ -85,8 +85,10 @@
     text-align: right;
 }
 
+/* Wider than the input needs: the next-tier nudge renders under it, and at
+   80px that sentence broke into four lines. */
 .fcbo-col-qty {
-    width: 80px;
+    width: 140px;
 }
 
 .fcbo-col-total {
@@ -355,6 +357,41 @@
 .fcbo-price-discounted {
     color: var(--fcbo-success);
     font-weight: 600;
+}
+
+/* Savings messaging.
+   The saving is the good news, so it borrows the same green as the discounted
+   price. The nudge is a prompt, not a result, so it stays in muted body text —
+   two green lines in one row would compete for the same attention. */
+.fcbo-saving,
+.fcbo-grand-saving {
+    color: var(--fcbo-success);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.fcbo-saving {
+    display: block;
+    margin-top: 2px;
+}
+
+.fcbo-grand-saving-cell {
+    text-align: right;
+}
+
+.fcbo-nudge {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--fcbo-text-3);
+}
+
+/* Empty until JS fills them — collapse the gap they would otherwise leave. */
+.fcbo-saving:empty,
+.fcbo-nudge:empty {
+    display: none;
 }
 
 /* Quick order (paste / CSV) */

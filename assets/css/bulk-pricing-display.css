@@ -149,6 +149,36 @@
     white-space: nowrap;
 }
 
+/* Savings messaging.
+   The saving is the good news, so it borrows the same green as the discounted
+   price. The nudge is a prompt, not a result, so it stays in muted body text —
+   two green lines in one row would compete for the same attention. */
+.fcbo-bp-saving,
+.fcbo-bp-grand-saving {
+    color: var(--fcbo-success);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.fcbo-bp-saving {
+    display: block;
+}
+
+.fcbo-bp-nudge {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--fcbo-text-3);
+}
+
+/* Empty until JS fills it — collapse the gap it would otherwise leave. */
+.fcbo-bp-nudge:empty {
+    display: none;
+}
+
 /* Checkout button row */
 .fcbo-bp-checkout-row {
     margin-top: 12px;

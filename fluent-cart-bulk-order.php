@@ -93,6 +93,24 @@ add_action('plugins_loaded', function () {
     // Apply bulk pricing discount when items are added/updated in FluentCart's cart
     add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
 
+    // Tell the shopper what that discount was worth.
+    //
+    // Two registrations because FluentCart has three line-item renderers and no
+    // single hook reaches all of them:
+    //
+    //   after_total  CartItemRenderer.php:87 (the checkout order summary) and
+    //                ModalCheckoutRenderer.php:265 (instant checkout). Fires
+    //                inside the price wrapper, right under the line total.
+    //   line_meta    CartRenderer.php:187 (the cart drawer and cart page). That
+    //                file exposes exactly ONE do_action, in the details block —
+    //                so the saving sits under the product title there, not by
+    //                the price. It is the only seam available.
+    //
+    // CartItemRenderer fires BOTH, which is why the line_meta callback bails on
+    // it. See fcbo_render_cart_line_saving_meta() for how it tells them apart.
+    add_action('fluent_cart/cart/line_item/after_total', 'fcbo_render_cart_line_saving', 10, 1);
+    add_action('fluent_cart/cart/line_item/line_meta', 'fcbo_render_cart_line_saving_meta', 10, 1);
+
     // ---- Server-side order-rule enforcement (Plan 009 · R5) ----
     //
     // These two filters are the authoritative gate. Everything the JS does about
@@ -1168,6 +1186,34 @@ function fcbo_format_tier_discount_label($tier)
 }
 
 /**
+ * Translatable savings/nudge strings handed to the two live-total surfaces.
+ *
+ * The JS files have no translation layer of their own — the plugin does not load
+ * wp.i18n and has no script translations yet (roadmap Phase 1 · item 5). Passing
+ * the finished sentences through wp_localize_script() keeps every shopper-facing
+ * string inside the PHP .pot file, which is where the rest of the plugin's text
+ * already lives. When script translations land, these move to wp.i18n and this
+ * helper goes away.
+ *
+ * Placeholders are named ({amount}, {qty}, {percent}) rather than positional, so
+ * a translator can reorder them freely. Whole sentences, not fragments: a
+ * translator needs the full clause to get agreement and word order right.
+ *
+ * @return array<string, string> Templates keyed for the JS `fill()` helpers.
+ */
+function fcbo_savings_strings()
+{
+    return [
+        /* translators: {amount}: money amount, e.g. $12.50. Keep {amount} as-is. */
+        'saved'          => __('You saved {amount}', 'fluent-cart-bulk-order'),
+        /* translators: {qty}: how many more units; {percent}: discount percentage. Keep both as-is. */
+        'unlock_percent' => __('Add {qty} more to unlock {percent}% off', 'fluent-cart-bulk-order'),
+        /* translators: {qty}: how many more units. Keep {qty} as-is. Used when the next tier is a money amount, not a percentage. */
+        'unlock_generic' => __('Add {qty} more to unlock a better price', 'fluent-cart-bulk-order'),
+    ];
+}
+
+/**
  * Enqueue CSS and JS for the bulk pricing display.
  */
 function fcbo_enqueue_bulk_pricing_assets()
@@ -1195,6 +1241,7 @@ function fcbo_enqueue_bulk_pricing_assets()
 
     wp_localize_script('fcbo-bulk-pricing-display', 'fcboBpConfig', [
         'currency_sign' => fcbo_get_currency_sign(),
+        'i18n'          => fcbo_savings_strings(),
     ]);
 }
 
@@ -1223,8 +1270,11 @@ function fcbo_render_order_table($variants, $titleHeader)
             'tiers' => $v['tiers'],
         ]));
 
+        // The two empty spans are filled by bulk-pricing-display.js as the
+        // quantity changes: the nudge toward the next tier sits under the input
+        // the shopper is typing in, the line saving under the price it changes.
         printf(
-            '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
+            '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /><span class="fcbo-bp-nudge"></span></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
             $dataAttr,
             esc_html($v['title'])
         );
@@ -1232,7 +1282,7 @@ function fcbo_render_order_table($variants, $titleHeader)
 
     echo '</tbody><tfoot><tr>';
     echo '<td><strong>' . esc_html__('Total', 'fluent-cart-bulk-order') . '</strong></td>';
-    echo '<td></td>';
+    echo '<td class="fcbo-bp-grand-saving"></td>';
     echo '<td class="fcbo-bp-grand-total"><span class="fcbo-bp-muted">&mdash;</span></td>';
     echo '</tr></tfoot></table>';
     echo '<div class="fcbo-bp-checkout-row">';
@@ -1502,6 +1552,155 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     }
 
     return $variation;
+}
+
+/**
+ * What the bulk tiers took off one cart line, in cents.
+ *
+ * The cart item's own `unit_price` is already the discounted figure — this
+ * plugin lowered it through `fluent_cart/cart/item_modify` before the line was
+ * built — so the original has to come back from the database. A direct
+ * ProductVariation query is the right source precisely because it does NOT run
+ * that filter: it is the last untouched copy of the pre-discount price.
+ *
+ * The saving is then recomputed the same way the cart filter computed the
+ * price, rather than subtracting `unit_price`, so a line another extension also
+ * repriced does not get that other extension's discount reported as ours.
+ *
+ * @param array $item One entry of the cart's `cart_data` items.
+ * @return int Saving in cents; 0 when this line has none.
+ */
+function fcbo_cart_line_saving($item)
+{
+    // Same gate as the cart price itself: a shopper the policy excludes was
+    // never discounted, so there is nothing to report. Admins are not exempt
+    // here — the 'cart' context deliberately excludes them (KTD4).
+    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
+        return 0;
+    }
+
+    $qty       = (int) ($item['quantity'] ?? 0);
+    $variantId = (int) ($item['object_id'] ?? 0);
+    $productId = (int) ($item['post_id'] ?? 0);
+
+    // Custom items are priced by whoever injected them, not from a variation row.
+    if ($qty < 1 || !$variantId || !$productId || !empty($item['is_custom'])) {
+        return 0;
+    }
+
+    // The cart re-renders this line on every quantity change and the drawer can
+    // hold many lines, so the per-variant answer is memoized for the request.
+    static $cache = [];
+    $key = $variantId . ':' . $qty;
+
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+
+    $cache[$key] = 0;
+
+    $tiers = fcbo_resolve_tiers(
+        fcbo_get_all_bulk_pricing([$productId]),
+        $productId,
+        $variantId,
+        (array) wp_get_current_user()->roles
+    );
+
+    $tier = $tiers ? fcbo_match_tier($tiers, $qty) : null;
+    if (!$tier) {
+        return 0;
+    }
+
+    $variation = \FluentCart\App\Models\ProductVariation::query()->find($variantId);
+    if (!$variation) {
+        return 0;
+    }
+
+    $original  = (int) $variation->item_price;
+    $effective = fcbo_apply_tier_to_price($original, $tier);
+
+    $cache[$key] = max(0, ($original - $effective) * $qty);
+
+    return $cache[$key];
+}
+
+/**
+ * Print "You saved $X" under a discounted cart line.
+ *
+ * Bound to `fluent_cart/cart/line_item/after_total` — the checkout order
+ * summary and instant checkout. @see the registration for the full hook map.
+ *
+ * @param array $eventInfo ['item' => array, 'cart' => object, ...]
+ * @return void
+ */
+function fcbo_render_cart_line_saving($eventInfo)
+{
+    $saving = fcbo_cart_line_saving(isset($eventInfo['item']) ? (array) $eventInfo['item'] : []);
+
+    if ($saving <= 0) {
+        return;
+    }
+
+    fcbo_print_cart_saving_style();
+
+    printf(
+        '<span class="fcbo-cart-saving">%s</span>',
+        esc_html(sprintf(
+            /* translators: %s: money amount, e.g. $12.50 */
+            __('You saved %s', 'fluent-cart-bulk-order'),
+            fcbo_format_money($saving)
+        ))
+    );
+}
+
+/**
+ * Same line, printed from the cart drawer's only hook.
+ *
+ * `line_meta` fires in two renderers. CartRenderer is the drawer, and it is the
+ * one that needs this. CartItemRenderer fires it too, but that renderer also
+ * fires `after_total`, which is a better spot (beside the price) and is already
+ * covered — so its `line_meta` pass must stay silent or the saving prints twice
+ * on the checkout summary.
+ *
+ * The two are told apart by the cart object: CartRenderer::getEventInfo() hard-
+ * codes `'cart' => null` (CartRenderer.php:170), while every CartItemRenderer
+ * that fires hooks is constructed with the cart (CartSummaryRender.php:95). If a
+ * future FluentCart release starts passing a cart from the drawer, the drawer
+ * simply stops showing the line — a cosmetic loss, not a duplicate or an error.
+ *
+ * @param array $eventInfo ['item' => array, 'cart' => object|null, ...]
+ * @return void
+ */
+function fcbo_render_cart_line_saving_meta($eventInfo)
+{
+    if (!empty($eventInfo['cart'])) {
+        return;
+    }
+
+    fcbo_render_cart_line_saving($eventInfo);
+}
+
+/**
+ * Emit the one style rule the cart saving line needs, once per request.
+ *
+ * Deliberately inline rather than an enqueued stylesheet. FluentCart re-renders
+ * these line items into AJAX fragments when a quantity changes, and a fragment
+ * response carries no <head> and runs no enqueue pass — an enqueued file would
+ * simply not be there. Travelling with the markup is the only delivery that
+ * works on both the full page render and the fragment.
+ *
+ * @return void
+ */
+function fcbo_print_cart_saving_style()
+{
+    static $printed = false;
+
+    if ($printed) {
+        return;
+    }
+    $printed = true;
+
+    echo '<style>.fcbo-cart-saving{display:block;font-size:12px;font-weight:600;color:#16a34a;}</style>';
 }
 
 /* -------------------------------------------------------------------------

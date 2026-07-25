@@ -8,9 +8,12 @@ defined('ABSPATH') || exit;
  * Minimal admin control for the bulk pricing role policy.
  *
  * Registers a single WordPress Settings-API page that exposes a role checklist
- * bound to the `fcbo_apply_to_roles` option. Leaving every role unchecked stores
+ * bound to the bulk-pricing policy option. Leaving every role unchecked stores
  * an empty array, which means "apply bulk pricing to everyone" (the default,
  * backward-compatible behavior).
+ *
+ * This page owns the storage for Gate 2 and Gate 3; the gate LOGIC and the
+ * option names both live in AccessPolicy, which documents how the gates relate.
  *
  * This class is deliberately self-contained so Phase 2 can fold it into a
  * consolidated settings page without untangling it from the rest of the plugin.
@@ -22,24 +25,31 @@ class Settings
      */
     const OPTION_GROUP = 'fcbo_settings';
 
-    /**
-     * The stored option name (array of role slugs; empty = everyone).
+    /*
+     * The option names are aliases of the AccessPolicy constants, not second
+     * copies of the strings. AccessPolicy is the single source of truth: the
+     * gates read these options, so a rename there must not be able to drift
+     * away from the page that writes them.
      */
-    const OPTION_NAME = 'fcbo_apply_to_roles';
 
     /**
-     * Minimum order total, in integer cents. 0 = no minimum.
+     * Gate 2 role list (array of role slugs; empty = everyone).
      */
-    const OPTION_MIN_TOTAL = 'fcbo_min_order_total';
+    const OPTION_NAME = AccessPolicy::OPTION_BULK_PRICING_ROLES;
 
     /**
-     * Roles the minimum order total applies to.
+     * Gate 3 amount, in integer cents. 0 = no minimum.
+     */
+    const OPTION_MIN_TOTAL = AccessPolicy::OPTION_MIN_ORDER_TOTAL;
+
+    /**
+     * Gate 3 role list.
      *
      * NOTE the inverted default relative to OPTION_NAME: an empty list here
      * means "nobody is subject", so an unconfigured minimum can never start
      * blocking checkouts on upgrade.
      */
-    const OPTION_MIN_TOTAL_ROLES = 'fcbo_min_order_total_roles';
+    const OPTION_MIN_TOTAL_ROLES = AccessPolicy::OPTION_MIN_ORDER_TOTAL_ROLES;
 
     /**
      * Admin page slug.
@@ -171,26 +181,14 @@ class Settings
     /**
      * Sanitize the submitted role list against real, editable role slugs.
      *
-     * Unknown/invalid slugs are dropped. A non-array (e.g. nothing submitted)
-     * collapses to an empty array — which means "everyone".
+     * Stays a public method because it is registered as a `sanitize_callback`.
      *
      * @param mixed $value Raw submitted value.
      * @return string[] Clean, de-duplicated list of valid role slugs.
      */
     public function sanitizeRoles($value)
     {
-        $value = is_array($value) ? $value : [];
-        $editable = array_keys($this->getEditableRoles());
-
-        $clean = [];
-        foreach ($value as $slug) {
-            $slug = sanitize_key($slug);
-            if ($slug !== '' && in_array($slug, $editable, true)) {
-                $clean[] = $slug;
-            }
-        }
-
-        return array_values(array_unique($clean));
+        return AccessPolicy::sanitizeRoleList($value);
     }
 
     /**
@@ -207,19 +205,11 @@ class Settings
     /**
      * Editable role slugs, with the admin include guaranteed.
      *
-     * get_editable_roles() lives in wp-admin/includes/user.php, which is not
-     * loaded outside admin page loads. These callbacks only run in admin today,
-     * but the guard costs nothing and removes a trap for whoever reuses them.
-     *
      * @return array<string, array> Role slug => role details.
      */
     private function getEditableRoles()
     {
-        if (!function_exists('get_editable_roles')) {
-            require_once ABSPATH . 'wp-admin/includes/user.php';
-        }
-
-        return (array) get_editable_roles();
+        return AccessPolicy::editableRoles();
     }
 
     /**

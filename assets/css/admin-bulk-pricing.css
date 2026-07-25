@@ -82,6 +82,47 @@
     border-top: 1px dashed var(--fcbo-line-soft);
 }
 
+/* Cross-gate notices: a role is given tiers here, but the bulk-pricing policy
+   on Settings > Bulk Pricing excludes it.
+
+   These carry real color instead of deriving from currentColor like everything
+   above — a warning tinted to match the surrounding text stops reading as a
+   warning. The two hues are WordPress admin's own notice colors, which are fixed
+   across all admin color schemes, so no scheme-aware handling is needed. */
+.fcbo-role-tiers .fcbo-role-notice {
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--fcbo-notice-accent);
+    background: color-mix(in srgb, var(--fcbo-notice-accent) 10%, transparent);
+}
+
+/* Amber: the tiers are dead configuration. */
+.fcbo-role-tiers .fcbo-role-notice--warn {
+    --fcbo-notice-accent: #dba617;
+}
+
+/* Blue: the tiers show but are not charged (the administrator preview case). */
+.fcbo-role-tiers .fcbo-role-notice--info {
+    --fcbo-notice-accent: #2271b1;
+}
+
+/* Inherit the notice color so the link does not fight the accent it sits in. */
+.fcbo-role-tiers .fcbo-role-notice a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* The "who is eligible at all" line above the role groups. */
+.fcbo-role-tiers .fcbo-policy-summary {
+    padding: 8px 10px;
+    border: 1px solid var(--fcbo-line-soft);
+    border-radius: 4px;
+    background: var(--fcbo-fill);
+}
+
 /* Order rules: a single fixed row of two numbers rather than a repeater, so it
    should not stretch its fields the way the tier rows do. */
 .fcbo-order-rules .fcbo-tier-row {

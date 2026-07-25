@@ -14,6 +14,15 @@ define('FCBO_VERSION', '1.0.1');
 define('FCBO_DIR', plugin_dir_path(__FILE__));
 define('FCBO_URL', plugin_dir_url(__FILE__));
 
+// Loaded unconditionally, and BEFORE plugins_loaded, on purpose. AccessPolicy
+// holds every role gate in the plugin and the `fcbo_*` gate functions below are
+// thin delegates to it — a theme or snippet may call one at any point in the
+// request, including on a page load where FluentCart is inactive. Neither file
+// touches FluentCart at include time. Settings comes along because
+// AccessPolicy::settingsPageUrl() reads Settings::PAGE_SLUG.
+require_once FCBO_DIR . 'includes/AccessPolicy.php';
+require_once FCBO_DIR . 'includes/Settings.php';
+
 // Register wholesale-customer role on activation
 register_activation_hook(__FILE__, function () {
     if (!get_role('wholesale-customer')) {
@@ -97,83 +106,56 @@ add_action('plugins_loaded', function () {
     add_filter('fluent_cart/checkout/validate_data', 'fcbo_validate_checkout_minimum', 10, 2);
 
     // Admin settings page for the "apply bulk pricing to roles" policy.
-    require_once FCBO_DIR . 'includes/Settings.php';
+    // The file itself is required at the top of this plugin file.
     (new \FluentCartBulkOrder\Settings())->register();
 });
 
+/*
+ * ---------------------------------------------------------------------------
+ * Access gates — delegates to \FluentCartBulkOrder\AccessPolicy
+ * ---------------------------------------------------------------------------
+ *
+ * All three role gates (surface access, bulk pricing policy, minimum order
+ * total) now live together in includes/AccessPolicy.php, which documents how
+ * they differ and how they interact. The functions here remain as the stable,
+ * documented extension surface — site snippets, docs/solutions and docs/plans
+ * refer to them by name. Put new logic in the class, not in these wrappers.
+ */
+
 /**
- * Roles allowed to use the FCBO surfaces (bulk order form, product table, REST routes).
+ * Gate 1 — roles allowed to use the FCBO surfaces (bulk order form, product
+ * table, saved orders, REST routes).
  *
- * Single source of truth for access control. Filterable so other features can
- * extend the set without re-duplicating the list.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::allowedRoles()
  * @return string[] Role slugs.
  */
 function fcbo_get_allowed_roles()
 {
-    return apply_filters('fcbo/allowed_roles', ['administrator', 'wholesale-customer']);
+    return \FluentCartBulkOrder\AccessPolicy::allowedRoles();
 }
 
 /**
- * Whether the current user may access FCBO surfaces.
+ * Gate 1 — whether the current user may access FCBO surfaces.
  *
- * @param string[] $extraRoles Additional role slugs (e.g. from a shortcode `roles`
- *                             attribute) that EXTEND the baseline allowed set for
- *                             this render. The baseline from fcbo_get_allowed_roles()
- *                             always remains — extra roles can only widen, never
- *                             replace, the security baseline.
- *
- * CAVEAT: extra roles passed here only widen the SHORTCODE/UI gate. The REST routes
- * (`/products`, `/catalog`) call fcbo_current_user_can_access() with NO extra roles
- * (via fcbo_rest_permission_check), so they enforce only the GLOBAL set from
- * fcbo_get_allowed_roles(). A role granted access solely through a per-shortcode
- * `roles` attribute can render the UI but its AJAX product calls will still be
- * rejected. To widen REST access too, add the role via the global `fcbo/allowed_roles`
- * filter.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::currentUserCanAccess()
+ * @param string[] $extraRoles Extra role slugs that widen (never replace) the baseline.
  * @return bool
  */
 function fcbo_current_user_can_access($extraRoles = [])
 {
-    if (!is_user_logged_in()) {
-        return false;
-    }
-
-    // Super admins (and single-site administrators) always have access — role-slug
-    // checks alone would lock out a multisite super admin who isn't a member of the
-    // current subsite.
-    if (is_super_admin()) {
-        return true;
-    }
-
-    $allowed = fcbo_get_allowed_roles();
-
-    if (!empty($extraRoles)) {
-        // Merge onto (never replace) the baseline so admin + wholesale always remain.
-        $allowed = array_merge($allowed, array_map('sanitize_key', (array) $extraRoles));
-    }
-
-    return (bool) array_intersect($allowed, wp_get_current_user()->roles);
+    return \FluentCartBulkOrder\AccessPolicy::currentUserCanAccess($extraRoles);
 }
 
 /**
  * Parse a comma-separated shortcode `roles` attribute into sanitized role slugs.
  *
- * Each token is trimmed and passed through sanitize_key; empty tokens are dropped.
- * A malformed value such as " , ," degrades to an empty array (baseline only).
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::parseRolesAttr()
  * @param string $rolesAttr Raw attribute value.
  * @return string[] Sanitized role slugs.
  */
 function fcbo_parse_roles_attr($rolesAttr)
 {
-    if (empty($rolesAttr) || !is_string($rolesAttr)) {
-        return [];
-    }
-
-    $roles = array_map('sanitize_key', array_map('trim', explode(',', $rolesAttr)));
-
-    return array_values(array_filter($roles));
+    return \FluentCartBulkOrder\AccessPolicy::parseRolesAttr($rolesAttr);
 }
 
 /**
@@ -250,32 +232,14 @@ function fcbo_parse_columns_attr($columnsAttr, $allColumns)
 }
 
 /**
- * REST permission callback for the FCBO endpoints.
+ * Gate 1 — REST permission callback for the FCBO endpoints.
  *
- * Mirrors the shortcode access gate: unauthenticated requests get 401,
- * authenticated-but-unauthorized requests get 403.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::restPermissionCheck()
  * @return true|\WP_Error
  */
 function fcbo_rest_permission_check()
 {
-    if (!is_user_logged_in()) {
-        return new \WP_Error(
-            'fcbo_rest_unauthorized',
-            __('You must be logged in to access this resource.', 'fluent-cart-bulk-order'),
-            ['status' => 401]
-        );
-    }
-
-    if (!fcbo_current_user_can_access()) {
-        return new \WP_Error(
-            'fcbo_rest_forbidden',
-            __('You do not have permission to access this resource.', 'fluent-cart-bulk-order'),
-            ['status' => 403]
-        );
-    }
-
-    return true;
+    return \FluentCartBulkOrder\AccessPolicy::restPermissionCheck();
 }
 
 function fcbo_render_shortcode($atts = [])
@@ -1264,27 +1228,17 @@ function fcbo_qty_is_valid($qty, $rules)
 /**
  * Pick the applicable tier-set within a resolved feed by the shopper's roles.
  *
- * The first of the shopper's roles that has a role-scoped list wins; otherwise
- * the feed's default `tiers` apply. Passing null/[] roles always yields the
- * default set, so callers that don't know the user get today's behavior.
+ * Selection, NOT authorization — Gate 2 has already decided whether any bulk
+ * pricing applies at all.
  *
+ * @see \FluentCartBulkOrder\AccessPolicy::selectRoleTierSet()
  * @param array         $feed      ['tiers' => array, 'role_tiers' => array]
  * @param string[]|null $userRoles Current user's role slugs.
  * @return array Tier list (may be empty).
  */
 function fcbo_select_role_tier_set($feed, $userRoles)
 {
-    $roleTiers = isset($feed['role_tiers']) && is_array($feed['role_tiers']) ? $feed['role_tiers'] : [];
-
-    if (!empty($roleTiers) && !empty($userRoles)) {
-        foreach ((array) $userRoles as $role) {
-            if (!empty($roleTiers[$role])) {
-                return $roleTiers[$role];
-            }
-        }
-    }
-
-    return isset($feed['tiers']) && is_array($feed['tiers']) ? $feed['tiers'] : [];
+    return \FluentCartBulkOrder\AccessPolicy::selectRoleTierSet($feed, $userRoles);
 }
 
 /**
@@ -1653,109 +1607,63 @@ function fcbo_render_single_product_tiers($args)
 }
 
 /**
- * Role slugs that bulk pricing is restricted to.
+ * Gate 2 — role slugs that bulk pricing is restricted to.
  *
- * Stored as the top-level option `fcbo_apply_to_roles`. An empty array means the
- * policy is open to everyone — the default, which preserves the pre-policy
- * behavior on upgrade. Do not change this default.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::bulkPricingRoles()
  * @return string[] Role slugs; empty array = everyone qualifies.
  */
 function fcbo_get_bulk_pricing_roles()
 {
-    return (array) get_option('fcbo_apply_to_roles', []);
+    return \FluentCartBulkOrder\AccessPolicy::bulkPricingRoles();
 }
 
 /**
- * Whether a user qualifies for bulk pricing under the stored role policy.
+ * Gate 2 — whether a user qualifies for bulk pricing under the stored policy.
  *
- * Truth table:
- *   - Empty role list                      => true (everyone; default, R3).
- *   - Context 'display' + administrator    => true (admins can always preview, R5).
- *   - Otherwise                            => true iff the user holds an allowed role.
- *
- * The administrator display exception is intentionally NOT applied on the 'cart'
- * context: an admin's real order must reflect the real policy (KTD4). Do not
- * "make it consistent" by extending the admin short-circuit to the cart path.
- *
- * The result passes through the `fcbo/user_qualifies_for_bulk_pricing` filter so
- * developers can implement custom logic (e.g. per-customer overrides) without
- * editing core (R4).
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::userQualifiesForBulkPricing()
  * @param \WP_User|null $user    User to test; defaults to the current user.
  * @param string        $context 'cart' (enforcement) or 'display' (preview).
  * @return bool
  */
 function fcbo_user_qualifies_for_bulk_pricing($user = null, $context = 'cart')
 {
-    if ($user === null) {
-        $user = wp_get_current_user();
-    }
-
-    $roles = fcbo_get_bulk_pricing_roles();
-    $userRoles = isset($user->roles) ? (array) $user->roles : [];
-
-    if (empty($roles)) {
-        $qualifies = true;
-    } elseif ($context === 'display' && in_array('administrator', $userRoles, true)) {
-        $qualifies = true;
-    } else {
-        $qualifies = (bool) array_intersect($roles, $userRoles);
-    }
-
-    return (bool) apply_filters('fcbo/user_qualifies_for_bulk_pricing', $qualifies, $user, $context);
+    return \FluentCartBulkOrder\AccessPolicy::userQualifiesForBulkPricing($user, $context);
 }
 
 /**
- * The configured minimum order total, in integer cents.
+ * Gate 3 — the configured minimum order total, in integer cents.
  *
- * Stored as `fcbo_min_order_total`. Zero (the default) means no floor for
- * anyone, which preserves pre-Plan-009 behavior on upgrade.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::minOrderTotal()
  * @return int Cents; 0 = no minimum.
  */
 function fcbo_get_min_order_total()
 {
-    return max(0, (int) get_option('fcbo_min_order_total', 0));
+    return \FluentCartBulkOrder\AccessPolicy::minOrderTotal();
 }
 
 /**
- * Roles the minimum order total applies to.
+ * Gate 3 — roles the minimum order total applies to.
  *
- * Deliberately a SEPARATE option from `fcbo_apply_to_roles` (KTD5): a store
- * commonly wants to require a minimum of its wholesale buyers without also
- * restricting who receives bulk discounts. Unlike the bulk-pricing policy, an
- * empty list here means "nobody is subject" rather than "everyone" — an
- * unconfigured minimum must never start blocking retail checkouts on upgrade.
+ * Note the INVERTED empty-list meaning versus Gate 2: empty here means "nobody
+ * is subject". @see \FluentCartBulkOrder\AccessPolicy::minOrderTotalRoles()
  *
  * @return string[] Role slugs; empty = nobody is subject.
  */
 function fcbo_get_min_order_total_roles()
 {
-    return (array) get_option('fcbo_min_order_total_roles', []);
+    return \FluentCartBulkOrder\AccessPolicy::minOrderTotalRoles();
 }
 
 /**
- * Whether a user must meet the minimum order total.
+ * Gate 3 — whether a user must meet the minimum order total.
  *
- * Mirrors fcbo_user_qualifies_for_bulk_pricing()'s shape — including the
- * escape-hatch filter — but NOT its empty-list semantics; see
- * fcbo_get_min_order_total_roles() for why the defaults invert.
- *
+ * @see \FluentCartBulkOrder\AccessPolicy::userSubjectToMinOrder()
  * @param \WP_User|null $user Defaults to the current user.
  * @return bool
  */
 function fcbo_user_subject_to_min_order($user = null)
 {
-    if ($user === null) {
-        $user = wp_get_current_user();
-    }
-
-    $roles     = fcbo_get_min_order_total_roles();
-    $userRoles = isset($user->roles) ? (array) $user->roles : [];
-    $subject   = !empty($roles) && (bool) array_intersect($roles, $userRoles);
-
-    return (bool) apply_filters('fcbo/user_subject_to_min_order', $subject, $user);
+    return \FluentCartBulkOrder\AccessPolicy::userSubjectToMinOrder($user);
 }
 
 /**

@@ -61,9 +61,12 @@ add_action('plugins_loaded', function () {
         return;
     }
 
-    add_shortcode('fluent_cart_bulk_order', 'fcbo_render_shortcode');
-    add_shortcode('fluent_cart_product_table', 'fcbo_render_product_table');
-    add_shortcode('fluent_cart_saved_orders', 'fcbo_render_saved_orders');
+    // Every shortcode tag this plugin owns, registered from one registry. The
+    // per-tag classes under includes/Shortcodes/ load only when a tag actually
+    // renders — see ShortcodeHandler.
+    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
+    (new \FluentCartBulkOrder\Shortcodes\ShortcodeHandler())->register();
+
     add_action('rest_api_init', 'fcbo_register_routes');
 
     add_action('fluent_cart/init', function () {
@@ -259,152 +262,27 @@ function fcbo_rest_permission_check()
     return \FluentCartBulkOrder\AccessPolicy::restPermissionCheck();
 }
 
+/**
+ * Shortcode: [fluent_cart_bulk_order]
+ *
+ * Renders the bulk order form: an empty table that JS fills by SKU
+ * autocomplete or the quick-order paste/CSV panel, then hands off to checkout.
+ *
+ * Thin delegate. The surface itself lives in
+ * \FluentCartBulkOrder\Shortcodes\BulkOrderForm, registered through
+ * ShortcodeHandler. This wrapper stays because docs/plans and site snippets name
+ * it, and because a theme may call it directly to place the surface outside
+ * post content. Put new logic in the class, not here.
+ *
+ * @see \FluentCartBulkOrder\Shortcodes\BulkOrderForm
+ * @param array $atts
+ * @return string
+ */
 function fcbo_render_shortcode($atts = [])
 {
-    $atts = shortcode_atts([
-        'roles'    => '',
-        'redirect' => '',
-    ], $atts, 'fluent_cart_bulk_order');
+    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
 
-    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set for this
-    // placement. See the caveat on fcbo_current_user_can_access(): this only widens the
-    // UI gate, not the REST routes.
-    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
-
-    // Only administrators, wholesale customers, and any extra roles can access the form
-    if (!is_user_logged_in()) {
-        return '<p>' . esc_html__('Please log in to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    if (!fcbo_current_user_can_access($extraRoles)) {
-        return '<p>' . esc_html__('You do not have permission to access the bulk order form.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    // Load FluentCart's cart assets so window.fluentCartCart is available
-    if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
-        \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
-    }
-
-    wp_enqueue_style(
-        'fcbo-bulk-order',
-        FCBO_URL . 'assets/css/bulk-order.css',
-        [],
-        FCBO_VERSION
-    );
-
-    wp_enqueue_script(
-        'fcbo-bulk-order',
-        FCBO_URL . 'assets/js/bulk-order.js',
-        ['fluent-cart-app'],
-        FCBO_VERSION,
-        true
-    );
-
-    // Build config for JS
-    $checkout_url = '';
-    if (class_exists(\FluentCart\Api\StoreSettings::class)) {
-        $checkout_url = (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
-    }
-
-    // Optional `redirect` override: only honored when it is a valid same-site URL.
-    // wp_validate_redirect() returns the fallback ('') for off-site or malformed URLs,
-    // so an invalid value degrades safely to the store checkout page.
-    $redirect = trim((string) $atts['redirect']);
-    if ($redirect !== '') {
-        $validated = wp_validate_redirect($redirect, '');
-        if ($validated !== '') {
-            $checkout_url = $validated;
-        }
-    }
-
-    $currency_sign = '$';
-    if (class_exists(\FluentCart\Api\CurrencySettings::class)) {
-        $currency = \FluentCart\Api\CurrencySettings::get();
-        if (!empty($currency['currency_sign'])) {
-            $currency_sign = $currency['currency_sign'];
-        }
-    }
-
-    wp_localize_script('fcbo-bulk-order', 'fcboConfig', [
-        'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
-        'nonce'         => wp_create_nonce('wp_rest'),
-        'checkout_url'  => esc_url_raw($checkout_url),
-        'currency_sign' => $currency_sign,
-        // Order-total floor for this shopper. Sent as 0 when they are not
-        // subject, so the client never has to reason about role policy.
-        'min_order_total' => fcbo_user_subject_to_min_order() ? fcbo_get_min_order_total() : 0,
-    ]);
-
-    ob_start();
-    ?>
-    <div id="fcbo-bulk-order" class="fcbo-wrap">
-        <div class="fcbo-quick-order">
-            <button type="button" id="fcbo-quick-toggle" class="fcbo-quick-toggle"
-                    aria-expanded="false" aria-controls="fcbo-quick-panel">
-                <span class="fcbo-quick-caret" aria-hidden="true">&#9656;</span>
-                <?php esc_html_e('Quick order (paste or CSV)', 'fluent-cart-bulk-order'); ?>
-            </button>
-            <div id="fcbo-quick-panel" class="fcbo-quick-panel" hidden>
-                <p class="fcbo-quick-help">
-                    <?php esc_html_e('Paste one "SKU, quantity" per line, or upload a CSV. An optional header row is ignored.', 'fluent-cart-bulk-order'); ?>
-                </p>
-                <textarea id="fcbo-quick-input" class="fcbo-quick-input" rows="6"
-                          placeholder="SKU, Qty&#10;ABC-123, 10&#10;XYZ-9, 5"></textarea>
-                <div class="fcbo-quick-controls">
-                    <label class="fcbo-quick-file-label">
-                        <?php esc_html_e('Upload CSV', 'fluent-cart-bulk-order'); ?>
-                        <input type="file" id="fcbo-quick-file" class="fcbo-quick-file" accept=".csv,text/csv" />
-                    </label>
-                    <button type="button" id="fcbo-quick-add" class="fcbo-btn fcbo-btn-primary">
-                        <?php esc_html_e('Add to order', 'fluent-cart-bulk-order'); ?>
-                    </button>
-                </div>
-                <div id="fcbo-quick-report" class="fcbo-quick-report" style="display:none;"></div>
-            </div>
-        </div>
-
-        <div class="fcbo-table-scroll">
-            <table class="fcbo-table">
-                <thead>
-                    <tr>
-                        <th class="fcbo-col-remove"></th>
-                        <th class="fcbo-col-product"><?php esc_html_e('Product', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-sku"><?php esc_html_e('SKU', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-categories"><?php esc_html_e('Categories', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-image"><?php esc_html_e('Image', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-amount"><?php esc_html_e('Amount', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-qty"><?php esc_html_e('Qty', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-col-total"><?php esc_html_e('Total', 'fluent-cart-bulk-order'); ?></th>
-                    </tr>
-                </thead>
-                <tbody id="fcbo-tbody"></tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="7"></td>
-                        <td class="fcbo-col-total fcbo-grand-total" id="fcbo-grand-total"><?php echo esc_html($currency_sign); ?>0.00</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-        <div class="fcbo-actions">
-            <div class="fcbo-actions-left">
-                <button type="button" id="fcbo-add-row" class="fcbo-btn fcbo-btn-secondary">
-                    <?php esc_html_e('+ Add Row', 'fluent-cart-bulk-order'); ?>
-                </button>
-                <button type="button" id="fcbo-save-order" class="fcbo-btn fcbo-btn-secondary">
-                    <?php esc_html_e('Save order', 'fluent-cart-bulk-order'); ?>
-                </button>
-            </div>
-            <button type="button" id="fcbo-checkout" class="fcbo-btn fcbo-btn-primary">
-                <?php esc_html_e('Proceed to Checkout', 'fluent-cart-bulk-order'); ?>
-            </button>
-        </div>
-
-        <div id="fcbo-status" class="fcbo-status" style="display:none;"></div>
-    </div>
-    <?php
-    return ob_get_clean();
+    return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_bulk_order', $atts);
 }
 
 function fcbo_register_routes()
@@ -787,127 +665,27 @@ function fcbo_resolve_skus(\WP_REST_Request $request)
     return new \WP_REST_Response(['resolved' => (object) $resolved], 200);
 }
 
+/**
+ * Shortcode: [fluent_cart_product_table]
+ *
+ * Renders a paged, searchable browse table whose header is built in PHP and
+ * whose rows are filled by JS from the /catalog REST route.
+ *
+ * Thin delegate. The surface itself lives in
+ * \FluentCartBulkOrder\Shortcodes\ProductTable, registered through
+ * ShortcodeHandler. This wrapper stays because docs/plans and site snippets name
+ * it, and because a theme may call it directly to place the surface outside
+ * post content. Put new logic in the class, not here.
+ *
+ * @see \FluentCartBulkOrder\Shortcodes\ProductTable
+ * @param array $atts
+ * @return string
+ */
 function fcbo_render_product_table($atts = [])
 {
-    $atts = shortcode_atts([
-        'per_page'        => 5,
-        'columns'         => '',
-        'search'          => 'true',
-        'category'        => '',
-        'roles'           => '',
-        'expand_variants' => 'false',
-    ], $atts, 'fluent_cart_product_table');
+    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
 
-    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set for this
-    // placement. See the caveat on fcbo_current_user_can_access(): this only widens the
-    // UI gate — the /catalog REST route still enforces the global fcbo_get_allowed_roles().
-    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
-
-    if (!is_user_logged_in()) {
-        return '<p>' . esc_html__('Please log in to access the product table.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    if (!fcbo_current_user_can_access($extraRoles)) {
-        return '<p>' . esc_html__('You do not have permission to access the product table.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    // Resolve display attributes (degrade safely to defaults on bad input).
-    $per_page = absint($atts['per_page']);
-    if ($per_page < 1) {
-        $per_page = 5; // Non-numeric or zero → default.
-    }
-    $per_page = min(100, max(1, $per_page)); // Clamp to the REST cap.
-
-    $allColumns = ['id', 'title', 'price', 'qty', 'action'];
-    $columns    = fcbo_parse_columns_attr($atts['columns'], $allColumns);
-
-    $columnDefs = [
-        'id'     => ['class' => 'fcbo-pt-col-id',     'label' => __('ID', 'fluent-cart-bulk-order')],
-        'title'  => ['class' => 'fcbo-pt-col-title',  'label' => __('Title', 'fluent-cart-bulk-order')],
-        'price'  => ['class' => 'fcbo-pt-col-price',  'label' => __('Price', 'fluent-cart-bulk-order')],
-        'qty'    => ['class' => 'fcbo-pt-col-qty',    'label' => __('Quantity', 'fluent-cart-bulk-order')],
-        'action' => ['class' => 'fcbo-pt-col-action', 'label' => __('Action', 'fluent-cart-bulk-order')],
-    ];
-
-    $colspan    = count($columns);
-    $showSearch = filter_var($atts['search'], FILTER_VALIDATE_BOOLEAN);
-    $category   = fcbo_sanitize_category_param($atts['category']);
-    // When true, variant accordions render open by default (variants shown separately).
-    $expandVariants = filter_var($atts['expand_variants'], FILTER_VALIDATE_BOOLEAN);
-
-    if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
-        \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
-        \FluentCart\App\Modules\Templating\AssetLoader::loadSingleProductAssets();
-    }
-
-    wp_enqueue_style(
-        'fcbo-product-table',
-        FCBO_URL . 'assets/css/product-table.css',
-        [],
-        FCBO_VERSION
-    );
-
-    wp_enqueue_script(
-        'fcbo-product-table',
-        FCBO_URL . 'assets/js/product-table.js',
-        ['fluent-cart-app'],
-        FCBO_VERSION,
-        true
-    );
-
-    $currency_sign = '$';
-    if (class_exists(\FluentCart\Api\CurrencySettings::class)) {
-        $currency = \FluentCart\Api\CurrencySettings::get();
-        if (!empty($currency['currency_sign'])) {
-            $currency_sign = $currency['currency_sign'];
-        }
-    }
-
-    wp_localize_script('fcbo-product-table', 'fcboPtConfig', [
-        'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
-        'nonce'         => wp_create_nonce('wp_rest'),
-        'currency_sign' => $currency_sign,
-        'per_page'        => $per_page,
-        'columns'         => $columns,
-        'category'        => $category,
-        'expand_variants' => $expandVariants ? 1 : 0,
-    ]);
-
-    ob_start();
-    ?>
-    <div id="fcbo-product-table" class="fcbo-pt-wrap">
-        <?php if ($showSearch) : ?>
-        <div class="fcbo-pt-toolbar">
-            <input type="text" id="fcbo-pt-search" class="fcbo-pt-search"
-                   placeholder="<?php esc_attr_e('Search products...', 'fluent-cart-bulk-order'); ?>" />
-        </div>
-        <?php endif; ?>
-
-        <div class="fcbo-pt-table-scroll">
-            <table class="fcbo-pt-table">
-                <thead>
-                    <tr>
-                        <?php foreach ($columns as $col) : ?>
-                        <th class="<?php echo esc_attr($columnDefs[$col]['class']); ?>"><?php echo esc_html($columnDefs[$col]['label']); ?></th>
-                        <?php endforeach; ?>
-                    </tr>
-                </thead>
-                <tbody id="fcbo-pt-tbody">
-                    <tr><td colspan="<?php echo esc_attr($colspan); ?>" class="fcbo-pt-loading"><?php esc_html_e('Loading products...', 'fluent-cart-bulk-order'); ?></td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="fcbo-pt-pagination">
-            <button type="button" id="fcbo-pt-prev" class="fcbo-pt-page-btn" disabled>&laquo; <?php esc_html_e('Prev', 'fluent-cart-bulk-order'); ?></button>
-            <span id="fcbo-pt-page-info" class="fcbo-pt-page-info"><?php esc_html_e('Page 1 of 1', 'fluent-cart-bulk-order'); ?></span>
-            <button type="button" id="fcbo-pt-next" class="fcbo-pt-page-btn" disabled><?php esc_html_e('Next', 'fluent-cart-bulk-order'); ?> &raquo;</button>
-        </div>
-
-        <div id="fcbo-pt-status" class="fcbo-pt-status" style="display:none;"></div>
-    </div>
-    <?php
-    return ob_get_clean();
+    return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_product_table', $atts);
 }
 
 function fcbo_list_catalog(\WP_REST_Request $request)
@@ -2312,89 +2090,19 @@ function fcbo_rest_delete_saved_list(\WP_REST_Request $request)
  * date, item count, total) that expands to reveal its line items, with Reorder
  * and Delete actions.
  *
+ * Thin delegate. The surface itself lives in
+ * \FluentCartBulkOrder\Shortcodes\SavedOrders, registered through
+ * ShortcodeHandler. This wrapper stays because docs/plans and site snippets name
+ * it, and because a theme may call it directly to place the surface outside
+ * post content. Put new logic in the class, not here.
+ *
+ * @see \FluentCartBulkOrder\Shortcodes\SavedOrders
  * @param array $atts
  * @return string
  */
 function fcbo_render_saved_orders($atts = [])
 {
-    $atts = shortcode_atts([
-        'roles' => '',
-    ], $atts, 'fluent_cart_saved_orders');
+    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
 
-    // `roles` EXTENDS (never replaces) the baseline admin + wholesale set, matching
-    // the other shortcodes.
-    $extraRoles = fcbo_parse_roles_attr($atts['roles']);
-
-    if (!is_user_logged_in()) {
-        return '<p>' . esc_html__('Please log in to view your saved orders.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    if (!fcbo_current_user_can_access($extraRoles)) {
-        return '<p>' . esc_html__('You do not have permission to view saved orders.', 'fluent-cart-bulk-order') . '</p>';
-    }
-
-    // Cart assets are needed so Reorder can add items via window.fluentCartCart.
-    if (class_exists(\FluentCart\App\Modules\Templating\AssetLoader::class)) {
-        \FluentCart\App\Modules\Templating\AssetLoader::loadCartAssets();
-    }
-
-    // Reuse the product table's table + accordion styles, then layer on
-    // saved-order specifics.
-    wp_enqueue_style(
-        'fcbo-product-table',
-        FCBO_URL . 'assets/css/product-table.css',
-        [],
-        FCBO_VERSION
-    );
-    wp_enqueue_style(
-        'fcbo-saved-orders',
-        FCBO_URL . 'assets/css/saved-orders.css',
-        ['fcbo-product-table'],
-        FCBO_VERSION
-    );
-
-    wp_enqueue_script(
-        'fcbo-saved-orders',
-        FCBO_URL . 'assets/js/saved-orders.js',
-        ['fluent-cart-app'],
-        FCBO_VERSION,
-        true
-    );
-
-    $checkout_url = '';
-    if (class_exists(\FluentCart\Api\StoreSettings::class)) {
-        $checkout_url = (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
-    }
-
-    wp_localize_script('fcbo-saved-orders', 'fcboSoConfig', [
-        'rest_url'      => esc_url_raw(rest_url('fcbo/v1/')),
-        'nonce'         => wp_create_nonce('wp_rest'),
-        'currency_sign' => fcbo_get_currency_sign(),
-        'checkout_url'  => esc_url_raw($checkout_url),
-    ]);
-
-    ob_start();
-    ?>
-    <div id="fcbo-saved-orders" class="fcbo-so-wrap">
-        <div class="fcbo-pt-table-scroll">
-            <table class="fcbo-pt-table fcbo-so-table">
-                <thead>
-                    <tr>
-                        <th class="fcbo-so-col-name"><?php esc_html_e('Order', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-so-col-date"><?php esc_html_e('Created', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-so-col-count"><?php esc_html_e('Items', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-so-col-total"><?php esc_html_e('Total', 'fluent-cart-bulk-order'); ?></th>
-                        <th class="fcbo-so-col-actions"><?php esc_html_e('Actions', 'fluent-cart-bulk-order'); ?></th>
-                    </tr>
-                </thead>
-                <tbody id="fcbo-so-tbody">
-                    <tr><td colspan="5" class="fcbo-pt-loading"><?php esc_html_e('Loading saved orders...', 'fluent-cart-bulk-order'); ?></td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div id="fcbo-so-status" class="fcbo-pt-status" style="display:none;"></div>
-    </div>
-    <?php
-    return ob_get_clean();
+    return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_saved_orders', $atts);
 }

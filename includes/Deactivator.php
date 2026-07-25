@@ -80,20 +80,118 @@ class Deactivator
      * wholesale access (correct — the plugin is gone) without being edited, and
      * reinstalling restores them exactly.
      *
-     * NOTE — single site only. `delete_option()` and `remove_role()` act on the
-     * current site, so on a multisite network a network-wide delete cleans up
-     * only the site that ran it. Left as-is rather than half-implemented: doing
-     * it properly means iterating sites with switch_to_blog(), which needs
-     * testing on a real network.
+     * On multisite the same cleanup runs once per site in the network — see
+     * removeSiteData() and eachSiteId() below for why that loop is necessary and
+     * what it assumes.
      *
      * @return void
      */
     public static function uninstall()
+    {
+        if (!is_multisite()) {
+            self::removeSiteData();
+
+            return;
+        }
+
+        foreach (self::eachSiteId() as $siteId) {
+            switch_to_blog($siteId);
+            self::removeSiteData();
+            restore_current_blog();
+        }
+    }
+
+    /**
+     * Delete this plugin's data for ONE site — whichever site is current.
+     *
+     * Both calls are per-site by nature, which is the whole reason uninstall()
+     * has to loop on a network:
+     *
+     *   - `delete_option()` writes to the current site's options table.
+     *   - `remove_role()` edits the current site's `{prefix}user_roles` option.
+     *
+     * Safe to call on a site that never activated the plugin, and safe to call
+     * twice: delete_option() on a missing option and remove_role() on a missing
+     * role both no-op. That idempotency is what makes a timed-out delete
+     * recoverable — see eachSiteId().
+     *
+     * @return void
+     */
+    private static function removeSiteData()
     {
         delete_option(AccessPolicy::OPTION_BULK_PRICING_ROLES);
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL);
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL_ROLES);
 
         remove_role(AccessPolicy::WHOLESALE_ROLE);
+    }
+
+    /**
+     * Every site ID in the network, read in batches.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY BATCHES
+     * ---------------------------------------------------------------------------
+     *
+     * `get_sites()` defaults to `'number' => 100`
+     * (wp-includes/class-wp-site-query.php:194), so the obvious one-line version
+     * of this loop silently cleans the first 100 sites and leaves the rest
+     * behind — passing on a large network while quietly doing nothing for site
+     * 101 onward. Paging with an explicit `number`/`offset` avoids that without
+     * loading a 20,000-row site list into memory at once.
+     *
+     * Offset paging is safe here because nothing in this loop creates or deletes
+     * sites, so the ordered result set does not shift under us. `orderby` is
+     * pinned to make that ordering explicit rather than relying on MySQL.
+     *
+     * The query defaults leave archived, spam and deleted sites IN the result
+     * set (each of those filters is skipped when its query var is `''`), which
+     * is what we want — an archived site still has our options in its table.
+     *
+     * ---------------------------------------------------------------------------
+     * WHAT THIS ASSUMES
+     * ---------------------------------------------------------------------------
+     *
+     * That `init` has fired. `switch_to_blog()` does not repoint the roles
+     * object itself; core does it on the `switch_blog` action via
+     * wp_switch_roles_and_user(), which returns early when `init` has not run
+     * (wp-includes/ms-blogs.php:700). Without it, `remove_role()` would keep
+     * writing to the ORIGINAL site's role option and remove nothing anywhere
+     * else. Every real delete path satisfies this — WordPress calls
+     * uninstall_plugin() from delete_plugins() inside an admin request
+     * (wp-admin/includes/plugin.php:970), long after `init`.
+     *
+     * A very large network can still exhaust max_execution_time partway through
+     * (four queries per site). That is survivable rather than guarded against:
+     * a timeout leaves the plugin files in place, so the admin's retry runs
+     * uninstall again, and removeSiteData() is idempotent — repeated runs
+     * converge instead of double-deleting.
+     *
+     * @return \Generator|int[]
+     */
+    private static function eachSiteId()
+    {
+        $batchSize = 100;
+        $offset = 0;
+
+        do {
+            $siteIds = get_sites([
+                'fields'                 => 'ids',
+                'number'                 => $batchSize,
+                'offset'                 => $offset,
+                'orderby'                => 'id',
+                'order'                  => 'ASC',
+                // Nothing here reads site or site-meta objects, so priming those
+                // caches for the whole network would be pure overhead.
+                'update_site_cache'      => false,
+                'update_site_meta_cache' => false,
+            ]);
+
+            foreach ($siteIds as $siteId) {
+                yield (int) $siteId;
+            }
+
+            $offset += $batchSize;
+        } while (count($siteIds) === $batchSize);
     }
 }

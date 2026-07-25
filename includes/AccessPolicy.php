@@ -79,7 +79,17 @@ class AccessPolicy
      * its starting value, so a badly written callback can widen the set but the
      * store owner never loses their own access by accident.
      */
-    const BASELINE_ROLES = ['administrator', 'wholesale-customer'];
+    const BASELINE_ROLES = ['administrator', self::WHOLESALE_ROLE];
+
+    /**
+     * The role this plugin itself creates, as opposed to the ones WordPress and
+     * FluentCart already provide.
+     *
+     * Lives here, next to the option names, because this class is the single
+     * source of truth for the slugs the plugin owns. Activator adds this role,
+     * Deactivator removes it on uninstall, and Gate 1 above trusts it.
+     */
+    const WHOLESALE_ROLE = 'wholesale-customer';
 
     // ---- Gate 2 + 3: option names (single source of truth) --------------
 

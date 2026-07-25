@@ -23,15 +23,32 @@ define('FCBO_URL', plugin_dir_url(__FILE__));
 require_once FCBO_DIR . 'includes/AccessPolicy.php';
 require_once FCBO_DIR . 'includes/Settings.php';
 
-// Register wholesale-customer role on activation
+/*
+ * ---------------------------------------------------------------------------
+ * Lifecycle — activate / deactivate / delete
+ * ---------------------------------------------------------------------------
+ *
+ * Setup lives in \FluentCartBulkOrder\Activator, teardown in
+ * \FluentCartBulkOrder\Deactivator. Read those classes before changing what
+ * happens here; each documents rules that request-time code does not have
+ * (activation runs after `plugins_loaded` with no FluentCart guarantee;
+ * deactivation must not delete anything a reactivation would need).
+ *
+ * Deleting the plugin is NOT wired here — WordPress loads uninstall.php in the
+ * plugin root for that, which calls Deactivator::uninstall().
+ *
+ * Both files are required inside the hooks, not at the top of this file: they
+ * are needed twice in a plugin's lifetime and would otherwise be parsed on
+ * every page load.
+ */
 register_activation_hook(__FILE__, function () {
-    if (!get_role('wholesale-customer')) {
-        add_role(
-            'wholesale-customer',
-            __('Wholesale Customer', 'fluent-cart-bulk-order'),
-            get_role('customer') ? get_role('customer')->capabilities : get_role('subscriber')->capabilities
-        );
-    }
+    require_once FCBO_DIR . 'includes/Activator.php';
+    \FluentCartBulkOrder\Activator::activate();
+});
+
+register_deactivation_hook(__FILE__, function () {
+    require_once FCBO_DIR . 'includes/Deactivator.php';
+    \FluentCartBulkOrder\Deactivator::deactivate();
 });
 
 add_action('plugins_loaded', function () {

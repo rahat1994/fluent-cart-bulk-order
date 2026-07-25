@@ -103,6 +103,34 @@
         return tr;
     }
 
+    // The first row no product has been chosen in, or null when every row is
+    // filled. A row counts as free purely by its missing variantId, which is
+    // what selectProduct() sets — so a half-typed search term does not make a
+    // row look taken.
+    function firstEmptyRow() {
+        var rows = tbody.querySelectorAll('tr');
+
+        for (var i = 0; i < rows.length; i++) {
+            if (!rows[i].dataset.variantId) {
+                return rows[i];
+            }
+        }
+
+        return null;
+    }
+
+    // Keep one free row waiting below the last filled one, so picking a product
+    // never costs a trip to "+ Add Row".
+    //
+    // Appends only when nothing is free, which is what keeps the CSV import
+    // sane: each imported line fills the row the previous line left behind, so
+    // a 50-line paste still ends with ONE trailing row rather than fifty.
+    function ensureTrailingRow() {
+        if (!firstEmptyRow()) {
+            addRow();
+        }
+    }
+
     // --- Quick Order (paste / CSV) ---
 
     function initQuickOrder() {
@@ -252,13 +280,7 @@
 
     // Reuse the first empty row, else append a new one.
     function ensureRow() {
-        var rows = tbody.querySelectorAll('tr');
-        for (var i = 0; i < rows.length; i++) {
-            if (!rows[i].dataset.variantId) {
-                return rows[i];
-            }
-        }
-        return addRow();
+        return firstEmptyRow() || addRow();
     }
 
     function populateFromResolved(records, resolved) {
@@ -488,6 +510,11 @@
 
         updateRowTotal(row);
         updateGrandTotal();
+
+        // Last, so the new row is appended below a row that is already fully
+        // rendered. Both entry paths land here — the search dropdown and the
+        // CSV import — so neither needs its own copy of this rule.
+        ensureTrailingRow();
     }
 
     // --- Save order ---

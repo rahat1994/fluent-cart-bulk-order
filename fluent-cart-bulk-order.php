@@ -90,8 +90,13 @@ add_action('plugins_loaded', function () {
     // Display bulk pricing tiers on single product page
     add_action('fluent_cart/product/single/after_quantity_block', 'fcbo_render_single_product_tiers', 10, 1);
 
-    // Apply bulk pricing discount when items are added/updated in FluentCart's cart
-    add_filter('fluent_cart/cart/item_modify', 'fcbo_apply_cart_bulk_pricing', 10, 2);
+    // Price each cart line against its bulk tier.
+    //
+    // `item_price`, NOT `item_modify`: this one fires after FluentCart has
+    // settled the line's final quantity, so an "add 5 more" never gets priced
+    // as if it were a 5-unit order. The full reasoning, and why the two hooks
+    // must not both be used, is on the callback.
+    add_filter('fluent_cart/cart/item_price', 'fcbo_apply_cart_bulk_pricing', 10, 2);
 
     // Tell the shopper what that discount was worth.
     //
@@ -1536,19 +1541,57 @@ function fcbo_user_subject_to_min_order($user = null)
 }
 
 /**
- * FluentCart filter callback: apply bulk pricing discount to cart item price.
+ * FluentCart filter callback: price one cart line against its bulk tier.
  *
- * Fires when an item is added or its quantity is updated in the cart.
- * The variation is loaded fresh from the DB each time, so item_price is always the original.
+ * ---------------------------------------------------------------------------
+ * WHY `item_price` AND NOT `item_modify`
+ * ---------------------------------------------------------------------------
  *
- * @param object $variation The variant model object
- * @param array  $context   ['item_id' => int, 'quantity' => int]
- * @return object Modified variation
+ * This used to run on `fluent_cart/cart/item_modify`, which is handed the
+ * quantity from the REQUEST. That is not always the quantity the line ends up
+ * with. When FluentCart is told to ADD to a line rather than SET it (the
+ * `by_input` flag is absent), Cart::addByVariation() folds the existing
+ * quantity in afterwards:
+ *
+ *     if (!$byInput) { $quantity += $prevItem['quantity']; }   // Cart.php:406
+ *
+ * So the tier was chosen for the increment while the line was billed for the
+ * total. Adding 5 and then 5 more left 10 units priced at the 5-unit tier, and
+ * the cart drawer's + button — which posts an increment of 1 — re-priced a
+ * 10-unit line as if it were a single unit, wiping a discount the shopper had
+ * already earned.
+ *
+ * `fluent_cart/cart/item_price` fires inside
+ * CartHelper::generateCartItemFromVariation() (CartHelper.php:34), AFTER that
+ * fold, and its value becomes the line's `unit_price` directly. Every path that
+ * builds a cart line goes through it: add, quantity update, the +/- buttons,
+ * instant checkout, and the checkout order bump. Pricing there means the tier
+ * always matches the quantity actually billed.
+ *
+ * The two hooks must never BOTH be used: `item_modify` mutates the variation
+ * that is then passed to generateCartItemFromVariation(), so a discount applied
+ * in both places would compound — 10% off twice is 19% off.
+ *
+ * Not covered: ProductItemService::getItem(), which builds subscription plans
+ * for the payment gateways and calls `item_modify` without ever reaching
+ * `item_price`. Subscriptions are single-quantity everywhere in FluentCart, and
+ * a bulk tier is a quantity feature, so there is nothing for a tier to match
+ * there unless a store sets min_qty to 1.
+ *
+ * @param int   $itemPrice Per-unit price in cents, as filtered so far. Used as
+ *                         the base rather than $variation->item_price so an
+ *                         earlier filter's adjustment is not discarded.
+ * @param array $context   ['variation' => object, 'quantity' => int] — the
+ *                         SETTLED quantity for this line.
+ * @return int Per-unit price in cents.
  */
-function fcbo_apply_cart_bulk_pricing($variation, $context)
+function fcbo_apply_cart_bulk_pricing($itemPrice, $context)
 {
-    if (!$variation || empty($context['quantity'])) {
-        return $variation;
+    $variation = isset($context['variation']) ? $context['variation'] : null;
+    $qty       = (int) ($context['quantity'] ?? 0);
+
+    if (!$variation || empty($variation->id) || $qty < 1) {
+        return $itemPrice;
     }
 
     // Gate the discount by the stored role policy. Non-qualifying shoppers keep
@@ -1556,10 +1599,9 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     // why fcbo_build_variant_payload() withholds tiers from them too, so the
     // bulk order form cannot quote a total this function will not honour.
     if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
-        return $variation;
+        return $itemPrice;
     }
 
-    $qty       = (int) $context['quantity'];
     $productId = (int) $variation->post_id;
     $variantId = (int) $variation->id;
 
@@ -1569,22 +1611,19 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     $tiers       = fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles);
 
     if (empty($tiers)) {
-        return $variation;
+        return $itemPrice;
     }
 
     $tier = fcbo_match_tier($tiers, $qty);
-    if ($tier) {
-        $variation->item_price = fcbo_apply_tier_to_price((int) $variation->item_price, $tier);
-    }
 
-    return $variation;
+    return $tier ? fcbo_apply_tier_to_price((int) $itemPrice, $tier) : $itemPrice;
 }
 
 /**
  * What the bulk tiers took off one cart line, in cents.
  *
  * The cart item's own `unit_price` is already the discounted figure — this
- * plugin lowered it through `fluent_cart/cart/item_modify` before the line was
+ * plugin lowered it through `fluent_cart/cart/item_price` as the line was
  * built — so the original has to come back from the database. A direct
  * ProductVariation query is the right source precisely because it does NOT run
  * that filter: it is the last untouched copy of the pre-discount price.

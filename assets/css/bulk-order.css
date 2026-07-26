@@ -394,6 +394,24 @@
     display: none;
 }
 
+/* Store-owner notice: bulk pricing does not apply to this account. Warning
+   hue, tinted from the semantic colour so it reads on any theme ground. */
+.fcbo-policy-notice {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    background: color-mix(in srgb, var(--fcbo-warning) 14%, transparent);
+    color: var(--fcbo-warning);
+    border: 1px solid color-mix(in srgb, var(--fcbo-warning) 40%, transparent);
+}
+
+.fcbo-policy-notice a {
+    color: inherit;
+    text-decoration: underline;
+}
+
 /* Quick order (paste / CSV) */
 .fcbo-quick-order {
     margin-bottom: 16px;

@@ -90,6 +90,8 @@ class BulkOrderForm extends AbstractShortcode
         ob_start();
         ?>
         <div id="fcbo-bulk-order" class="fcbo-wrap">
+            <?php echo $this->pricingPolicyNotice(); ?>
+
             <div class="fcbo-quick-order">
                 <button type="button" id="fcbo-quick-toggle" class="fcbo-quick-toggle"
                         aria-expanded="false" aria-controls="fcbo-quick-panel">
@@ -160,6 +162,48 @@ class BulkOrderForm extends AbstractShortcode
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Tell a store owner why this form is quoting retail prices.
+     *
+     * Only for users who can reach the settings — it is a diagnostic, not a
+     * shopper message. A retail customer who does not qualify for bulk pricing
+     * should simply see retail prices, not be told about wholesale rates they
+     * cannot have.
+     *
+     * It exists because of a deliberate asymmetry: administrators may PREVIEW
+     * tiers but are never charged them (@see AccessPolicy, Gate 2). Before this
+     * notice, an admin testing the form saw discounted totals here and full
+     * prices at checkout, which reads as a broken plugin rather than as the
+     * policy working. Now the form quotes the real price and says why.
+     *
+     * @return string Markup, or '' when there is nothing to explain.
+     */
+    private function pricingPolicyNotice()
+    {
+        if (!current_user_can('manage_options')) {
+            return '';
+        }
+
+        if (AccessPolicy::userQualifiesForBulkPricing(null, 'cart')) {
+            return '';
+        }
+
+        $link = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url(AccessPolicy::settingsPageUrl()),
+            esc_html__('Settings → Bulk Pricing', 'fluent-cart-bulk-order')
+        );
+
+        return '<div class="fcbo-policy-notice">'
+            . esc_html__('Bulk pricing does not apply to your account, so this form is showing retail prices — the same prices you would be charged at checkout.', 'fluent-cart-bulk-order')
+            . ' ' . sprintf(
+                /* translators: %s: link to the Bulk Pricing settings page. */
+                esc_html__('Add your role under %s to see and receive the discounts.', 'fluent-cart-bulk-order'),
+                $link
+            )
+            . '</div>';
     }
 
     /**

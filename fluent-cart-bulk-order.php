@@ -491,6 +491,11 @@ function fcbo_build_category_list($productId)
  */
 function fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles = null)
 {
+    // Gate 2, in the CART context — see below for why not 'display'.
+    $tiers = fcbo_user_qualifies_for_bulk_pricing(null, 'cart')
+        ? fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles)
+        : [];
+
     return [
         'id'              => $variant->id,
         'variation_title' => $variant->variation_title ?: 'Default',
@@ -501,7 +506,26 @@ function fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles
         'manage_stock'    => (int) ($variant->manage_stock ?? 0),
         'available'       => (int) ($variant->available ?? 0),
         'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
-        'bulk_tiers'      => fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles),
+        // Gated on 'cart', NOT 'display'. This payload drives live line totals
+        // and a grand total for an order the shopper is about to place, so it
+        // must quote what fcbo_apply_cart_bulk_pricing() will actually charge.
+        // Sending tiers to someone Gate 2 excludes made the form show a
+        // discounted total that the cart then ignored — the shopper watched the
+        // price go back up at checkout.
+        //
+        // This is why the 'display' escape hatch does not belong here.
+        // Administrators are allowed to PREVIEW tiers, and the place for that
+        // is the product page (fcbo_render_single_product_tiers), which shows
+        // the tier table without quoting an order total. A transactional
+        // surface has to state the real price; a wrong total is worse than no
+        // preview. Non-qualifying store managers get told why by the notice in
+        // BulkOrderForm::output().
+        'bulk_tiers'      => $tiers,
+        // NOT gated: min-qty and case-pack rules are store rules that bind
+        // every shopper, whatever their pricing policy. The server enforces
+        // them for everyone (fcbo_validate_cart_item_rules), so the form has to
+        // show them for everyone or it would let people build carts that get
+        // refused at checkout.
         'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
     ];
 }
@@ -1528,7 +1552,9 @@ function fcbo_apply_cart_bulk_pricing($variation, $context)
     }
 
     // Gate the discount by the stored role policy. Non-qualifying shoppers keep
-    // the full price. Admins are NOT exempt on the cart path (KTD4).
+    // the full price. Admins are NOT exempt on the cart path (KTD4) — which is
+    // why fcbo_build_variant_payload() withholds tiers from them too, so the
+    // bulk order form cannot quote a total this function will not honour.
     if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
         return $variation;
     }

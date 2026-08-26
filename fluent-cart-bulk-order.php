@@ -463,256 +463,158 @@ function fcbo_list_catalog(\WP_REST_Request $request)
 }
 
 /**
- * Fetch all bulk pricing data in two batched queries.
+ * Load the bulk-pricing engine.
  *
+ * Required on demand: tier and order-rule resolution is needed on the cart, the
+ * checkout backstop, the product surfaces and the REST payloads, but not on an
+ * ordinary page load. require_once is idempotent, so every delegate can call it.
+ *
+ * @return void
+ */
+function fcbo_load_pricing()
+{
+    require_once FCBO_DIR . 'includes/Pricing/OrderRules.php';
+    require_once FCBO_DIR . 'includes/Pricing/Tiers.php';
+    require_once FCBO_DIR . 'includes/Pricing/FeedResolver.php';
+}
+
+/**
+ * Every bulk-pricing feed relevant to a set of products, store-wide included.
+ *
+ * @see \FluentCartBulkOrder\Pricing\FeedResolver::allBulkPricing()
  * @param int[] $productIds
- * @return array{global: array, product: array<int, array>}
+ * @return array
  */
 function fcbo_get_all_bulk_pricing($productIds)
 {
-    static $globalTiers = null;
+    fcbo_load_pricing();
 
-    // 1. Global tiers (cached across calls within the same request)
-    if ($globalTiers === null) {
-        $globalTiers = [];
-        $globalFeed = \FluentCart\App\Models\Meta::query()
-            ->where('object_type', 'order_integration')
-            ->where('meta_key', 'fcbo_bulk_pricing')
-            ->first();
-
-        if ($globalFeed) {
-            $feedData     = $globalFeed->meta_value;
-            $enabled      = !empty($feedData['enabled']) && $feedData['enabled'] === 'yes';
-            $hasTiers     = !empty($feedData['tiers']);
-            $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
-            // A feed carrying only order rules (no tiers at all) is still live
-            // content — dropping it here would silently disable the rules.
-            $rules        = fcbo_normalize_order_rules($feedData['order_rules'] ?? []);
-            $hasRules     = fcbo_order_rules_are_set($rules);
-            if ($enabled && ($hasTiers || $hasRoleTiers || $hasRules)) {
-                $globalTiers = [
-                    'tiers'       => $hasTiers ? $feedData['tiers'] : [],
-                    'role_tiers'  => $hasRoleTiers ? $feedData['role_tiers'] : [],
-                    'order_rules' => $rules,
-                ];
-            }
-        }
-    }
-
-    // 2. Product-level tiers (batch query)
-    $productFeeds = [];
-    if (!empty($productIds)) {
-        $feeds = \FluentCart\App\Models\ProductMeta::query()
-            ->where('object_type', 'product_integration')
-            ->where('meta_key', 'fcbo_bulk_pricing')
-            ->whereIn('object_id', $productIds)
-            ->get();
-
-        foreach ($feeds as $feed) {
-            $feedData     = $feed->meta_value;
-            $hasTiers     = !empty($feedData['tiers']);
-            $hasRoleTiers = !empty($feedData['role_tiers']) && is_array($feedData['role_tiers']);
-            // As above: rules-only feeds must survive this filter.
-            $rules        = fcbo_normalize_order_rules($feedData['order_rules'] ?? []);
-            $hasRules     = fcbo_order_rules_are_set($rules);
-            if (empty($feedData['enabled']) || $feedData['enabled'] !== 'yes' || (!$hasTiers && !$hasRoleTiers && !$hasRules)) {
-                continue;
-            }
-
-            $pid = (int) $feed->object_id;
-            if (!isset($productFeeds[$pid])) {
-                $productFeeds[$pid] = [];
-            }
-
-            $variantIds = [];
-            if (!empty($feedData['conditional_variation_ids']) && is_array($feedData['conditional_variation_ids'])) {
-                $variantIds = array_map('intval', $feedData['conditional_variation_ids']);
-            }
-
-            $productFeeds[$pid][] = [
-                'variant_ids' => $variantIds,
-                'tiers'       => $hasTiers ? $feedData['tiers'] : [],
-                'role_tiers'  => $hasRoleTiers ? $feedData['role_tiers'] : [],
-                'order_rules' => $rules,
-            ];
-        }
-    }
-
-    return [
-        'global'  => $globalTiers,
-        'product' => $productFeeds,
-    ];
+    return \FluentCartBulkOrder\Pricing\FeedResolver::allBulkPricing($productIds);
 }
 
 /**
- * Resolve the effective discount tiers for a specific product variant.
+ * The tier list that applies to one variant for one shopper.
  *
- * Two-stage resolution:
- *   1. Feed precedence — a product-level feed wins over the global feed; the
- *      first feed whose variant scope matches applies (unchanged behavior).
- *   2. Role selection within that feed — if the feed carries role-scoped
- *      tier-sets, the first of the shopper's roles with a list wins; otherwise
- *      the feed's default `tiers` apply. See fcbo_select_role_tier_set().
- *
- * $userRoles is optional: null/[] always yields the default set, so existing
- * call sites keep today's behavior until they opt in by passing roles (R6/R8).
- * Role selection composes with — never replaces — the Plan 002 qualification
- * gate, which still decides *whether* any bulk pricing applies.
- *
- * @param array         $pricingData From fcbo_get_all_bulk_pricing()
- * @param int           $productId
- * @param int           $variantId
- * @param string[]|null $userRoles   Current user's role slugs (null = default set).
- * @return array Tier list (may be empty)
+ * @see \FluentCartBulkOrder\Pricing\FeedResolver::resolveTiers()
+ * @param array      $pricingData
+ * @param int        $productId
+ * @param int        $variantId
+ * @param array|null $userRoles Roles to resolve against; current user when null.
+ * @return array
  */
 function fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles = null)
 {
-    $feed = fcbo_match_feed($pricingData, $productId, $variantId);
+    fcbo_load_pricing();
 
-    return $feed ? fcbo_select_role_tier_set($feed, $userRoles) : [];
+    return \FluentCartBulkOrder\Pricing\FeedResolver::resolveTiers($pricingData, $productId, $variantId, $userRoles);
 }
 
 /**
- * Find the one feed that governs a variant: product-scoped beats global.
+ * The feed that governs one variant, product-scoped beating store-wide.
  *
- * The single home for feed precedence. Tiers (fcbo_resolve_tiers) and order
- * rules (fcbo_resolve_order_rules) both route through here so the two can never
- * disagree about which feed applies to a given variant.
- *
- * Precedence is winner-takes-all, matching the long-standing tier behavior: the
- * first matching product feed wins outright and the global feed is not consulted
- * for anything it left unset. A product feed therefore fully replaces the global
- * one rather than layering on top of it.
- *
- * @param array $pricingData From fcbo_get_all_bulk_pricing().
+ * @see \FluentCartBulkOrder\Pricing\FeedResolver::matchFeed()
+ * @param array $pricingData
  * @param int   $productId
  * @param int   $variantId
- * @return array|null The governing feed, or null when none applies.
+ * @return array|null
  */
 function fcbo_match_feed($pricingData, $productId, $variantId)
 {
-    // Check product-level feeds first
-    if (!empty($pricingData['product'][$productId])) {
-        foreach ($pricingData['product'][$productId] as $feed) {
-            // Empty variant_ids means applies to all variants
-            if (empty($feed['variant_ids']) || in_array((int) $variantId, $feed['variant_ids'], true)) {
-                return $feed;
-            }
-        }
-    }
+    fcbo_load_pricing();
 
-    // Fall back to the global feed
-    if (!empty($pricingData['global'])) {
-        return $pricingData['global'];
-    }
-
-    return null;
+    return \FluentCartBulkOrder\Pricing\FeedResolver::matchFeed($pricingData, $productId, $variantId);
 }
 
 /**
- * Resolve the effective order rules (minimum qty + case-pack step) for a variant.
+ * The order rules that apply to one variant.
  *
- * Shares fcbo_match_feed()'s precedence with fcbo_resolve_tiers(), so the feed
- * that prices a variant is always the feed that constrains its quantity. A
- * variant with no governing feed gets the no-op defaults.
+ * Resolved through the SAME feed match as the tiers, so the feed that prices a
+ * variant is always the feed that constrains it.
  *
- * @param array $pricingData From fcbo_get_all_bulk_pricing().
+ * @see \FluentCartBulkOrder\Pricing\FeedResolver::resolveOrderRules()
+ * @param array $pricingData
  * @param int   $productId
  * @param int   $variantId
- * @return array{min_qty:int, step:int}
+ * @return array{min_qty:int,step:int}
  */
 function fcbo_resolve_order_rules($pricingData, $productId, $variantId)
 {
-    $feed = fcbo_match_feed($pricingData, $productId, $variantId);
+    fcbo_load_pricing();
 
-    return fcbo_normalize_order_rules($feed['order_rules'] ?? []);
+    return \FluentCartBulkOrder\Pricing\FeedResolver::resolveOrderRules($pricingData, $productId, $variantId);
 }
 
 /**
- * Coerce a stored/raw order-rule pair into clamped integers.
+ * Coerce a raw order-rules array into the canonical shape.
  *
- * Mirrors BulkPricingIntegration::sanitizeOrderRules() so data that predates the
- * feature — or that was written by hand — still reads as the no-op default
- * rather than as a rule of 0 multiples.
- *
+ * @see \FluentCartBulkOrder\Pricing\OrderRules::normalize()
  * @param mixed $rules
- * @return array{min_qty:int, step:int}
+ * @return array{min_qty:int,step:int}
  */
 function fcbo_normalize_order_rules($rules)
 {
-    $rules = is_array($rules) ? $rules : [];
+    fcbo_load_pricing();
 
-    return [
-        'min_qty' => max(0, (int) ($rules['min_qty'] ?? 0)),
-        'step'    => max(1, (int) ($rules['step'] ?? 1)),
-    ];
+    return \FluentCartBulkOrder\Pricing\OrderRules::normalize($rules);
 }
 
 /**
- * Whether a rule pair actually constrains anything.
+ * Whether a normalized rules array actually constrains anything.
  *
- * @param array $rules Normalized rules.
+ * @see \FluentCartBulkOrder\Pricing\OrderRules::areSet()
+ * @param array $rules
  * @return bool
  */
 function fcbo_order_rules_are_set($rules)
 {
-    return ($rules['min_qty'] ?? 0) > 0 || ($rules['step'] ?? 1) > 1;
+    fcbo_load_pricing();
+
+    return \FluentCartBulkOrder\Pricing\OrderRules::areSet($rules);
 }
 
 /**
- * Round a quantity up to the nearest value the rules permit.
+ * Round a quantity UP to the nearest value the rules permit.
  *
- * This is the ONE place in PHP the normalization formula lives; the JS surfaces
- * mirror it exactly and MUST change together with it. Rounding is always
- * upward — never downward — so a shopper is never silently given less than they
- * asked for.
- *
+ * @see \FluentCartBulkOrder\Pricing\OrderRules::normalizeQty()
  * @param int   $qty
- * @param array $rules Normalized rules.
- * @return int Smallest permitted quantity >= $qty (always >= 1).
+ * @param array $rules
+ * @return int
  */
 function fcbo_normalize_qty($qty, $rules)
 {
-    $rules = fcbo_normalize_order_rules($rules);
-    $qty   = max(1, (int) $qty, $rules['min_qty']);
+    fcbo_load_pricing();
 
-    if ($rules['step'] > 1) {
-        $qty = (int) (ceil($qty / $rules['step']) * $rules['step']);
-    }
-
-    return $qty;
+    return \FluentCartBulkOrder\Pricing\OrderRules::normalizeQty($qty, $rules);
 }
 
 /**
- * Whether a quantity exactly satisfies the rules (server-side gate).
+ * Whether a quantity already satisfies the rules.
  *
- * Deliberately strict where fcbo_normalize_qty() is forgiving: the client
- * corrects a typo in place, the server refuses anything that did not come
- * through that correction (KTD4).
- *
+ * @see \FluentCartBulkOrder\Pricing\OrderRules::qtyIsValid()
  * @param int   $qty
- * @param array $rules Normalized rules.
+ * @param array $rules
  * @return bool
  */
 function fcbo_qty_is_valid($qty, $rules)
 {
-    return (int) $qty === fcbo_normalize_qty($qty, $rules);
+    fcbo_load_pricing();
+
+    return \FluentCartBulkOrder\Pricing\OrderRules::qtyIsValid($qty, $rules);
 }
 
 /**
- * Pick the applicable tier-set within a resolved feed by the shopper's roles.
+ * The tier list a feed offers this shopper's roles, falling back to `tiers`.
  *
- * Selection, NOT authorization — Gate 2 has already decided whether any bulk
- * pricing applies at all.
- *
- * @see \FluentCartBulkOrder\AccessPolicy::selectRoleTierSet()
- * @param array         $feed      ['tiers' => array, 'role_tiers' => array]
- * @param string[]|null $userRoles Current user's role slugs.
- * @return array Tier list (may be empty).
+ * @see \FluentCartBulkOrder\Pricing\Tiers::selectRoleTierSet()
+ * @param array      $feed
+ * @param array|null $userRoles
+ * @return array
  */
 function fcbo_select_role_tier_set($feed, $userRoles)
 {
-    return \FluentCartBulkOrder\AccessPolicy::selectRoleTierSet($feed, $userRoles);
+    fcbo_load_pricing();
+
+    return \FluentCartBulkOrder\Pricing\Tiers::selectRoleTierSet($feed, $userRoles);
 }
 
 /**
@@ -736,114 +638,47 @@ function fcbo_get_currency_sign()
 }
 
 /**
- * Compute the effective per-unit price (integer cents) for a matched tier.
+ * Apply one tier's discount to a unit price, in integer cents.
  *
- * This is the ONE place in PHP the per-type discount formula lives; the two JS
- * live-total surfaces (bulk-order.js, bulk-pricing-display.js) mirror it exactly
- * and MUST change together with it. Money tier values are stored in major
- * currency units, so the major-units -> cents conversion happens here — the sole
- * conversion point on the PHP side. The result is always integer cents, clamped
- * to >= 0.
- *
- *   percent          -> round(price * (1 - value / 100))
- *   fixed_unit_price -> round(value * 100)              (absolute per-unit price)
- *   amount_off       -> price - round(value * 100)      (flat per-unit reduction)
- *
- * @param int   $itemPriceCents Original per-unit price in cents.
- * @param array $tier           ['discount_type' => string, 'discount_value' => float]
- * @return int Effective per-unit price in cents (>= 0).
+ * @see \FluentCartBulkOrder\Pricing\Tiers::applyToPrice()
+ * @param int   $itemPriceCents
+ * @param array $tier
+ * @return int Discounted unit price, in cents.
  */
 function fcbo_apply_tier_to_price($itemPriceCents, $tier)
 {
-    $type  = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
-    $value = (float) ($tier['discount_value'] ?? 0);
+    fcbo_load_pricing();
 
-    switch ($type) {
-        case 'fixed_unit_price':
-            $price = (int) round($value * 100);
-            break;
-        case 'amount_off':
-            $price = (int) $itemPriceCents - (int) round($value * 100);
-            break;
-        case 'percent':
-        default:
-            $price = (int) round($itemPriceCents * (1 - $value / 100));
-            break;
-    }
-
-    return max(0, $price);
+    return \FluentCartBulkOrder\Pricing\Tiers::applyToPrice($itemPriceCents, $tier);
 }
 
 /**
- * Pick the tier that prices a given quantity.
+ * The most specific tier whose quantity range covers $qty.
  *
- * A tier matches when qty >= min_qty and (max_qty is 0 or qty <= max_qty).
- * Several tiers can match at once — an open-ended "30+" tier still matches at
- * qty 70 even when a "60+" tier exists — so the FIRST match is not the right
- * answer. The most specific one wins: the highest min_qty among the matches
- * (ties broken by the later tier, which is the one the admin added last).
- *
- * This is the ONE tier-matching rule in PHP; resolveTier() in
- * bulk-pricing-display.js and getEffectivePrice() in bulk-order.js mirror it
- * and MUST change together with it.
- *
- * @param array $tiers Sanitized tier list (any order).
- * @param int   $qty   Quantity being priced.
- * @return array|null The winning tier, or null when nothing matches.
+ * @see \FluentCartBulkOrder\Pricing\Tiers::match()
+ * @param array $tiers
+ * @param int   $qty
+ * @return array|null
  */
 function fcbo_match_tier($tiers, $qty)
 {
-    $qty   = (int) $qty;
-    $best  = null;
-    $bestMin = -1;
+    fcbo_load_pricing();
 
-    foreach ((array) $tiers as $tier) {
-        $minQty = (int) ($tier['min_qty'] ?? 0);
-        $maxQty = (int) ($tier['max_qty'] ?? 0);
-
-        if ($qty < $minQty || ($maxQty > 0 && $qty > $maxQty)) {
-            continue;
-        }
-
-        if ($minQty >= $bestMin) {
-            $best    = $tier;
-            $bestMin = $minQty;
-        }
-    }
-
-    return $best;
+    return \FluentCartBulkOrder\Pricing\Tiers::match($tiers, $qty);
 }
 
 /**
- * Human-readable label for a tier's discount, by type.
+ * Human-readable label for a tier's discount ("10% off", "$4.00 each", ...).
  *
- * Returns raw text — the caller escapes. Money types are formatted in major
- * units with the store currency sign; percent keeps the "% off" form.
- *
- * @param array $tier ['discount_type' => string, 'discount_value' => float]
+ * @see \FluentCartBulkOrder\Pricing\Tiers::formatDiscountLabel()
+ * @param array $tier
  * @return string
  */
 function fcbo_format_tier_discount_label($tier)
 {
-    $type  = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
-    $value = (float) ($tier['discount_value'] ?? 0);
-    $sign  = fcbo_get_currency_sign();
+    fcbo_load_pricing();
 
-    switch ($type) {
-        case 'fixed_unit_price':
-            // Money keeps 2 decimals (currency), matching the JS formatPrice() output.
-            /* translators: %s: formatted unit price, e.g. $8.50 */
-            return sprintf(__('%s/unit', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
-        case 'amount_off':
-            /* translators: %s: formatted amount, e.g. $2.00 */
-            return sprintf(__('%s off', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
-        case 'percent':
-        default:
-            // Percent strips trailing zeros (10% not 10.00%) — unchanged from before.
-            $num = rtrim(rtrim(number_format($value, 2), '0'), '.');
-            /* translators: %s: percentage number, e.g. 10 */
-            return sprintf(__('%s%% off', 'fluent-cart-bulk-order'), $num);
-    }
+    return \FluentCartBulkOrder\Pricing\Tiers::formatDiscountLabel($tier);
 }
 
 /**

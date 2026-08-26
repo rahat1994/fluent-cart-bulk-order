@@ -95,7 +95,7 @@ class ProductsController
      *
      * @param object        $product     Product model (needs ID + thumbnail).
      * @param object        $variant     Variant model.
-     * @param array         $pricingData From fcbo_get_all_bulk_pricing().
+     * @param array         $pricingData From FeedResolver::allBulkPricing().
      * @param string[]|null $userRoles   Viewer's role slugs, so bulk_tiers is
      *                                   role-resolved server-side (the client never
      *                                   sees other roles' pricing). null = default set.

@@ -1325,6 +1325,81 @@ function fcbo_bulk_order_strings()
 }
 
 /**
+ * Every shopper-facing sentence in assets/js/product-table.js.
+ *
+ * @see fcbo_bulk_order_strings() for why whole sentences are translated
+ *      here rather than assembled from fragments in JS.
+ *
+ * @return array<string,string>
+ */
+function fcbo_product_table_strings()
+{
+    return [
+        'loading'      => __('Loading products...', 'fluent-cart-bulk-order'),
+        'load_failed'  => __('Failed to load products.', 'fluent-cart-bulk-order'),
+        'no_products'  => __('No products found.', 'fluent-cart-bulk-order'),
+
+        // Add-to-cart button, through its whole cycle
+        'add_to_cart'  => __('Add to Cart', 'fluent-cart-bulk-order'),
+        'out_of_stock' => __('Out of Stock', 'fluent-cart-bulk-order'),
+        'adding'       => __('Adding...', 'fluent-cart-bulk-order'),
+        'added'        => __('Added!', 'fluent-cart-bulk-order'),
+
+        // Order rules, shown next to the quantity input
+        /* translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is. */
+        'rule_min_and_step' => __('Min {min}, in {step}s', 'fluent-cart-bulk-order'),
+        /* translators: {step}: case-pack multiple. Keep {step} as-is. */
+        'rule_step'         => __('Sold in {step}s', 'fluent-cart-bulk-order'),
+        /* translators: {min}: minimum quantity. Keep {min} as-is. */
+        'rule_min'          => __('Min {min}', 'fluent-cart-bulk-order'),
+        /* translators: {qty}: the quantity now set. Keep {qty} as-is. */
+        'qty_adjusted'      => __('Quantity adjusted to {qty} to meet this product\'s order rules.', 'fluent-cart-bulk-order'),
+
+        'cart_missing'  => __('FluentCart cart is not available. Please refresh the page.', 'fluent-cart-bulk-order'),
+        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
+        'add_failed'    => __('Failed: {error}', 'fluent-cart-bulk-order'),
+        'unknown_error' => __('Unknown error', 'fluent-cart-bulk-order'),
+
+        /* translators: {current}: current page number; {total}: how many pages there are. Keep both as-is. */
+        'page_of' => __('Page {current} of {total}', 'fluent-cart-bulk-order'),
+    ];
+}
+
+/**
+ * Every shopper-facing sentence in assets/js/saved-orders.js.
+ *
+ * @see fcbo_bulk_order_strings() for why whole sentences are translated
+ *      here rather than assembled from fragments in JS.
+ *
+ * @return array<string,string>
+ */
+function fcbo_saved_orders_strings()
+{
+    return [
+        'divider_saved' => __('Saved orders', 'fluent-cart-bulk-order'),
+        'divider_past'  => __('Past orders', 'fluent-cart-bulk-order'),
+
+        'cart_missing'      => __('FluentCart cart is not available. Please refresh the page and try again.', 'fluent-cart-bulk-order'),
+        'nothing_available' => __('None of the items in this order are available anymore.', 'fluent-cart-bulk-order'),
+        'mixed_types'       => __('This order mixes subscription and one-time products, which cannot be reordered together.', 'fluent-cart-bulk-order'),
+
+        'adding'  => __('Adding items to cart...', 'fluent-cart-bulk-order'),
+        /* translators: {count}: items being added; {skipped}: items no longer available. Keep both as-is. */
+        'adding_some' => __('Adding {count} item(s); {skipped} unavailable skipped...', 'fluent-cart-bulk-order'),
+        'redirecting' => __('Redirecting to checkout...', 'fluent-cart-bulk-order'),
+        'checkout_not_configured' => __('Checkout page is not configured. Please check FluentCart settings.', 'fluent-cart-bulk-order'),
+        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
+        'add_failed'    => __('Failed to add an item: {error}', 'fluent-cart-bulk-order'),
+        'unknown_error' => __('Unknown error', 'fluent-cart-bulk-order'),
+
+        /* translators: {name}: the name the shopper gave the saved order. Keep {name} as-is. */
+        'delete_confirm' => __('Delete saved order "{name}"?', 'fluent-cart-bulk-order'),
+        'delete_done'    => __('Saved order deleted.', 'fluent-cart-bulk-order'),
+        'delete_failed'  => __('Could not delete the saved order. Please try again.', 'fluent-cart-bulk-order'),
+    ];
+}
+
+/**
  * Enqueue CSS and JS for the bulk pricing display.
  */
 function fcbo_enqueue_bulk_pricing_assets()

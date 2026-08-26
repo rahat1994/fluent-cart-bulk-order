@@ -130,6 +130,9 @@ class ProductTable extends AbstractShortcode
             'columns'         => $columns,
             'category'        => $category,
             'expand_variants' => $expandVariants ? 1 : 0,
+            // Shopper-facing sentences, translated server-side. The JS only
+            // fills {placeholders}. @see fcbo_product_table_strings()
+            'i18n'            => fcbo_product_table_strings(),
         ]));
 
         ob_start();

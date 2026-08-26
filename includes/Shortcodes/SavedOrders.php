@@ -80,6 +80,9 @@ class SavedOrders extends AbstractShortcode
         wp_localize_script('fcbo-saved-orders', 'fcboSoConfig', array_merge($this->restConfig(), [
             'currency_sign' => $this->currencySign(),
             'checkout_url'  => esc_url_raw($this->checkoutPageUrl()),
+            // Shopper-facing sentences, translated server-side. The JS only
+            // fills {placeholders}. @see fcbo_saved_orders_strings()
+            'i18n'          => fcbo_saved_orders_strings(),
         ]));
 
         ob_start();

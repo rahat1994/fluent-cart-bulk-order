@@ -201,9 +201,21 @@
 
 /* A tint of the dropdown's OWN text colour, not the page's — inside this panel
    currentColor is CanvasText, so the highlight lands correctly whether the
-   panel came out light or dark. */
-.fcbo-dd-item:hover {
+   panel came out light or dark.
+   .fcbo-dd-active is the keyboard highlight: the arrow keys move it while focus
+   stays in the search input, so it has to look the same as hovering. */
+.fcbo-dd-item:hover,
+.fcbo-dd-item.fcbo-dd-active {
     background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* Windows High Contrast mode drops background tints, so the keyboard highlight
+   would vanish there. An outline survives it. */
+@media (forced-colors: active) {
+    .fcbo-dd-item.fcbo-dd-active {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
 }
 
 .fcbo-dd-item.fcbo-dd-disabled {

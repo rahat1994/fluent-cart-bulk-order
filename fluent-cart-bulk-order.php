@@ -1260,6 +1260,7 @@ function fcbo_bulk_order_strings()
         'search_placeholder' => __('Search products...', 'fluent-cart-bulk-order'),
 
         // Search dropdown
+        'search_results' => __('Product search results', 'fluent-cart-bulk-order'),
         'search_failed' => __('Search failed', 'fluent-cart-bulk-order'),
         'no_products'   => __('No products found', 'fluent-cart-bulk-order'),
         'no_variants'   => __('No available variants', 'fluent-cart-bulk-order'),

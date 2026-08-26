@@ -36,7 +36,7 @@
 
         for (var i = 0; i < dropdowns.length; i++) {
             if (dropdowns[i].closest('tr') !== clickedRow) {
-                dropdowns[i].style.display = 'none';
+                closeDropdown(dropdowns[i]);
             }
         }
     }
@@ -57,8 +57,16 @@
             '</td>' +
             '<td class="fcbo-col-product">' +
                 '<div class="fcbo-search-wrap">' +
-                    '<input type="text" class="fcbo-search-input" placeholder="' + escapeAttr(t('search_placeholder')) + '" autocomplete="off" />' +
-                    '<div class="fcbo-dropdown" style="display:none;"></div>' +
+                    // ARIA combobox: focus stays in the input while the arrow
+                    // keys move a highlight, and aria-activedescendant is what
+                    // tells a screen reader which option is highlighted.
+                    '<input type="text" class="fcbo-search-input"' +
+                        ' placeholder="' + escapeAttr(t('search_placeholder')) + '"' +
+                        ' aria-label="' + escapeAttr(t('search_placeholder')) + '"' +
+                        ' autocomplete="off" role="combobox" aria-autocomplete="list"' +
+                        ' aria-expanded="false" aria-controls="' + rowId + '-listbox" />' +
+                    '<div class="fcbo-dropdown" id="' + rowId + '-listbox" role="listbox"' +
+                        ' aria-label="' + escapeAttr(t('search_results')) + '" style="display:none;"></div>' +
                 '</div>' +
             '</td>' +
             '<td class="fcbo-col-sku"><span class="fcbo-sku-text"></span></td>' +
@@ -106,12 +114,39 @@
             clearTimeout(debounceTimer);
             var term = searchInput.value.trim();
             if (term.length < 2) {
-                dropdown.style.display = 'none';
+                closeDropdown(dropdown);
                 return;
             }
             debounceTimer = setTimeout(function () {
                 fetchProducts(term, dropdown, tr);
             }, 300);
+        });
+
+        searchInput.addEventListener('keydown', function (e) {
+            if (!isDropdownOpen(dropdown)) {
+                return;
+            }
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                // Stop the caret jumping to either end of the typed term.
+                e.preventDefault();
+                moveActiveOption(dropdown, e.key === 'ArrowDown' ? 1 : -1);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                var active = activeOption(dropdown);
+                // With nothing highlighted, Enter is not ours to take.
+                if (!active) return;
+                e.preventDefault();
+                chooseOption(tr, dropdown, active);
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeDropdown(dropdown);
+            }
         });
 
         return tr;
@@ -397,6 +432,97 @@
         el.style.display = 'block';
     }
 
+    // --- Search Dropdown ---
+    //
+    // The dropdown is an ARIA combobox popup. Focus never leaves the search
+    // input — the arrow keys move a `fcbo-dd-active` highlight instead, and
+    // aria-activedescendant points the screen reader at it. That is what lets
+    // a buyer type a SKU and pick a variant without touching the mouse.
+
+    function isDropdownOpen(dropdown) {
+        return dropdown.style.display !== 'none';
+    }
+
+    function searchInputFor(dropdown) {
+        var wrap = dropdown.parentNode;
+        return wrap ? wrap.querySelector('.fcbo-search-input') : null;
+    }
+
+    function openDropdown(dropdown) {
+        dropdown.style.display = 'block';
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-expanded', 'true'); }
+    }
+
+    function closeDropdown(dropdown) {
+        dropdown.style.display = 'none';
+        clearActiveOption(dropdown);
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-expanded', 'false'); }
+    }
+
+    function selectableOptions(dropdown) {
+        return dropdown.querySelectorAll('.fcbo-dd-item:not(.fcbo-dd-disabled)');
+    }
+
+    function activeOption(dropdown) {
+        return dropdown.querySelector('.fcbo-dd-item.fcbo-dd-active');
+    }
+
+    function clearActiveOption(dropdown) {
+        var current = activeOption(dropdown);
+        if (current) {
+            current.classList.remove('fcbo-dd-active');
+            current.setAttribute('aria-selected', 'false');
+        }
+        var input = searchInputFor(dropdown);
+        if (input) { input.removeAttribute('aria-activedescendant'); }
+    }
+
+    // Move the highlight by `delta` options, wrapping at both ends. Out-of-stock
+    // options are skipped, because they cannot be chosen by mouse either.
+    function moveActiveOption(dropdown, delta) {
+        var options = selectableOptions(dropdown);
+        if (!options.length) return;
+
+        var current = activeOption(dropdown);
+        var index = -1;
+        for (var i = 0; i < options.length; i++) {
+            if (options[i] === current) { index = i; break; }
+        }
+
+        // From no highlight, ArrowDown starts at the top and ArrowUp at the bottom.
+        var next = index === -1
+            ? (delta > 0 ? 0 : options.length - 1)
+            : (index + delta + options.length) % options.length;
+
+        setActiveOption(dropdown, options[next]);
+
+        // The panel scrolls at 250px, so the highlight can otherwise move out of view.
+        if (options[next].scrollIntoView) {
+            options[next].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // Make one option the highlighted one, dropping any previous highlight.
+    function setActiveOption(dropdown, option) {
+        if (activeOption(dropdown) === option) return;
+
+        clearActiveOption(dropdown);
+        option.classList.add('fcbo-dd-active');
+        option.setAttribute('aria-selected', 'true');
+
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-activedescendant', option.id); }
+    }
+
+    // Commit one option into its row. Shared by mouse click and Enter, so the
+    // two paths cannot drift apart.
+    function chooseOption(row, dropdown, item) {
+        selectProduct(row, JSON.parse(item.dataset.product));
+        closeDropdown(dropdown);
+    }
+
     // --- Product Search ---
 
     function fetchProducts(term, dropdown, row) {
@@ -409,19 +535,23 @@
             renderDropdown(data.products || [], dropdown, row);
         })
         .catch(function () {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('search_failed')) + '</div>';
-            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('search_failed')) + '</div>';
+            clearActiveOption(dropdown);
+            openDropdown(dropdown);
         });
     }
 
     function renderDropdown(products, dropdown, row) {
         if (!products.length) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('no_products')) + '</div>';
-            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('no_products')) + '</div>';
+            clearActiveOption(dropdown);
+            openDropdown(dropdown);
             return;
         }
 
         var html = '';
+        var optionIndex = 0;
+
         for (var i = 0; i < products.length; i++) {
             var p = products[i];
             if (!p.variants || !p.variants.length) continue;
@@ -438,6 +568,9 @@
                 var stockLabel = outOfStock ? ' ' + t('out_of_stock') : '';
 
                 html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') + '"' +
+                    ' id="' + dropdown.id + '-opt-' + (optionIndex++) + '"' +
+                    ' role="option" aria-selected="false"' +
+                    (outOfStock ? ' aria-disabled="true"' : '') +
                     ' data-product=\'' + escapeAttr(JSON.stringify({
                         productId: p.id,
                         title: p.title,
@@ -452,19 +585,23 @@
         }
 
         if (!html) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('no_variants')) + '</div>';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('no_variants')) + '</div>';
         } else {
             dropdown.innerHTML = html;
         }
-        dropdown.style.display = 'block';
+        // The old options are gone, so any highlight pointing at them is too.
+        clearActiveOption(dropdown);
+        openDropdown(dropdown);
 
-        // Attach click handlers
-        var items = dropdown.querySelectorAll('.fcbo-dd-item:not(.fcbo-dd-disabled)');
+        var items = selectableOptions(dropdown);
         for (var k = 0; k < items.length; k++) {
             items[k].addEventListener('click', function () {
-                var data = JSON.parse(this.dataset.product);
-                selectProduct(row, data);
-                dropdown.style.display = 'none';
+                chooseOption(row, dropdown, this);
+            });
+            // Keep mouse and keyboard on one highlight, so moving the mouse and
+            // then pressing Enter picks what the shopper is looking at.
+            items[k].addEventListener('mouseenter', function () {
+                setActiveOption(dropdown, this);
             });
         }
     }

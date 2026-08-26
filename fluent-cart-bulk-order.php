@@ -1243,6 +1243,88 @@ function fcbo_savings_strings()
 }
 
 /**
+ * Every shopper-facing sentence in assets/js/bulk-order.js.
+ *
+ * Same contract as fcbo_savings_strings(): the sentence is translated here,
+ * whole, and the JS only fills the {placeholders}. Building a sentence by
+ * concatenating fragments in JS cannot be translated — word order differs
+ * between languages, so "Add 5 more" is not "Add" + qty + "more" everywhere.
+ *
+ * @return array<string,string>
+ */
+function fcbo_bulk_order_strings()
+{
+    return [
+        // Row controls
+        'remove_row'         => __('Remove', 'fluent-cart-bulk-order'),
+        'search_placeholder' => __('Search products...', 'fluent-cart-bulk-order'),
+
+        // Search dropdown
+        'search_failed' => __('Search failed', 'fluent-cart-bulk-order'),
+        'no_products'   => __('No products found', 'fluent-cart-bulk-order'),
+        'no_variants'   => __('No available variants', 'fluent-cart-bulk-order'),
+        'out_of_stock'  => __('(Out of stock)', 'fluent-cart-bulk-order'),
+        /* translators: {sku}: a product SKU. Keep {sku} as-is. */
+        'sku_label'     => __('SKU {sku}', 'fluent-cart-bulk-order'),
+
+        // Saving an order
+        'save_need_product'  => __('Add at least one product before saving.', 'fluent-cart-bulk-order'),
+        'save_name_prompt'   => __('Name this saved order:', 'fluent-cart-bulk-order'),
+        'save_need_name'     => __('Please enter a name for the saved order.', 'fluent-cart-bulk-order'),
+        'saving'             => __('Saving order...', 'fluent-cart-bulk-order'),
+        'save_failed'        => __('Could not save the order.', 'fluent-cart-bulk-order'),
+        'save_failed_retry'  => __('Could not save the order. Please try again.', 'fluent-cart-bulk-order'),
+        /* translators: {name}: the name the shopper gave the saved order. Keep {name} as-is. */
+        'save_succeeded'     => __('Saved order "{name}".', 'fluent-cart-bulk-order'),
+
+        // Checkout
+        'checkout_need_product'   => __('Please select at least one product.', 'fluent-cart-bulk-order'),
+        'checkout_mixed_types'    => __('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'fluent-cart-bulk-order'),
+        /* translators: {amount}: money still needed; {minimum}: the required order total. Keep both as-is. */
+        'checkout_below_minimum'  => __('Add {amount} more to reach the {minimum} minimum order total.', 'fluent-cart-bulk-order'),
+        'checkout_cart_missing'   => __('FluentCart cart is not available. Please refresh the page and try again.', 'fluent-cart-bulk-order'),
+        'checkout_adding'         => __('Adding items to cart...', 'fluent-cart-bulk-order'),
+        'checkout_redirecting'    => __('Redirecting to checkout...', 'fluent-cart-bulk-order'),
+        'checkout_not_configured' => __('Checkout page is not configured. Please check FluentCart settings.', 'fluent-cart-bulk-order'),
+        /* translators: {index}: which item is being added; {total}: how many there are. Keep both as-is. */
+        'checkout_adding_item'    => __('Adding item {index} of {total}...', 'fluent-cart-bulk-order'),
+        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
+        'checkout_add_failed'     => __('Failed to add item: {error}', 'fluent-cart-bulk-order'),
+        'unknown_error'           => __('Unknown error', 'fluent-cart-bulk-order'),
+
+        // Order rules (@see describeQtyAdjustment)
+        /* translators: {min}: minimum quantity; {step}: case-pack multiple; {qty}: the quantity now set. Keep all three as-is. */
+        'qty_min_and_step'    => __('Minimum order is {min}, in multiples of {step}. Quantity set to {qty}.', 'fluent-cart-bulk-order'),
+        /* translators: {step}: case-pack multiple; {qty}: the quantity now set. Keep both as-is. */
+        'qty_step'            => __('Sold in multiples of {step}. Quantity rounded up to {qty}.', 'fluent-cart-bulk-order'),
+        /* translators: {min}: minimum quantity; {qty}: the quantity now set. Keep both as-is. */
+        'qty_min'             => __('Minimum order quantity is {min}. Quantity set to {qty}.', 'fluent-cart-bulk-order'),
+        'qty_adjusted_many'   => __('Some quantities were adjusted to meet this store\'s order rules.', 'fluent-cart-bulk-order'),
+
+        // Quick order (paste / CSV)
+        'file_read_failed' => __('Could not read the file. Please try again.', 'fluent-cart-bulk-order'),
+        'sku_missing'      => __('Missing SKU', 'fluent-cart-bulk-order'),
+        'sku_unknown'      => __('No matching product', 'fluent-cart-bulk-order'),
+        /* translators: {count}: how many variants share the SKU. Keep {count} as-is. */
+        'sku_ambiguous'    => __('Matches {count} variants — add it manually', 'fluent-cart-bulk-order'),
+        /* translators: {qty}: the unreadable value the shopper pasted. Keep {qty} as-is. */
+        'qty_invalid'      => __('Invalid quantity "{qty}"', 'fluent-cart-bulk-order'),
+        /* translators: {count}: how many rows were added. Keep {count} as-is. */
+        'report_added_one' => __('{count} item added', 'fluent-cart-bulk-order'),
+        /* translators: {count}: how many rows were added. Keep {count} as-is. */
+        'report_added'     => __('{count} items added', 'fluent-cart-bulk-order'),
+        /* translators: {count}: how many pasted lines were not added. Keep {count} as-is. */
+        'report_skipped'   => __('{count} skipped', 'fluent-cart-bulk-order'),
+        /* translators: {line}: the line number in the pasted text or CSV. Keep {line} as-is. */
+        'report_line'      => __('Line {line}', 'fluent-cart-bulk-order'),
+        /* translators: {label}: product name; {qty}: quantity added. Keep both as-is. */
+        'report_item'      => __('{label} × {qty}', 'fluent-cart-bulk-order'),
+        /* translators: {qty}: the quantity originally asked for. Keep {qty} as-is. */
+        'report_adjusted'  => __('(adjusted from {qty} to meet order rules)', 'fluent-cart-bulk-order'),
+    ];
+}
+
+/**
  * Enqueue CSS and JS for the bulk pricing display.
  */
 function fcbo_enqueue_bulk_pricing_assets()

@@ -53,11 +53,11 @@
         tr.dataset.bulkTiers = '[]';
         tr.innerHTML =
             '<td class="fcbo-col-remove">' +
-                '<button type="button" class="fcbo-remove-btn" title="Remove">&times;</button>' +
+                '<button type="button" class="fcbo-remove-btn" title="' + escapeAttr(t('remove_row')) + '">&times;</button>' +
             '</td>' +
             '<td class="fcbo-col-product">' +
                 '<div class="fcbo-search-wrap">' +
-                    '<input type="text" class="fcbo-search-input" placeholder="Search products..." autocomplete="off" />' +
+                    '<input type="text" class="fcbo-search-input" placeholder="' + escapeAttr(t('search_placeholder')) + '" autocomplete="off" />' +
                     '<div class="fcbo-dropdown" style="display:none;"></div>' +
                 '</div>' +
             '</td>' +
@@ -174,7 +174,7 @@
                     textarea.value = String(reader.result || '');
                 };
                 reader.onerror = function () {
-                    renderQuickReport([], 0, 'Could not read the file. Please try again.');
+                    renderQuickReport([], 0, t('file_read_failed'));
                 };
                 reader.readAsText(file);
             });
@@ -263,7 +263,7 @@
         if (!skus.length) {
             var missing = [];
             for (var m = 0; m < records.length; m++) {
-                missing.push({ lineNo: records[m].lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+                missing.push({ lineNo: records[m].lineNo, sku: '', status: 'invalid', detail: t('sku_missing') });
             }
             renderQuickReport(missing, 0);
             return;
@@ -305,14 +305,14 @@
             var r = records[i];
 
             if (!r.sku) {
-                report.push({ lineNo: r.lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+                report.push({ lineNo: r.lineNo, sku: '', status: 'invalid', detail: t('sku_missing') });
                 continue;
             }
 
             var entry = resolved[r.sku.toLowerCase()];
 
             if (!entry || entry.status === 'unknown') {
-                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'unknown', detail: 'No matching product' });
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'unknown', detail: t('sku_unknown') });
                 continue;
             }
 
@@ -320,14 +320,14 @@
                 var count = (entry.candidates || []).length;
                 report.push({
                     lineNo: r.lineNo, sku: r.sku, status: 'ambiguous',
-                    detail: 'Matches ' + count + ' variants — add it manually'
+                    detail: fill(t('sku_ambiguous'), { count: count })
                 });
                 continue;
             }
 
             var qty = parseQty(r.qtyRaw);
             if (qty === null) {
-                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'invalid', detail: 'Invalid quantity "' + r.qtyRaw + '"' });
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'invalid', detail: fill(t('qty_invalid'), { qty: r.qtyRaw }) });
                 continue;
             }
 
@@ -353,9 +353,9 @@
                 label += ' — ' + v.variation_title;
             }
             var shownQty = v.payment_type === 'subscription' ? 1 : settledQty;
-            var detail = label + ' × ' + shownQty;
+            var detail = fill(t('report_item'), { label: label, qty: shownQty });
             if (settledQty !== qty && v.payment_type !== 'subscription') {
-                detail += ' (adjusted from ' + qty + ' to meet order rules)';
+                detail += ' ' + fill(t('report_adjusted'), { qty: qty });
             }
             report.push({ lineNo: r.lineNo, sku: r.sku, status: 'matched', detail: detail });
         }
@@ -379,15 +379,15 @@
             if (report[s].status !== 'matched') skipped++;
         }
 
-        var summary = added + (added === 1 ? ' item added' : ' items added');
-        if (skipped) { summary += ', ' + skipped + ' skipped'; }
+        var summary = fill(t(added === 1 ? 'report_added_one' : 'report_added'), { count: added });
+        if (skipped) { summary += ', ' + fill(t('report_skipped'), { count: skipped }); }
 
         var html = '<div class="fcbo-quick-report-summary">' + escapeHtml(summary) + '</div>';
         html += '<ul class="fcbo-quick-report-list">';
         for (var i = 0; i < report.length; i++) {
             var r = report[i];
             html += '<li class="fcbo-quick-report-' + r.status + '">' +
-                '<span class="fcbo-quick-line">' + escapeHtml('Line ' + r.lineNo) + '</span>' +
+                '<span class="fcbo-quick-line">' + escapeHtml(fill(t('report_line'), { line: r.lineNo })) + '</span>' +
                 '<span>' + escapeHtml((r.sku ? r.sku + ' — ' : '') + r.detail) + '</span>' +
             '</li>';
         }
@@ -409,14 +409,14 @@
             renderDropdown(data.products || [], dropdown, row);
         })
         .catch(function () {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">Search failed</div>';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('search_failed')) + '</div>';
             dropdown.style.display = 'block';
         });
     }
 
     function renderDropdown(products, dropdown, row) {
         if (!products.length) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">No products found</div>';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('no_products')) + '</div>';
             dropdown.style.display = 'block';
             return;
         }
@@ -434,8 +434,8 @@
                     label += ' — ' + v.variation_title;
                 }
                 var price = formatPrice(v.item_price);
-                var skuLabel = v.sku ? '  ·  SKU ' + v.sku : '';
-                var stockLabel = outOfStock ? ' (Out of stock)' : '';
+                var skuLabel = v.sku ? '  ·  ' + fill(t('sku_label'), { sku: v.sku }) : '';
+                var stockLabel = outOfStock ? ' ' + t('out_of_stock') : '';
 
                 html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') + '"' +
                     ' data-product=\'' + escapeAttr(JSON.stringify({
@@ -452,7 +452,7 @@
         }
 
         if (!html) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">No available variants</div>';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty">' + escapeHtml(t('no_variants')) + '</div>';
         } else {
             dropdown.innerHTML = html;
         }
@@ -559,21 +559,21 @@
         var items = order.map(function (k) { return consolidated[k]; });
 
         if (!items.length) {
-            showStatus('Add at least one product before saving.', 'error');
+            showStatus(t('save_need_product'), 'error');
             return;
         }
 
-        var name = window.prompt('Name this saved order:');
+        var name = window.prompt(t('save_name_prompt'));
         if (name === null) return; // cancelled
         name = name.trim();
         if (!name) {
-            showStatus('Please enter a name for the saved order.', 'error');
+            showStatus(t('save_need_name'), 'error');
             return;
         }
 
         var btn = document.getElementById('fcbo-save-order');
         if (btn) { btn.disabled = true; }
-        showStatus('Saving order...', 'loading');
+        showStatus(t('saving'), 'loading');
 
         fetch(CONFIG.rest_url + 'saved-lists', {
             method: 'POST',
@@ -585,13 +585,13 @@
         })
         .then(function (r) {
             if (!r.ok) {
-                showStatus((r.body && r.body.message) ? r.body.message : 'Could not save the order.', 'error');
+                showStatus((r.body && r.body.message) ? r.body.message : t('save_failed'), 'error');
             } else {
-                showStatus('Saved order "' + name + '".', 'success');
+                showStatus(fill(t('save_succeeded'), { name: name }), 'success');
             }
         })
         .catch(function () {
-            showStatus('Could not save the order. Please try again.', 'error');
+            showStatus(t('save_failed_retry'), 'error');
         })
         .then(function () {
             if (btn) { btn.disabled = false; }
@@ -632,12 +632,12 @@
         }
 
         if (!items.length) {
-            showStatus('Please select at least one product.', 'error');
+            showStatus(t('checkout_need_product'), 'error');
             return;
         }
 
         if (hasSubscription && hasOnetime) {
-            showStatus('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'error');
+            showStatus(t('checkout_mixed_types'), 'error');
             return;
         }
 
@@ -649,8 +649,10 @@
             var grandTotal = computeGrandTotal();
             if (grandTotal < minOrderTotal) {
                 showStatus(
-                    'Add ' + formatPrice(minOrderTotal - grandTotal) + ' more to reach the ' +
-                    formatPrice(minOrderTotal) + ' minimum order total.',
+                    fill(t('checkout_below_minimum'), {
+                        amount: formatPrice(minOrderTotal - grandTotal),
+                        minimum: formatPrice(minOrderTotal)
+                    }),
                     'error'
                 );
                 return;
@@ -673,11 +675,11 @@
         var finalItems = Object.values(consolidated);
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
-            showStatus('FluentCart cart is not available. Please refresh the page and try again.', 'error');
+            showStatus(t('checkout_cart_missing'), 'error');
             return;
         }
 
-        showStatus('Adding items to cart...', 'loading');
+        showStatus(t('checkout_adding'), 'loading');
         disableCheckout(true);
 
         addItemsSequentially(finalItems, 0);
@@ -685,12 +687,12 @@
 
     function addItemsSequentially(items, index) {
         if (index >= items.length) {
-            showStatus('Redirecting to checkout...', 'loading');
+            showStatus(t('checkout_redirecting'), 'loading');
             // Small delay to ensure cart cookie is fully set before redirect
             setTimeout(function () {
                 var checkoutUrl = CONFIG.checkout_url;
                 if (!checkoutUrl) {
-                    showStatus('Checkout page is not configured. Please check FluentCart settings.', 'error');
+                    showStatus(t('checkout_not_configured'), 'error');
                     disableCheckout(false);
                     return;
                 }
@@ -706,7 +708,7 @@
         }
 
         var item = items[index];
-        showStatus('Adding item ' + (index + 1) + ' of ' + items.length + '...', 'loading');
+        showStatus(fill(t('checkout_adding_item'), { index: index + 1, total: items.length }), 'loading');
 
         try {
             var result = window.fluentCartCart.addProduct(item.variantId, item.qty, true);
@@ -716,7 +718,7 @@
                 result.then(function () {
                     addItemsSequentially(items, index + 1);
                 }).catch(function (err) {
-                    showStatus('Failed to add item: ' + (err.message || 'Unknown error'), 'error');
+                    showStatus(fill(t('checkout_add_failed'), { error: err.message || t('unknown_error') }), 'error');
                     disableCheckout(false);
                 });
             } else {
@@ -726,7 +728,7 @@
                 }, 200);
             }
         } catch (err) {
-            showStatus('Failed to add item: ' + (err.message || 'Unknown error'), 'error');
+            showStatus(fill(t('checkout_add_failed'), { error: err.message || t('unknown_error') }), 'error');
             disableCheckout(false);
         }
     }
@@ -909,13 +911,12 @@
 
     function describeQtyAdjustment(entered, settled, rules) {
         if (rules.step > 1 && rules.min_qty > 0 && entered < rules.min_qty) {
-            return 'Minimum order is ' + rules.min_qty + ', in multiples of ' +
-                rules.step + '. Quantity set to ' + settled + '.';
+            return fill(t('qty_min_and_step'), { min: rules.min_qty, step: rules.step, qty: settled });
         }
         if (rules.step > 1) {
-            return 'Sold in multiples of ' + rules.step + '. Quantity rounded up to ' + settled + '.';
+            return fill(t('qty_step'), { step: rules.step, qty: settled });
         }
-        return 'Minimum order quantity is ' + rules.min_qty + '. Quantity set to ' + settled + '.';
+        return fill(t('qty_min'), { min: rules.min_qty, qty: settled });
     }
 
     // Normalize every populated row — used before checkout and after a bulk
@@ -933,7 +934,7 @@
         if (changed) {
             updateGrandTotal();
             if (announce) {
-                showStatus('Some quantities were adjusted to meet this store\'s order rules.', 'error');
+                showStatus(t('qty_adjusted_many'), 'error');
             }
         }
         return changed;
@@ -1029,6 +1030,13 @@
     // An unknown key is left alone rather than blanked, so a mistranslated
     // placeholder shows up as itself instead of silently vanishing.
     // Mirrors fill() in bulk-pricing-display.js.
+    // A translated sentence by key. I18N comes from wp_localize_script, so a
+    // missing key means the PHP side was not updated — fall back to the key
+    // rather than rendering "undefined" at a shopper.
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
+    }
+
     function fill(template, values) {
         return String(template || '').replace(/\{(\w+)\}/g, function (match, key) {
             return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;

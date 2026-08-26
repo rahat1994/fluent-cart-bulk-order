@@ -83,8 +83,10 @@ class BulkOrderForm extends AbstractShortcode
             'min_order_total' => AccessPolicy::userSubjectToMinOrder()
                 ? AccessPolicy::minOrderTotal()
                 : 0,
-            // Savings/nudge sentences, translated server-side. @see fcbo_savings_strings()
-            'i18n'            => fcbo_savings_strings(),
+            // Every shopper-facing sentence, translated server-side. The JS only
+            // fills {placeholders}. @see fcbo_savings_strings(),
+            // @see fcbo_bulk_order_strings()
+            'i18n'            => array_merge(fcbo_savings_strings(), fcbo_bulk_order_strings()),
         ]));
 
         ob_start();

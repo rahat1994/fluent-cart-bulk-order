@@ -315,408 +315,114 @@ function fcbo_render_shortcode($atts = [])
     return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_bulk_order', $atts);
 }
 
+/**
+ * Load the REST layer.
+ *
+ * Required on demand rather than at the top of this file: these three classes
+ * are dead weight on an ordinary front-end page load, and two of the helpers
+ * below are also reached from the saved-orders surface, which is not always a
+ * REST request. require_once is idempotent, so calling this from every delegate
+ * costs one already-included check.
+ *
+ * @return void
+ */
+function fcbo_load_rest()
+{
+    require_once FCBO_DIR . 'includes/Rest/Routes.php';
+    require_once FCBO_DIR . 'includes/Rest/ProductsController.php';
+    require_once FCBO_DIR . 'includes/Rest/SavedOrdersController.php';
+}
+
+/**
+ * Register every fcbo/v1 REST route.
+ *
+ * @see \FluentCartBulkOrder\Rest\Routes::register()
+ * @return void
+ */
 function fcbo_register_routes()
 {
-    register_rest_route('fcbo/v1', '/products', [
-        'methods'             => 'GET',
-        'callback'            => 'fcbo_search_products',
-        'permission_callback' => 'fcbo_rest_permission_check',
-        'args'                => [
-            'search' => [
-                'required'          => true,
-                'sanitize_callback' => 'sanitize_text_field',
-            ],
-        ],
-    ]);
+    fcbo_load_rest();
 
-    register_rest_route('fcbo/v1', '/catalog', [
-        'methods'             => 'GET',
-        'callback'            => 'fcbo_list_catalog',
-        'permission_callback' => 'fcbo_rest_permission_check',
-        'args'                => [
-            'page' => [
-                'default'           => 1,
-                'sanitize_callback' => 'absint',
-            ],
-            'per_page' => [
-                'default'           => 20,
-                'sanitize_callback' => 'absint',
-            ],
-            'search' => [
-                'default'           => '',
-                'sanitize_callback' => 'sanitize_text_field',
-            ],
-            'category' => [
-                'default'           => '',
-                'sanitize_callback' => 'fcbo_sanitize_category_param',
-            ],
-        ],
-    ]);
-
-    // Exact, batched SKU -> variant resolver for the paste/CSV quick-order feature.
-    // Kept separate from /products (partial-match autocomplete) so neither regresses:
-    // this route resolves each SKU to exactly one active variant, or reports it as
-    // ambiguous / unknown.
-    register_rest_route('fcbo/v1', '/resolve-skus', [
-        'methods'             => 'POST',
-        'callback'            => 'fcbo_resolve_skus',
-        'permission_callback' => 'fcbo_rest_permission_check',
-        'args'                => [
-            'skus' => [
-                'required'          => true,
-                'type'              => 'array',
-                'items'             => ['type' => 'string'],
-                'sanitize_callback' => 'fcbo_sanitize_skus_param',
-            ],
-        ],
-    ]);
-
-    // Per-user saved orders: list / create-or-replace / delete. All owner-scoped
-    // to the current user inside the callbacks; no user id is accepted from the
-    // request.
-    register_rest_route('fcbo/v1', '/saved-lists', [
-        [
-            'methods'             => 'GET',
-            'callback'            => 'fcbo_rest_get_saved_lists',
-            'permission_callback' => 'fcbo_rest_permission_check',
-        ],
-        [
-            'methods'             => 'POST',
-            'callback'            => 'fcbo_rest_save_list',
-            'permission_callback' => 'fcbo_rest_permission_check',
-            'args'                => [
-                'name'  => [
-                    'required'          => true,
-                    'type'              => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'items' => [
-                    'required' => true,
-                    'type'     => 'array',
-                ],
-            ],
-        ],
-        [
-            'methods'             => 'DELETE',
-            'callback'            => 'fcbo_rest_delete_saved_list',
-            'permission_callback' => 'fcbo_rest_permission_check',
-            'args'                => [
-                'name' => [
-                    'required'          => true,
-                    'type'              => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-            ],
-        ],
-    ]);
-
-    // Read-only: the current user's recent paid orders, for one-click reorder.
-    register_rest_route('fcbo/v1', '/past-orders', [
-        'methods'             => 'GET',
-        'callback'            => 'fcbo_rest_get_past_orders',
-        'permission_callback' => 'fcbo_rest_permission_check',
-    ]);
+    \FluentCartBulkOrder\Rest\Routes::register();
 }
 
 /**
  * Sanitize the `skus` request param into a de-duplicated list of trimmed strings.
  *
- * Non-scalar and blank entries are dropped; duplicates are removed
- * case-insensitively (first spelling wins). The list is capped to bound the
- * resolver query for pathological pastes.
+ * Registered BY NAME as the /resolve-skus sanitize_callback, so this function
+ * name is load-bearing — it cannot become a class method alone.
  *
+ * @see \FluentCartBulkOrder\Rest\ProductsController::sanitizeSkusParam()
  * @param mixed $value Raw request value.
  * @return string[] Clean, de-duplicated SKU strings (max 500).
  */
 function fcbo_sanitize_skus_param($value)
 {
-    if (!is_array($value)) {
-        return [];
-    }
+    fcbo_load_rest();
 
-    $clean = [];
-    $seen  = [];
-
-    foreach ($value as $sku) {
-        if (!is_scalar($sku)) {
-            continue;
-        }
-
-        $sku = trim(sanitize_text_field((string) $sku));
-        if ($sku === '') {
-            continue;
-        }
-
-        $key = strtolower($sku);
-        if (isset($seen[$key])) {
-            continue;
-        }
-
-        $seen[$key] = true;
-        $clean[]    = $sku;
-
-        if (count($clean) >= 500) {
-            break;
-        }
-    }
-
-    return $clean;
+    return \FluentCartBulkOrder\Rest\ProductsController::sanitizeSkusParam($value);
 }
 
 /**
- * Build the category list payload for a product.
+ * Category names for one product, ready to serialize.
  *
+ * @see \FluentCartBulkOrder\Rest\ProductsController::buildCategoryList()
  * @param int $productId
- * @return array<int, array{term_id:int, name:string}>
+ * @return array
  */
 function fcbo_build_category_list($productId)
 {
-    $categories = get_the_terms($productId, 'product-categories');
-    $catList = [];
+    fcbo_load_rest();
 
-    if ($categories && !is_wp_error($categories)) {
-        foreach ($categories as $cat) {
-            $catList[] = [
-                'term_id' => $cat->term_id,
-                'name'    => $cat->name,
-            ];
-        }
-    }
-
-    return $catList;
+    return \FluentCartBulkOrder\Rest\ProductsController::buildCategoryList($productId);
 }
 
 /**
- * Build the per-variant payload shared by the search and resolve-skus endpoints.
+ * The variant payload every FCBO endpoint answers with.
  *
- * Keeping this in one place guarantees both surfaces (and the client code that
- * consumes them via selectProduct()) see an identical variant shape, including
- * the resolved bulk tiers.
+ * One shape for /products, /catalog and /resolve-skus, because the browser
+ * reuses a single selectProduct() path for all three.
  *
- * @param object        $product     Product model (needs ID + thumbnail).
- * @param object        $variant     Variant model.
- * @param array         $pricingData From fcbo_get_all_bulk_pricing().
- * @param string[]|null $userRoles   Viewer's role slugs, so bulk_tiers is
- *                                   role-resolved server-side (the client never
- *                                   sees other roles' pricing). null = default set.
+ * @see \FluentCartBulkOrder\Rest\ProductsController::buildVariantPayload()
+ * @param object     $product
+ * @param object     $variant
+ * @param array      $pricingData
+ * @param array|null $userRoles Roles to resolve tiers against; current user when null.
  * @return array
  */
 function fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles = null)
 {
-    // Gate 2, in the CART context — see below for why not 'display'.
-    $tiers = fcbo_user_qualifies_for_bulk_pricing(null, 'cart')
-        ? fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles)
-        : [];
+    fcbo_load_rest();
 
-    return [
-        'id'              => $variant->id,
-        'variation_title' => $variant->variation_title ?: 'Default',
-        'item_price'      => (int) $variant->item_price,
-        'sku'             => $variant->sku ?: '',
-        'stock_status'    => $variant->stock_status ?: 'in-stock',
-        'payment_type'    => $variant->payment_type ?: 'onetime',
-        'manage_stock'    => (int) ($variant->manage_stock ?? 0),
-        'available'       => (int) ($variant->available ?? 0),
-        'thumbnail'       => $variant->thumbnail ?: ($product->thumbnail ?: ''),
-        // Gated on 'cart', NOT 'display'. This payload drives live line totals
-        // and a grand total for an order the shopper is about to place, so it
-        // must quote what fcbo_apply_cart_bulk_pricing() will actually charge.
-        // Sending tiers to someone Gate 2 excludes made the form show a
-        // discounted total that the cart then ignored — the shopper watched the
-        // price go back up at checkout.
-        //
-        // This is why the 'display' escape hatch does not belong here.
-        // Administrators are allowed to PREVIEW tiers, and the place for that
-        // is the product page (fcbo_render_single_product_tiers), which shows
-        // the tier table without quoting an order total. A transactional
-        // surface has to state the real price; a wrong total is worse than no
-        // preview. Non-qualifying store managers get told why by the notice in
-        // BulkOrderForm::output().
-        'bulk_tiers'      => $tiers,
-        // NOT gated: min-qty and case-pack rules are store rules that bind
-        // every shopper, whatever their pricing policy. The server enforces
-        // them for everyone (fcbo_validate_cart_item_rules), so the form has to
-        // show them for everyone or it would let people build carts that get
-        // refused at checkout.
-        'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
-    ];
-}
-
-function fcbo_search_products(\WP_REST_Request $request)
-{
-    $search = $request->get_param('search');
-
-    if (strlen($search) < 2) {
-        return new \WP_REST_Response(['products' => []], 200);
-    }
-
-    $productModel = new \FluentCart\App\Models\Product();
-
-    $products = $productModel::published()
-        ->with(['detail', 'variants' => function ($query) {
-            $query->where('item_status', 'active')->with('media');
-        }])
-        ->where(function ($q) use ($search) {
-            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
-            $q->where('post_title', 'LIKE', $like)
-              ->orWhereHas('variants', function ($vq) use ($like) {
-                  $vq->where('item_status', 'active')
-                     ->where(function ($inner) use ($like) {
-                         $inner->where('sku', 'LIKE', $like)
-                               ->orWhere('variation_title', 'LIKE', $like);
-                     });
-              });
-        })
-        ->limit(20)
-        ->get();
-
-    $productIds = [];
-    foreach ($products as $product) {
-        $productIds[] = $product->ID;
-    }
-
-    $pricingData = fcbo_get_all_bulk_pricing($productIds);
-    // Serialize role-resolved tiers to the (authenticated) searcher — no role logic
-    // ships to the browser.
-    $userRoles   = (array) wp_get_current_user()->roles;
-
-    $results = [];
-
-    foreach ($products as $product) {
-        $catList = fcbo_build_category_list($product->ID);
-
-        // If the product matched on its title, show all variants (name search).
-        // If it matched only through a variant SKU / variation title, surface just
-        // the matching variant(s) so a SKU search returns the exact variant instead
-        // of every variant of the product.
-        $titleMatches = stripos($product->post_title, $search) !== false;
-
-        $variants = [];
-        if ($product->variants) {
-            foreach ($product->variants as $variant) {
-                $variantMatches = ($variant->sku && stripos($variant->sku, $search) !== false)
-                    || ($variant->variation_title && stripos($variant->variation_title, $search) !== false);
-
-                if (!$titleMatches && !$variantMatches) {
-                    continue;
-                }
-
-                $variants[] = fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles);
-            }
-        }
-
-        $results[] = [
-            'id'         => $product->ID,
-            'title'      => $product->post_title,
-            'thumbnail'  => $product->thumbnail ?: '',
-            'categories' => $catList,
-            'variants'   => $variants,
-        ];
-    }
-
-    return new \WP_REST_Response(['products' => $results], 200);
+    return \FluentCartBulkOrder\Rest\ProductsController::buildVariantPayload($product, $variant, $pricingData, $userRoles);
 }
 
 /**
- * Resolve a batch of SKUs to their exact active variant in a single query.
+ * GET /products — partial-match product and variant search.
  *
- * Powers the paste/CSV quick-order feature. Each requested SKU is classified:
- *   - matched   => exactly one active variant carries the SKU (payload included)
- *   - ambiguous => more than one active variant carries the SKU (candidates included)
- *   - unknown   => no active variant carries the SKU
+ * @see \FluentCartBulkOrder\Rest\ProductsController::searchProducts()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response
+ */
+function fcbo_search_products(\WP_REST_Request $request)
+{
+    fcbo_load_rest();
+
+    return \FluentCartBulkOrder\Rest\ProductsController::searchProducts($request);
+}
+
+/**
+ * POST /resolve-skus — exact, batched SKU to variant resolution.
  *
- * The response is keyed by the case-normalized SKU so the client can look each
- * pasted line up directly. Matched/candidate payloads use the same shape as
- * fcbo_search_products() so the client can reuse selectProduct() unchanged.
- *
+ * @see \FluentCartBulkOrder\Rest\ProductsController::resolveSkus()
  * @param \WP_REST_Request $request
  * @return \WP_REST_Response
  */
 function fcbo_resolve_skus(\WP_REST_Request $request)
 {
-    $skus = (array) $request->get_param('skus');
+    fcbo_load_rest();
 
-    if (empty($skus)) {
-        return new \WP_REST_Response(['resolved' => (object) []], 200);
-    }
-
-    // Map normalized (lowercase) SKU => the spelling the client sent, so every
-    // requested SKU gets a status entry even when it matches nothing.
-    $requested = [];
-    foreach ($skus as $sku) {
-        $requested[strtolower($sku)] = $sku;
-    }
-
-    $productModel = new \FluentCart\App\Models\Product();
-
-    // One query: products having an active variant whose SKU is in the batch.
-    $products = $productModel::published()
-        ->with(['detail', 'variants' => function ($query) {
-            $query->where('item_status', 'active')->with('media');
-        }])
-        ->whereHas('variants', function ($vq) use ($skus) {
-            $vq->where('item_status', 'active')->whereIn('sku', $skus);
-        })
-        ->get();
-
-    $productIds = [];
-    foreach ($products as $product) {
-        $productIds[] = $product->ID;
-    }
-
-    $pricingData = fcbo_get_all_bulk_pricing($productIds);
-    // Role-resolve tiers for the authenticated requester (see fcbo_build_variant_payload).
-    $userRoles   = (array) wp_get_current_user()->roles;
-
-    // Collect every active variant whose SKU was requested, grouped by normalized
-    // SKU. A product loaded above carries all its active variants, so filter to
-    // only the ones actually asked for.
-    $bySku = [];
-    foreach ($products as $product) {
-        if (!$product->variants) {
-            continue;
-        }
-
-        $catList = fcbo_build_category_list($product->ID);
-
-        foreach ($product->variants as $variant) {
-            if (!$variant->sku) {
-                continue;
-            }
-
-            $key = strtolower(trim($variant->sku));
-            if (!isset($requested[$key])) {
-                continue;
-            }
-
-            $bySku[$key][] = [
-                'productId'  => $product->ID,
-                'title'      => $product->post_title,
-                'thumbnail'  => $variant->thumbnail ?: ($product->thumbnail ?: ''),
-                'categories' => $catList,
-                'variant'    => fcbo_build_variant_payload($product, $variant, $pricingData, $userRoles),
-            ];
-        }
-    }
-
-    $resolved = [];
-    foreach ($requested as $key => $original) {
-        if (empty($bySku[$key])) {
-            $resolved[$key] = ['status' => 'unknown'];
-        } elseif (count($bySku[$key]) === 1) {
-            $resolved[$key] = [
-                'status'  => 'matched',
-                'product' => $bySku[$key][0],
-            ];
-        } else {
-            $resolved[$key] = [
-                'status'     => 'ambiguous',
-                'candidates' => $bySku[$key],
-            ];
-        }
-    }
-
-    return new \WP_REST_Response(['resolved' => (object) $resolved], 200);
+    return \FluentCartBulkOrder\Rest\ProductsController::resolveSkus($request);
 }
 
 /**
@@ -742,99 +448,18 @@ function fcbo_render_product_table($atts = [])
     return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_product_table', $atts);
 }
 
+/**
+ * GET /catalog — the paged catalogue behind the product table.
+ *
+ * @see \FluentCartBulkOrder\Rest\ProductsController::listCatalog()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response
+ */
 function fcbo_list_catalog(\WP_REST_Request $request)
 {
-    $page     = max(1, $request->get_param('page'));
-    $per_page = min(100, max(1, $request->get_param('per_page')));
-    $search   = $request->get_param('search');
-    $category = $request->get_param('category');
+    fcbo_load_rest();
 
-    $productModel = new \FluentCart\App\Models\Product();
-
-    $query = $productModel::published()
-        ->with(['variants' => function ($q) {
-            $q->where('item_status', 'active');
-        }]);
-
-    if ($search && strlen($search) >= 2) {
-        $query->where(function ($q) use ($search) {
-            $like = '%' . $GLOBALS['wpdb']->esc_like($search) . '%';
-            $q->where('post_title', 'LIKE', $like)
-              ->orWhereHas('variants', function ($vq) use ($like) {
-                  $vq->where('item_status', 'active')
-                     ->where(function ($inner) use ($like) {
-                         $inner->where('sku', 'LIKE', $like)
-                               ->orWhere('variation_title', 'LIKE', $like);
-                     });
-              });
-        });
-    }
-
-    // Category filter (separate block, kept out of the search `if` above). Constrain via
-    // the FluentCart Product `wpTerms` taxonomy relation, mirroring scopeFilterByTaxonomy.
-    // Applied before count() so pagination reflects the scoped set.
-    if ($category !== '' && $category !== null) {
-        $term = fcbo_resolve_category_term($category);
-        if ($term) {
-            $termId = (int) $term->term_id;
-            $query->whereHas('wpTerms', function ($q) use ($termId) {
-                // Unqualified `term_id` (matches Product::scopeFilterByTaxonomy). It is
-                // unambiguous: the joined term_relationships table has no term_id column.
-                $q->where('term_id', $termId);
-            });
-        } else {
-            // Unknown category → empty result set, no error (R5).
-            $query->where('ID', 0);
-        }
-    }
-
-    $total = $query->count();
-    $totalPages = max(1, (int) ceil($total / $per_page));
-
-    $products = $query
-        ->orderBy('ID', 'DESC')
-        ->offset(($page - 1) * $per_page)
-        ->limit($per_page)
-        ->get();
-
-    // One batched lookup for the whole page, so per-variant rule resolution below
-    // costs no extra queries (same pattern as the /products search endpoint).
-    $productIds = [];
-    foreach ($products as $product) {
-        $productIds[] = $product->ID;
-    }
-    $pricingData = fcbo_get_all_bulk_pricing($productIds);
-
-    $results = [];
-    foreach ($products as $product) {
-        $variants = [];
-        if ($product->variants) {
-            foreach ($product->variants as $variant) {
-                $variants[] = [
-                    'id'              => $variant->id,
-                    'variation_title' => $variant->variation_title ?: 'Default',
-                    'item_price'      => (int) $variant->item_price,
-                    'stock_status'    => $variant->stock_status ?: 'in-stock',
-                    'manage_stock'    => (int) ($variant->manage_stock ?? 0),
-                    'available'       => (int) ($variant->available ?? 0),
-                    'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
-                ];
-            }
-        }
-
-        $results[] = [
-            'id'       => $product->ID,
-            'title'    => $product->post_title,
-            'variants' => $variants,
-        ];
-    }
-
-    return new \WP_REST_Response([
-        'products'    => $results,
-        'total'       => $total,
-        'total_pages' => $totalPages,
-        'page'        => $page,
-    ], 200);
+    return \FluentCartBulkOrder\Rest\ProductsController::listCatalog($request);
 }
 
 /**
@@ -2473,42 +2098,59 @@ function fcbo_build_past_orders_response($limit = 20)
 }
 
 /**
- * REST: GET the current user's saved orders (resolved).
+ * GET /saved-lists — the current user's saved orders.
+ *
+ * @see \FluentCartBulkOrder\Rest\SavedOrdersController::getSavedLists()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response
  */
 function fcbo_rest_get_saved_lists(\WP_REST_Request $request)
 {
-    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+    fcbo_load_rest();
+
+    return \FluentCartBulkOrder\Rest\SavedOrdersController::getSavedLists($request);
 }
 
 /**
- * REST: GET the current user's recent past orders (resolved).
+ * GET /past-orders — the current user's recent paid orders.
+ *
+ * @see \FluentCartBulkOrder\Rest\SavedOrdersController::getPastOrders()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response
  */
 function fcbo_rest_get_past_orders(\WP_REST_Request $request)
 {
-    return new \WP_REST_Response(['orders' => fcbo_build_past_orders_response()], 200);
+    fcbo_load_rest();
+
+    return \FluentCartBulkOrder\Rest\SavedOrdersController::getPastOrders($request);
 }
 
 /**
- * REST: POST — create or replace a saved order for the current user.
+ * POST /saved-lists — create or replace one saved order.
+ *
+ * @see \FluentCartBulkOrder\Rest\SavedOrdersController::saveList()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response|\WP_Error
  */
 function fcbo_rest_save_list(\WP_REST_Request $request)
 {
-    $result = fcbo_save_list($request->get_param('name'), $request->get_param('items'));
-    if (is_wp_error($result)) {
-        return $result;
-    }
+    fcbo_load_rest();
 
-    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+    return \FluentCartBulkOrder\Rest\SavedOrdersController::saveList($request);
 }
 
 /**
- * REST: DELETE a saved order by name for the current user.
+ * DELETE /saved-lists — remove one of the current user's saved orders.
+ *
+ * @see \FluentCartBulkOrder\Rest\SavedOrdersController::deleteSavedList()
+ * @param \WP_REST_Request $request
+ * @return \WP_REST_Response|\WP_Error
  */
 function fcbo_rest_delete_saved_list(\WP_REST_Request $request)
 {
-    fcbo_delete_saved_list($request->get_param('name'));
+    fcbo_load_rest();
 
-    return new \WP_REST_Response(['lists' => fcbo_build_saved_orders_response()], 200);
+    return \FluentCartBulkOrder\Rest\SavedOrdersController::deleteSavedList($request);
 }
 
 /**

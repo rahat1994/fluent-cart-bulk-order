@@ -16,8 +16,29 @@
         var saveBtn = document.getElementById('fcbo-save-order');
         if (saveBtn) { saveBtn.addEventListener('click', handleSaveOrder); }
 
+        // ONE listener for every row's dropdown, attached once. addRow() used
+        // to attach its own `document` click handler per row, so a 50-line
+        // order left 50 listeners behind — each holding a closure over a row
+        // that may already have been removed, and each running on every click
+        // anywhere on the page.
+        document.addEventListener('click', closeDropdownsOutsideClickedRow);
+
         initQuickOrder();
         addRow();
+    }
+
+    // Hide every search dropdown except the one in the row that was clicked.
+    // Matches what the old per-row listeners did: a click anywhere inside a row
+    // leaves that row's dropdown alone.
+    function closeDropdownsOutsideClickedRow(e) {
+        var clickedRow = e.target && e.target.closest ? e.target.closest('tr') : null;
+        var dropdowns = tbody.querySelectorAll('.fcbo-dropdown');
+
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].closest('tr') !== clickedRow) {
+                dropdowns[i].style.display = 'none';
+            }
+        }
     }
 
     // --- Row Management ---
@@ -91,13 +112,6 @@
             debounceTimer = setTimeout(function () {
                 fetchProducts(term, dropdown, tr);
             }, 300);
-        });
-
-        // Close dropdown on outside click
-        document.addEventListener('click', function (e) {
-            if (!tr.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
         });
 
         return tr;

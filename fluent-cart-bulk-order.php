@@ -1166,231 +1166,92 @@ function fcbo_user_subject_to_min_order($user = null)
 }
 
 /**
- * FluentCart filter callback: price one cart line against its bulk tier.
+ * Load the cart layer.
  *
- * ---------------------------------------------------------------------------
- * WHY `item_price` AND NOT `item_modify`
- * ---------------------------------------------------------------------------
+ * Required on demand: these run on cart and checkout requests, not on every
+ * page load. require_once is idempotent, so every delegate can call it.
  *
- * This used to run on `fluent_cart/cart/item_modify`, which is handed the
- * quantity from the REQUEST. That is not always the quantity the line ends up
- * with. When FluentCart is told to ADD to a line rather than SET it (the
- * `by_input` flag is absent), Cart::addByVariation() folds the existing
- * quantity in afterwards:
+ * @return void
+ */
+function fcbo_load_cart()
+{
+    require_once FCBO_DIR . 'includes/Cart/LinePricing.php';
+    require_once FCBO_DIR . 'includes/Cart/SavingsDisplay.php';
+    require_once FCBO_DIR . 'includes/Cart/RuleEnforcement.php';
+}
+
+/**
+ * Price one cart line against its bulk tier.
  *
- *     if (!$byInput) { $quantity += $prevItem['quantity']; }   // Cart.php:406
+ * Hooked to `fluent_cart/cart/item_price` — the hook that sees the SETTLED
+ * quantity. @see \FluentCartBulkOrder\Cart\LinePricing for why that matters.
  *
- * So the tier was chosen for the increment while the line was billed for the
- * total. Adding 5 and then 5 more left 10 units priced at the 5-unit tier, and
- * the cart drawer's + button — which posts an increment of 1 — re-priced a
- * 10-unit line as if it were a single unit, wiping a discount the shopper had
- * already earned.
- *
- * `fluent_cart/cart/item_price` fires inside
- * CartHelper::generateCartItemFromVariation() (CartHelper.php:34), AFTER that
- * fold, and its value becomes the line's `unit_price` directly. Every path that
- * builds a cart line goes through it: add, quantity update, the +/- buttons,
- * instant checkout, and the checkout order bump. Pricing there means the tier
- * always matches the quantity actually billed.
- *
- * The two hooks must never BOTH be used: `item_modify` mutates the variation
- * that is then passed to generateCartItemFromVariation(), so a discount applied
- * in both places would compound — 10% off twice is 19% off.
- *
- * Not covered: ProductItemService::getItem(), which builds subscription plans
- * for the payment gateways and calls `item_modify` without ever reaching
- * `item_price`. Subscriptions are single-quantity everywhere in FluentCart, and
- * a bulk tier is a quantity feature, so there is nothing for a tier to match
- * there unless a store sets min_qty to 1.
- *
- * @param int   $itemPrice Per-unit price in cents, as filtered so far. Used as
- *                         the base rather than $variation->item_price so an
- *                         earlier filter's adjustment is not discarded.
- * @param array $context   ['variation' => object, 'quantity' => int] — the
- *                         SETTLED quantity for this line.
- * @return int Per-unit price in cents.
+ * @param mixed $itemPrice Price FluentCart proposes, in cents.
+ * @param mixed $context   Cart line context.
+ * @return mixed Price to charge, in cents.
  */
 function fcbo_apply_cart_bulk_pricing($itemPrice, $context)
 {
-    $variation = isset($context['variation']) ? $context['variation'] : null;
-    $qty       = (int) ($context['quantity'] ?? 0);
+    fcbo_load_cart();
 
-    if (!$variation || empty($variation->id) || $qty < 1) {
-        return $itemPrice;
-    }
-
-    // Gate the discount by the stored role policy. Non-qualifying shoppers keep
-    // the full price. Admins are NOT exempt on the cart path (KTD4) — which is
-    // why fcbo_build_variant_payload() withholds tiers from them too, so the
-    // bulk order form cannot quote a total this function will not honour.
-    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
-        return $itemPrice;
-    }
-
-    $productId = (int) $variation->post_id;
-    $variantId = (int) $variation->id;
-
-    $pricingData = fcbo_get_all_bulk_pricing([$productId]);
-    // Role selects which tier-set prices this line (composes with the gate above).
-    $userRoles   = (array) wp_get_current_user()->roles;
-    $tiers       = fcbo_resolve_tiers($pricingData, $productId, $variantId, $userRoles);
-
-    if (empty($tiers)) {
-        return $itemPrice;
-    }
-
-    $tier = fcbo_match_tier($tiers, $qty);
-
-    return $tier ? fcbo_apply_tier_to_price((int) $itemPrice, $tier) : $itemPrice;
+    return \FluentCartBulkOrder\Cart\LinePricing::applyBulkPricing($itemPrice, $context);
 }
 
 /**
- * What the bulk tiers took off one cart line, in cents.
+ * What one cart line saved against its undiscounted price, in cents.
  *
- * The cart item's own `unit_price` is already the discounted figure — this
- * plugin lowered it through `fluent_cart/cart/item_price` as the line was
- * built — so the original has to come back from the database. A direct
- * ProductVariation query is the right source precisely because it does NOT run
- * that filter: it is the last untouched copy of the pre-discount price.
- *
- * The saving is then recomputed the same way the cart filter computed the
- * price, rather than subtracting `unit_price`, so a line another extension also
- * repriced does not get that other extension's discount reported as ours.
- *
- * @param array $item One entry of the cart's `cart_data` items.
- * @return int Saving in cents; 0 when this line has none.
+ * @see \FluentCartBulkOrder\Cart\LinePricing::lineSaving()
+ * @param array $item Cart line.
+ * @return int Saving in cents; 0 when no tier applies.
  */
 function fcbo_cart_line_saving($item)
 {
-    // Same gate as the cart price itself: a shopper the policy excludes was
-    // never discounted, so there is nothing to report. Admins are not exempt
-    // here — the 'cart' context deliberately excludes them (KTD4).
-    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'cart')) {
-        return 0;
-    }
+    fcbo_load_cart();
 
-    $qty       = (int) ($item['quantity'] ?? 0);
-    $variantId = (int) ($item['object_id'] ?? 0);
-    $productId = (int) ($item['post_id'] ?? 0);
-
-    // Custom items are priced by whoever injected them, not from a variation row.
-    if ($qty < 1 || !$variantId || !$productId || !empty($item['is_custom'])) {
-        return 0;
-    }
-
-    // The cart re-renders this line on every quantity change and the drawer can
-    // hold many lines, so the per-variant answer is memoized for the request.
-    static $cache = [];
-    $key = $variantId . ':' . $qty;
-
-    if (isset($cache[$key])) {
-        return $cache[$key];
-    }
-
-    $cache[$key] = 0;
-
-    $tiers = fcbo_resolve_tiers(
-        fcbo_get_all_bulk_pricing([$productId]),
-        $productId,
-        $variantId,
-        (array) wp_get_current_user()->roles
-    );
-
-    $tier = $tiers ? fcbo_match_tier($tiers, $qty) : null;
-    if (!$tier) {
-        return 0;
-    }
-
-    $variation = \FluentCart\App\Models\ProductVariation::query()->find($variantId);
-    if (!$variation) {
-        return 0;
-    }
-
-    $original  = (int) $variation->item_price;
-    $effective = fcbo_apply_tier_to_price($original, $tier);
-
-    $cache[$key] = max(0, ($original - $effective) * $qty);
-
-    return $cache[$key];
+    return \FluentCartBulkOrder\Cart\LinePricing::lineSaving($item);
 }
 
 /**
- * Print "You saved $X" under a discounted cart line.
+ * Print the "you saved X" note under a cart line total.
  *
- * Bound to `fluent_cart/cart/line_item/after_total` — the checkout order
- * summary and instant checkout. @see the registration for the full hook map.
- *
- * @param array $eventInfo ['item' => array, 'cart' => object, ...]
+ * @see \FluentCartBulkOrder\Cart\SavingsDisplay::renderLineSaving()
+ * @param array $eventInfo
  * @return void
  */
 function fcbo_render_cart_line_saving($eventInfo)
 {
-    $saving = fcbo_cart_line_saving(isset($eventInfo['item']) ? (array) $eventInfo['item'] : []);
+    fcbo_load_cart();
 
-    if ($saving <= 0) {
-        return;
-    }
-
-    fcbo_print_cart_saving_style();
-
-    printf(
-        '<span class="fcbo-cart-saving">%s</span>',
-        esc_html(sprintf(
-            /* translators: %s: money amount, e.g. $12.50 */
-            __('You saved %s', 'fluent-cart-bulk-order'),
-            fcbo_format_money($saving)
-        ))
-    );
+    \FluentCartBulkOrder\Cart\SavingsDisplay::renderLineSaving($eventInfo);
 }
 
 /**
- * Same line, printed from the cart drawer's only hook.
+ * The same note, in FluentCart's line-meta slot.
  *
- * `line_meta` fires in two renderers. CartRenderer is the drawer, and it is the
- * one that needs this. CartItemRenderer fires it too, but that renderer also
- * fires `after_total`, which is a better spot (beside the price) and is already
- * covered — so its `line_meta` pass must stay silent or the saving prints twice
- * on the checkout summary.
+ * Two slots because which one a theme fires depends on its cart template.
  *
- * The two are told apart by the cart object: CartRenderer::getEventInfo() hard-
- * codes `'cart' => null` (CartRenderer.php:170), while every CartItemRenderer
- * that fires hooks is constructed with the cart (CartSummaryRender.php:95). If a
- * future FluentCart release starts passing a cart from the drawer, the drawer
- * simply stops showing the line — a cosmetic loss, not a duplicate or an error.
- *
- * @param array $eventInfo ['item' => array, 'cart' => object|null, ...]
+ * @see \FluentCartBulkOrder\Cart\SavingsDisplay::renderLineSavingMeta()
+ * @param array $eventInfo
  * @return void
  */
 function fcbo_render_cart_line_saving_meta($eventInfo)
 {
-    if (!empty($eventInfo['cart'])) {
-        return;
-    }
+    fcbo_load_cart();
 
-    fcbo_render_cart_line_saving($eventInfo);
+    \FluentCartBulkOrder\Cart\SavingsDisplay::renderLineSavingMeta($eventInfo);
 }
 
 /**
- * Emit the one style rule the cart saving line needs, once per request.
+ * Print the saving note's inline style, once per request.
  *
- * Deliberately inline rather than an enqueued stylesheet. FluentCart re-renders
- * these line items into AJAX fragments when a quantity changes, and a fragment
- * response carries no <head> and runs no enqueue pass — an enqueued file would
- * simply not be there. Travelling with the markup is the only delivery that
- * works on both the full page render and the fragment.
- *
+ * @see \FluentCartBulkOrder\Cart\SavingsDisplay::printStyle()
  * @return void
  */
 function fcbo_print_cart_saving_style()
 {
-    static $printed = false;
+    fcbo_load_cart();
 
-    if ($printed) {
-        return;
-    }
-    $printed = true;
-
-    echo '<style>.fcbo-cart-saving{display:block;font-size:12px;font-weight:600;color:#16a34a;}</style>';
+    \FluentCartBulkOrder\Cart\SavingsDisplay::printStyle();
 }
 
 /* -------------------------------------------------------------------------
@@ -1414,115 +1275,50 @@ function fcbo_format_money($cents)
 }
 
 /**
- * Reject an add-to-cart whose quantity violates the variant's order rules.
+ * Refuse a cart item whose quantity breaks its order rules.
  *
- * Bound to `fluent_cart/variation/can_purchase_bundle`, which despite its name
- * fires inside the generic ProductVariation::canPurchase() and therefore covers
- * every add path (see the registration comment for the full rationale).
+ * The server-side authority behind the surfaces' rounding.
+ * @see \FluentCartBulkOrder\Cart\RuleEnforcement::validateCartItem()
  *
- * @param mixed $result  Prior verdict: null (undecided), false, or WP_Error.
- * @param array $context ['variation' => object, 'quantity' => int]
- * @return mixed WP_Error to veto; the untouched $result otherwise.
+ * @param mixed $result  Verdict so far.
+ * @param mixed $context Cart item context.
+ * @return mixed True to allow, WP_Error to refuse.
  */
 function fcbo_validate_cart_item_rules($result, $context)
 {
-    // Never override a veto another party already cast (e.g. out of stock).
-    if (is_wp_error($result) || $result === false) {
-        return $result;
-    }
+    fcbo_load_cart();
 
-    $variation = isset($context['variation']) ? $context['variation'] : null;
-    $qty       = (int) ($context['quantity'] ?? 0);
-
-    if (!$variation || empty($variation->id) || $qty < 1) {
-        return $result;
-    }
-
-    $productId = (int) $variation->post_id;
-    $variantId = (int) $variation->id;
-
-    $rules = fcbo_resolve_order_rules(fcbo_get_all_bulk_pricing([$productId]), $productId, $variantId);
-
-    if (!fcbo_order_rules_are_set($rules) || fcbo_qty_is_valid($qty, $rules)) {
-        return $result;
-    }
-
-    return new \WP_Error('fcbo_order_rule', fcbo_describe_qty_violation($qty, $rules));
+    return \FluentCartBulkOrder\Cart\RuleEnforcement::validateCartItem($result, $context);
 }
 
 /**
- * Shopper-facing explanation of why a quantity was refused.
+ * The sentence explaining why a quantity was refused.
  *
- * Always names the nearest acceptable quantity so the message is actionable
- * rather than merely a rejection.
- *
- * @param int   $qty   The rejected quantity.
- * @param array $rules Normalized rules.
+ * @see \FluentCartBulkOrder\Cart\RuleEnforcement::describeQtyViolation()
+ * @param int   $qty
+ * @param array $rules
  * @return string
  */
 function fcbo_describe_qty_violation($qty, $rules)
 {
-    $rules     = fcbo_normalize_order_rules($rules);
-    $suggested = fcbo_normalize_qty($qty, $rules);
+    fcbo_load_cart();
 
-    if ($rules['min_qty'] > 0 && $rules['step'] > 1) {
-        /* translators: 1: minimum quantity, 2: case-pack size, 3: nearest valid quantity */
-        $format = __('This product has a minimum of %1$d and is sold in multiples of %2$d. Try %3$d.', 'fluent-cart-bulk-order');
-        return sprintf($format, $rules['min_qty'], $rules['step'], $suggested);
-    }
-
-    if ($rules['step'] > 1) {
-        /* translators: 1: case-pack size, 2: nearest valid quantity */
-        $format = __('This product is sold in multiples of %1$d. Try %2$d.', 'fluent-cart-bulk-order');
-        return sprintf($format, $rules['step'], $suggested);
-    }
-
-    /* translators: 1: minimum quantity */
-    return sprintf(__('This product has a minimum order quantity of %1$d.', 'fluent-cart-bulk-order'), $rules['min_qty']);
+    return \FluentCartBulkOrder\Cart\RuleEnforcement::describeQtyViolation($qty, $rules);
 }
 
 /**
- * Block checkout when a subject shopper's cart is under the order minimum.
+ * Refuse checkout when the order total is under this shopper's minimum.
  *
- * Bound to `fluent_cart/checkout/validate_data`, which receives the resolved
- * cart and halts checkout when the returned error array is non-empty.
- *
- * The comparison basis is the items subtotal — bulk-discounted line prices,
- * before coupons, shipping, and tax. That deliberately matches what the Bulk
- * Order Form shows as its grand total, so the client-side warning and this gate
- * can never disagree about whether a cart clears the floor.
- *
- * @param array $errors  Accumulated validation errors (nested: field => code => msg).
- * @param array $context ['data' => array, 'cart' => object]
- * @return array
+ * @see \FluentCartBulkOrder\Cart\RuleEnforcement::validateCheckoutMinimum()
+ * @param mixed $errors  Errors so far.
+ * @param mixed $context Checkout context, carrying the resolved cart.
+ * @return mixed
  */
 function fcbo_validate_checkout_minimum($errors, $context)
 {
-    $minimum = fcbo_get_min_order_total();
-    if ($minimum <= 0 || !fcbo_user_subject_to_min_order()) {
-        return $errors;
-    }
+    fcbo_load_cart();
 
-    $cart = isset($context['cart']) ? $context['cart'] : null;
-    if (!$cart || !method_exists($cart, 'getItemsSubtotal')) {
-        return $errors;
-    }
-
-    $subtotal = (int) $cart->getItemsSubtotal();
-    if ($subtotal >= $minimum) {
-        return $errors;
-    }
-
-    /* translators: 1: shortfall amount, 2: minimum order total */
-    $format = __('Add %1$s more to reach the %2$s minimum order total.', 'fluent-cart-bulk-order');
-
-    $errors['fcbo_min_order_total']['minimum'] = sprintf(
-        $format,
-        fcbo_format_money($minimum - $subtotal),
-        fcbo_format_money($minimum)
-    );
-
-    return $errors;
+    return \FluentCartBulkOrder\Cart\RuleEnforcement::validateCheckoutMinimum($errors, $context);
 }
 
 /* -------------------------------------------------------------------------

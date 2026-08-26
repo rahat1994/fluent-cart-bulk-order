@@ -3,6 +3,7 @@
 namespace FluentCartBulkOrder\Shortcodes;
 
 use FluentCartBulkOrder\AccessPolicy;
+use FluentCartBulkOrder\StoreDefaults;
 
 defined('ABSPATH') || exit;
 
@@ -195,7 +196,7 @@ class BulkOrderForm extends AbstractShortcode
         $link = sprintf(
             '<a href="%s">%s</a>',
             esc_url(AccessPolicy::settingsPageUrl()),
-            esc_html__('Settings → Bulk Pricing', 'fluent-cart-bulk-order')
+            esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
         );
 
         return '<div class="fcbo-policy-notice">'
@@ -221,10 +222,21 @@ class BulkOrderForm extends AbstractShortcode
      */
     private function resolveCheckoutUrl($redirect)
     {
-        $redirect = trim((string) $redirect);
+        // Attribute first, then the store-wide default, then FluentCart's own
+        // checkout page. Each step is same-site validated on its own, so a bad
+        // value at any level falls through to the next rather than shipping an
+        // off-site checkout link to a shopper.
+        $candidates = [
+            trim((string) $redirect),
+            trim((string) StoreDefaults::get('checkout_redirect', '')),
+        ];
 
-        if ($redirect !== '') {
-            $validated = wp_validate_redirect($redirect, '');
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            $validated = wp_validate_redirect($candidate, '');
             if ($validated !== '') {
                 return $validated;
             }

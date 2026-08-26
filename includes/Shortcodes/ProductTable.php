@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Shortcodes;
 
+use FluentCartBulkOrder\StoreDefaults;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -37,8 +39,13 @@ class ProductTable extends AbstractShortcode
      * fcbo_parse_columns_attr() intersects against this list so the resulting
      * order is always this one. That keeps the PHP header and the JS body
      * aligned without either side sorting.
+     *
+     * Aliases StoreDefaults::TABLE_COLUMNS, which the settings sanitizer also
+     * validates against — the list is defined once, over there, because this
+     * class only loads when FluentCart is active and the sanitizer runs at
+     * admin_init regardless.
      */
-    const ALL_COLUMNS = ['id', 'title', 'price', 'qty', 'action'];
+    const ALL_COLUMNS = StoreDefaults::TABLE_COLUMNS;
 
     /**
      * Rows per page when the attribute is missing or unusable.
@@ -55,13 +62,20 @@ class ProductTable extends AbstractShortcode
      */
     protected function defaults()
     {
+        // Store-wide defaults enter as shortcode_atts() DEFAULTS, never after
+        // the attributes are read. That is what keeps precedence pointing one
+        // way — attribute > stored default > the constants above — so an author
+        // who wrote per_page="8" always gets 8, whatever the settings say.
         return [
-            'per_page'        => self::DEFAULT_PER_PAGE,
-            'columns'         => '',
-            'search'          => 'true',
+            'per_page'        => StoreDefaults::get('table_per_page', self::DEFAULT_PER_PAGE),
+            // Flattened to the comma string the attribute itself uses:
+            // fcbo_parse_columns_attr() ignores anything that is not a string,
+            // so handing it the stored array would drop the setting silently.
+            'columns'         => implode(',', (array) StoreDefaults::get('table_columns', [])),
+            'search'          => StoreDefaults::get('table_search', true) ? 'true' : 'false',
             'category'        => '',
             'roles'           => '',
-            'expand_variants' => 'false',
+            'expand_variants' => StoreDefaults::get('table_expand_variants', false) ? 'true' : 'false',
         ];
     }
 

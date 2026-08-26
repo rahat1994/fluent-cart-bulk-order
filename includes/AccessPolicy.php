@@ -17,8 +17,11 @@ defined('ABSPATH') || exit;
  * customer see this?" bugs, so the whole set is documented together here.
  *
  *   GATE 1 — SURFACE ACCESS. "May this user open our UI at all?"
- *       Roles from  : self::BASELINE_ROLES + the `fcbo/allowed_roles` filter.
- *                     NOT stored in an option — code/filter only.
+ *       Roles from  : self::BASELINE_ROLES, plus the roles stored in
+ *                     StoreDefaults `allowed_extra_roles` (Settings > Bulk
+ *                     Pricing), plus the `fcbo/allowed_roles` filter, in that
+ *                     order. The baseline is merged in CODE, so the option and
+ *                     the filter can only widen the set, never shrink it.
  *       Empty means : n/a, the baseline is never empty.
  *       Guards      : [fluent_cart_bulk_order], [fluent_cart_product_table],
  *                     [fluent_cart_saved_orders], and the REST routes
@@ -120,7 +123,18 @@ class AccessPolicy
      */
     public static function allowedRoles()
     {
-        return apply_filters('fcbo/allowed_roles', self::BASELINE_ROLES);
+        // Baseline first, THEN the stored extras: the baseline is merged in code
+        // and never read from the option, so no stored value — however broken —
+        // can lock a store owner out of their own surfaces.
+        $roles = array_merge(
+            self::BASELINE_ROLES,
+            (array) StoreDefaults::get('allowed_extra_roles', [])
+        );
+
+        // The filter still receives the finished set and still runs last, so
+        // existing `fcbo/allowed_roles` customizations compose on top of the
+        // settings page rather than fighting it.
+        return apply_filters('fcbo/allowed_roles', array_values(array_unique($roles)));
     }
 
     /**
@@ -131,12 +145,17 @@ class AccessPolicy
      *                             for this render. Extra roles can only widen,
      *                             never replace, the security baseline.
      *
-     * CAVEAT: extra roles only widen the SHORTCODE/UI gate. restPermissionCheck()
-     * passes NO extra roles, so the REST routes enforce only the global set from
-     * allowedRoles(). A role granted access solely through a per-shortcode
-     * `roles` attribute can render the UI but its AJAX product calls will still
-     * be rejected. To widen REST access too, add the role via the global
-     * `fcbo/allowed_roles` filter.
+     * CAVEAT: extra roles only widen the SHORTCODE/UI gate for ONE placement.
+     * restPermissionCheck() passes no extra roles, so the REST routes enforce
+     * only the global set from allowedRoles(). A role granted access solely
+     * through a per-shortcode `roles` attribute can render the UI but its AJAX
+     * product calls will still be rejected.
+     *
+     * To widen BOTH surfaces and REST, widen the global set instead: check the
+     * role under "Who may use the bulk order surfaces" on the settings page, or
+     * add it through the `fcbo/allowed_roles` filter. That is the fix for the
+     * mismatch above — the per-placement attribute is for the rarer case where
+     * one page, and only one page, should be visible to an extra role.
      *
      * @return bool
      */

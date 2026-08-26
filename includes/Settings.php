@@ -5,18 +5,35 @@ namespace FluentCartBulkOrder;
 defined('ABSPATH') || exit;
 
 /**
- * Minimal admin control for the bulk pricing role policy.
+ * The plugin's one admin page: every store-wide default in a single place.
  *
- * Registers a single WordPress Settings-API page that exposes a role checklist
- * bound to the bulk-pricing policy option. Leaving every role unchecked stores
- * an empty array, which means "apply bulk pricing to everyone" (the default,
- * backward-compatible behavior).
+ * ---------------------------------------------------------------------------
+ * WHAT LIVES WHERE
+ * ---------------------------------------------------------------------------
  *
- * This page owns the storage for Gate 2 and Gate 3; the gate LOGIC and the
- * option names both live in AccessPolicy, which documents how the gates relate.
+ * This class owns the FORM only. The values behind it are split in two, and the
+ * split is deliberate:
  *
- * This class is deliberately self-contained so Phase 2 can fold it into a
- * consolidated settings page without untangling it from the rest of the plugin.
+ *   - The three role gates keep their own top-level options, named by
+ *     AccessPolicy (`fcbo_apply_to_roles`, `fcbo_min_order_total`,
+ *     `fcbo_min_order_total_roles`). They predate this page; renaming them would
+ *     drop the saved policy of every store that already configured one.
+ *
+ *   - Everything else lives in one serialized array owned by StoreDefaults,
+ *     which also holds the sanitizer and the precedence rule.
+ *
+ * The gate LOGIC is in AccessPolicy, which documents how the three gates differ.
+ * Nothing here decides who gets what; it only stores what the owner chose.
+ *
+ * ---------------------------------------------------------------------------
+ * ADDING A SECTION
+ * ---------------------------------------------------------------------------
+ *
+ * registerSettings() is a list of section registrations, one private method per
+ * section. To add one: add a key and its fallback to StoreDefaults::FALLBACKS,
+ * validate it in StoreDefaults::sanitize(), then add a registerXSection() method
+ * here and call it. No other file needs to change — the render sites read
+ * through StoreDefaults::get().
  */
 class Settings
 {
@@ -71,8 +88,8 @@ class Settings
     public function addSettingsPage()
     {
         add_options_page(
-            __('Bulk Pricing', 'fluent-cart-bulk-order'),
-            __('Bulk Pricing', 'fluent-cart-bulk-order'),
+            __('Fluent Cart Bulk Order', 'fluent-cart-bulk-order'),
+            __('Bulk Order', 'fluent-cart-bulk-order'),
             'manage_options',
             self::PAGE_SLUG,
             [$this, 'renderPage']
@@ -80,9 +97,44 @@ class Settings
     }
 
     /**
-     * Register the option, section, and role-checklist field.
+     * Register every option, section, and field on the page.
+     *
+     * One method per section, in the order they appear. @see the class doc for
+     * how to add another.
      */
     public function registerSettings()
+    {
+        $this->registerStoreDefaults();
+        $this->registerSurfaceAccessSection();
+        $this->registerPricingPolicySection();
+        $this->registerMinOrderSection();
+        $this->registerProductTableSection();
+        $this->registerCheckoutSection();
+    }
+
+    /**
+     * The single `fcbo_store_defaults` option behind every non-gate setting.
+     *
+     * One register_setting() with one array sanitizer, so validation for the
+     * whole page has exactly one home. @see StoreDefaults::sanitize()
+     */
+    private function registerStoreDefaults()
+    {
+        register_setting(
+            self::OPTION_GROUP,
+            StoreDefaults::OPTION,
+            [
+                'type'              => 'array',
+                'sanitize_callback' => [StoreDefaults::class, 'sanitize'],
+                'default'           => [],
+            ]
+        );
+    }
+
+    /**
+     * Gate 2 — who receives bulk pricing.
+     */
+    private function registerPricingPolicySection()
     {
         register_setting(
             self::OPTION_GROUP,
@@ -108,11 +160,13 @@ class Settings
             self::PAGE_SLUG,
             'fcbo_policy_section'
         );
+    }
 
-        // ---- Minimum order total (Plan 009 · U6) ----
-        // Self-contained on purpose, so Plan 011's consolidated settings page can
-        // absorb it without untangling it from the role policy above.
-
+    /**
+     * Gate 3 — the order-total floor and the roles it binds.
+     */
+    private function registerMinOrderSection()
+    {
         register_setting(
             self::OPTION_GROUP,
             self::OPTION_MIN_TOTAL,
@@ -154,6 +208,85 @@ class Settings
             [$this, 'renderMinOrderRolesField'],
             self::PAGE_SLUG,
             'fcbo_min_order_section'
+        );
+    }
+
+    /**
+     * Gate 1 — who may open the surfaces at all.
+     */
+    private function registerSurfaceAccessSection()
+    {
+        add_settings_section(
+            'fcbo_access_section',
+            __('Surface Access', 'fluent-cart-bulk-order'),
+            [$this, 'renderAccessIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_allowed_extra_roles_field',
+            __('Also allow these roles', 'fluent-cart-bulk-order'),
+            [$this, 'renderAllowedExtraRolesField'],
+            self::PAGE_SLUG,
+            'fcbo_access_section'
+        );
+    }
+
+    /**
+     * Product-table display defaults.
+     */
+    private function registerProductTableSection()
+    {
+        add_settings_section(
+            'fcbo_table_section',
+            __('Product Table Defaults', 'fluent-cart-bulk-order'),
+            [$this, 'renderTableIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_table_per_page_field',
+            __('Rows per page', 'fluent-cart-bulk-order'),
+            [$this, 'renderTablePerPageField'],
+            self::PAGE_SLUG,
+            'fcbo_table_section'
+        );
+
+        add_settings_field(
+            'fcbo_table_columns_field',
+            __('Columns', 'fluent-cart-bulk-order'),
+            [$this, 'renderTableColumnsField'],
+            self::PAGE_SLUG,
+            'fcbo_table_section'
+        );
+
+        add_settings_field(
+            'fcbo_table_display_field',
+            __('Display', 'fluent-cart-bulk-order'),
+            [$this, 'renderTableDisplayField'],
+            self::PAGE_SLUG,
+            'fcbo_table_section'
+        );
+    }
+
+    /**
+     * Where the bulk order form sends a finished order.
+     */
+    private function registerCheckoutSection()
+    {
+        add_settings_section(
+            'fcbo_checkout_section',
+            __('Checkout', 'fluent-cart-bulk-order'),
+            [$this, 'renderCheckoutIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_checkout_redirect_field',
+            __('Send bulk orders to', 'fluent-cart-bulk-order'),
+            [$this, 'renderCheckoutRedirectField'],
+            self::PAGE_SLUG,
+            'fcbo_checkout_section'
         );
     }
 
@@ -297,6 +430,202 @@ class Settings
         );
     }
 
+    /* =====================================================================
+     * Store-wide defaults — fields backed by the StoreDefaults option
+     * ===================================================================== */
+
+    /**
+     * Name attribute for one key inside the StoreDefaults option array.
+     *
+     * Every field on this side of the page posts as `fcbo_store_defaults[key]`,
+     * which is what lets one sanitizer see the whole submission at once.
+     *
+     * @param string $key Key within the option array.
+     * @return string
+     */
+    private function defaultsName($key)
+    {
+        return StoreDefaults::OPTION . '[' . $key . ']';
+    }
+
+    /**
+     * Section intro for Gate 1.
+     */
+    public function renderAccessIntro()
+    {
+        echo '<p>' . esc_html__(
+            'Administrators and wholesale customers can always reach the bulk order form, the product table and saved orders. Add any other roles that should reach them too.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Checklist of roles that widen Gate 1 beyond the baseline.
+     */
+    public function renderAllowedExtraRolesField()
+    {
+        $selected = (array) StoreDefaults::get('allowed_extra_roles', []);
+        $baseline = AccessPolicy::BASELINE_ROLES;
+        $roles    = $this->getEditableRoles();
+
+        // Hidden field so an all-unchecked submission still reaches the
+        // sanitizer, which is what lets the owner clear the list.
+        echo '<input type="hidden" name="' . esc_attr($this->defaultsName('allowed_extra_roles')) . '[]" value="" />';
+
+        echo '<fieldset>';
+        foreach ($roles as $slug => $details) {
+            $label      = isset($details['name']) ? $details['name'] : $slug;
+            $isBaseline = in_array($slug, $baseline, true);
+
+            printf(
+                '<label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s %4$s /> %5$s%6$s</label>',
+                esc_attr($this->defaultsName('allowed_extra_roles')),
+                esc_attr($slug),
+                checked($isBaseline || in_array($slug, $selected, true), true, false),
+                // The baseline is merged in code, so showing it unchecked would
+                // be a lie and unchecking it would do nothing. Shown ticked and
+                // disabled instead, which is the honest rendering of a floor.
+                disabled($isBaseline, true, false),
+                esc_html($label),
+                $isBaseline ? ' <em>' . esc_html__('(always allowed)', 'fluent-cart-bulk-order') . '</em>' : ''
+            );
+        }
+        echo '</fieldset>';
+
+        echo '<p class="description">' . esc_html__(
+            'This widens both the on-page surfaces and the REST endpoints behind them, so a role added here can actually load products. A shortcode "roles" attribute still widens one placement only, and does not reach the REST routes.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Section intro for the product-table defaults.
+     */
+    public function renderTableIntro()
+    {
+        echo '<p>' . esc_html__(
+            'Defaults for every [fluent_cart_product_table] on the site. A shortcode attribute always overrides what you set here, for that placement only.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Rows-per-page number input.
+     */
+    public function renderTablePerPageField()
+    {
+        printf(
+            '<input type="number" name="%1$s" value="%2$d" min="%3$d" max="%4$d" step="1" class="small-text" />',
+            esc_attr($this->defaultsName('table_per_page')),
+            (int) StoreDefaults::get('table_per_page', StoreDefaults::FALLBACKS['table_per_page']),
+            (int) StoreDefaults::MIN_PER_PAGE,
+            (int) StoreDefaults::MAX_PER_PAGE
+        );
+
+        printf(
+            '<p class="description">%s</p>',
+            esc_html(
+                sprintf(
+                    /* translators: 1: lowest allowed value, 2: highest allowed value, 3: the default. */
+                    __('Between %1$d and %2$d. Default %3$d. Counts variant rows, not products.', 'fluent-cart-bulk-order'),
+                    StoreDefaults::MIN_PER_PAGE,
+                    StoreDefaults::MAX_PER_PAGE,
+                    StoreDefaults::FALLBACKS['table_per_page']
+                )
+            )
+        );
+    }
+
+    /**
+     * Column checklist, in canonical order.
+     */
+    public function renderTableColumnsField()
+    {
+        $selected = (array) StoreDefaults::get('table_columns', []);
+        $labels   = [
+            'id'     => __('ID', 'fluent-cart-bulk-order'),
+            'title'  => __('Title', 'fluent-cart-bulk-order'),
+            'price'  => __('Price', 'fluent-cart-bulk-order'),
+            'qty'    => __('Quantity', 'fluent-cart-bulk-order'),
+            'action' => __('Action', 'fluent-cart-bulk-order'),
+        ];
+
+        echo '<input type="hidden" name="' . esc_attr($this->defaultsName('table_columns')) . '[]" value="" />';
+
+        echo '<fieldset>';
+        foreach (StoreDefaults::TABLE_COLUMNS as $column) {
+            printf(
+                '<label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
+                esc_attr($this->defaultsName('table_columns')),
+                esc_attr($column),
+                // An empty stored list means "all columns", so an unconfigured
+                // store shows every box ticked rather than none.
+                checked(!$selected || in_array($column, $selected, true), true, false),
+                esc_html(isset($labels[$column]) ? $labels[$column] : $column)
+            );
+        }
+        echo '</fieldset>';
+
+        echo '<p class="description">' . esc_html__(
+            'Columns always appear in this order. Selecting all of them is the same as selecting none: the table shows everything.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * The two display toggles.
+     */
+    public function renderTableDisplayField()
+    {
+        printf(
+            '<fieldset><label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s" value="1" %2$s /> %3$s</label>',
+            esc_attr($this->defaultsName('table_search')),
+            checked((bool) StoreDefaults::get('table_search', true), true, false),
+            esc_html__('Show the search box', 'fluent-cart-bulk-order')
+        );
+
+        printf(
+            '<label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s" value="1" %2$s /> %3$s</label></fieldset>',
+            esc_attr($this->defaultsName('table_expand_variants')),
+            checked((bool) StoreDefaults::get('table_expand_variants', false), true, false),
+            esc_html__('Open variant rows by default', 'fluent-cart-bulk-order')
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'Opening variant rows suits small catalogues; leave it off when products have many variants.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Section intro for the checkout target.
+     */
+    public function renderCheckoutIntro()
+    {
+        echo '<p>' . esc_html__(
+            'By default a finished bulk order goes to the store checkout page. Point it somewhere else if wholesale orders use their own checkout.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Same-site checkout redirect URL.
+     */
+    public function renderCheckoutRedirectField()
+    {
+        printf(
+            '<input type="url" name="%1$s" value="%2$s" class="regular-text" placeholder="%3$s" />',
+            esc_attr($this->defaultsName('checkout_redirect')),
+            esc_attr((string) StoreDefaults::get('checkout_redirect', '')),
+            esc_attr(home_url('/wholesale-checkout/'))
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A "redirect" attribute on the shortcode still wins for that placement.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
     /**
      * Render the settings page wrapper and form.
      */
@@ -307,7 +636,7 @@ class Settings
         }
 
         echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h1>';
+        echo '<h1>' . esc_html__('Fluent Cart Bulk Order', 'fluent-cart-bulk-order') . '</h1>';
         echo '<form action="options.php" method="post">';
         settings_fields(self::OPTION_GROUP);
         do_settings_sections(self::PAGE_SLUG);

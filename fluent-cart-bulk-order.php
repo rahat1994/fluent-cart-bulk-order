@@ -17,11 +17,18 @@ define('FCBO_URL', plugin_dir_url(__FILE__));
 // Loaded unconditionally, and BEFORE plugins_loaded, on purpose. AccessPolicy
 // holds every role gate in the plugin and the `fcbo_*` gate functions below are
 // thin delegates to it — a theme or snippet may call one at any point in the
-// request, including on a page load where FluentCart is inactive. Neither file
-// touches FluentCart at include time. Settings comes along because
-// AccessPolicy::settingsPageUrl() reads Settings::PAGE_SLUG.
+// request, including on a page load where FluentCart is inactive. None of these
+// files touch FluentCart at include time. Settings comes along because
+// AccessPolicy::settingsPageUrl() reads Settings::PAGE_SLUG, and StoreDefaults
+// first because Gate 1 in AccessPolicy reads its stored role list.
+require_once FCBO_DIR . 'includes/StoreDefaults.php';
 require_once FCBO_DIR . 'includes/AccessPolicy.php';
 require_once FCBO_DIR . 'includes/Settings.php';
+
+// StoreDefaults caches its option for the request, and the settings page reads
+// it again after saving. Hooked here rather than inside the class so the class
+// stays a plain data reader with no side effects at include time.
+add_action('update_option_' . \FluentCartBulkOrder\StoreDefaults::OPTION, [\FluentCartBulkOrder\StoreDefaults::class, 'flush']);
 
 /*
  * ---------------------------------------------------------------------------

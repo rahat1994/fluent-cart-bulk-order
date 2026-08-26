@@ -442,7 +442,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
         $link = sprintf(
             '<a href="%s" target="_blank" rel="noopener">%s</a>',
             esc_url(AccessPolicy::settingsPageUrl()),
-            esc_html__('Settings → Bulk Pricing', 'fluent-cart-bulk-order')
+            esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
         );
 
         // Administrators are a softer, more confusing case: the policy lets them
@@ -505,7 +505,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
                 sprintf(
                     '<a href="%s" target="_blank" rel="noopener">%s</a>',
                     esc_url(AccessPolicy::settingsPageUrl()),
-                    esc_html__('Settings → Bulk Pricing', 'fluent-cart-bulk-order')
+                    esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
                 )
             )
             . '</p>';

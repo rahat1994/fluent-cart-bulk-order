@@ -682,427 +682,121 @@ function fcbo_format_tier_discount_label($tier)
 }
 
 /**
- * Translatable savings/nudge strings handed to the two live-total surfaces.
+ * Load the translation tables.
  *
- * The JS files have no translation layer of their own — the plugin does not load
- * wp.i18n and has no script translations yet (roadmap Phase 1 · item 5). Passing
- * the finished sentences through wp_localize_script() keeps every shopper-facing
- * string inside the PHP .pot file, which is where the rest of the plugin's text
- * already lives. When script translations land, these move to wp.i18n and this
- * helper goes away.
- *
- * Placeholders are named ({amount}, {qty}, {percent}) rather than positional, so
- * a translator can reorder them freely. Whole sentences, not fragments: a
- * translator needs the full clause to get agreement and word order right.
- *
- * @return array<string, string> Templates keyed for the JS `fill()` helpers.
+ * @return void
  */
-function fcbo_savings_strings()
+function fcbo_load_strings()
 {
-    return [
-        /* translators: {amount}: money amount, e.g. $12.50. Keep {amount} as-is. */
-        'saved'          => __('You saved {amount}', 'fluent-cart-bulk-order'),
-        /* translators: {qty}: how many more units; {percent}: discount percentage. Keep both as-is. */
-        'unlock_percent' => __('Add {qty} more to unlock {percent}% off', 'fluent-cart-bulk-order'),
-        /* translators: {qty}: how many more units. Keep {qty} as-is. Used when the next tier is a money amount, not a percentage. */
-        'unlock_generic' => __('Add {qty} more to unlock a better price', 'fluent-cart-bulk-order'),
-    ];
+    require_once FCBO_DIR . 'includes/Strings.php';
 }
 
 /**
- * Every shopper-facing sentence in assets/js/bulk-order.js.
+ * Load the single-product tier display.
  *
- * Same contract as fcbo_savings_strings(): the sentence is translated here,
- * whole, and the JS only fills the {placeholders}. Building a sentence by
- * concatenating fragments in JS cannot be translated — word order differs
- * between languages, so "Add 5 more" is not "Add" + qty + "more" everywhere.
+ * @return void
+ */
+function fcbo_load_display()
+{
+    fcbo_load_strings();
+
+    require_once FCBO_DIR . 'includes/Display/SingleProductTiers.php';
+}
+
+/**
+ * Savings and next-tier sentences, shared by the order form and the tier table.
  *
+ * @see \FluentCartBulkOrder\Strings::savings()
+ * @return array<string,string>
+ */
+function fcbo_savings_strings()
+{
+    fcbo_load_strings();
+
+    return \FluentCartBulkOrder\Strings::savings();
+}
+
+/**
+ * Every sentence assets/js/bulk-order.js prints.
+ *
+ * @see \FluentCartBulkOrder\Strings::bulkOrder()
  * @return array<string,string>
  */
 function fcbo_bulk_order_strings()
 {
-    return [
-        // Row controls
-        'remove_row'         => __('Remove', 'fluent-cart-bulk-order'),
-        'search_placeholder' => __('Search products...', 'fluent-cart-bulk-order'),
+    fcbo_load_strings();
 
-        // Search dropdown
-        'search_results' => __('Product search results', 'fluent-cart-bulk-order'),
-        'search_failed' => __('Search failed', 'fluent-cart-bulk-order'),
-        'no_products'   => __('No products found', 'fluent-cart-bulk-order'),
-        'no_variants'   => __('No available variants', 'fluent-cart-bulk-order'),
-        'out_of_stock'  => __('(Out of stock)', 'fluent-cart-bulk-order'),
-        /* translators: {sku}: a product SKU. Keep {sku} as-is. */
-        'sku_label'     => __('SKU {sku}', 'fluent-cart-bulk-order'),
-
-        // Saving an order
-        'save_need_product'  => __('Add at least one product before saving.', 'fluent-cart-bulk-order'),
-        'save_name_prompt'   => __('Name this saved order:', 'fluent-cart-bulk-order'),
-        'save_need_name'     => __('Please enter a name for the saved order.', 'fluent-cart-bulk-order'),
-        'saving'             => __('Saving order...', 'fluent-cart-bulk-order'),
-        'save_failed'        => __('Could not save the order.', 'fluent-cart-bulk-order'),
-        'save_failed_retry'  => __('Could not save the order. Please try again.', 'fluent-cart-bulk-order'),
-        /* translators: {name}: the name the shopper gave the saved order. Keep {name} as-is. */
-        'save_succeeded'     => __('Saved order "{name}".', 'fluent-cart-bulk-order'),
-
-        // Checkout
-        'checkout_need_product'   => __('Please select at least one product.', 'fluent-cart-bulk-order'),
-        'checkout_mixed_types'    => __('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'fluent-cart-bulk-order'),
-        /* translators: {amount}: money still needed; {minimum}: the required order total. Keep both as-is. */
-        'checkout_below_minimum'  => __('Add {amount} more to reach the {minimum} minimum order total.', 'fluent-cart-bulk-order'),
-        'checkout_cart_missing'   => __('FluentCart cart is not available. Please refresh the page and try again.', 'fluent-cart-bulk-order'),
-        'checkout_adding'         => __('Adding items to cart...', 'fluent-cart-bulk-order'),
-        'checkout_redirecting'    => __('Redirecting to checkout...', 'fluent-cart-bulk-order'),
-        'checkout_not_configured' => __('Checkout page is not configured. Please check FluentCart settings.', 'fluent-cart-bulk-order'),
-        /* translators: {index}: which item is being added; {total}: how many there are. Keep both as-is. */
-        'checkout_adding_item'    => __('Adding item {index} of {total}...', 'fluent-cart-bulk-order'),
-        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
-        'checkout_add_failed'     => __('Failed to add item: {error}', 'fluent-cart-bulk-order'),
-        'unknown_error'           => __('Unknown error', 'fluent-cart-bulk-order'),
-
-        // Order rules (@see describeQtyAdjustment)
-        /* translators: {min}: minimum quantity; {step}: case-pack multiple; {qty}: the quantity now set. Keep all three as-is. */
-        'qty_min_and_step'    => __('Minimum order is {min}, in multiples of {step}. Quantity set to {qty}.', 'fluent-cart-bulk-order'),
-        /* translators: {step}: case-pack multiple; {qty}: the quantity now set. Keep both as-is. */
-        'qty_step'            => __('Sold in multiples of {step}. Quantity rounded up to {qty}.', 'fluent-cart-bulk-order'),
-        /* translators: {min}: minimum quantity; {qty}: the quantity now set. Keep both as-is. */
-        'qty_min'             => __('Minimum order quantity is {min}. Quantity set to {qty}.', 'fluent-cart-bulk-order'),
-        'qty_adjusted_many'   => __('Some quantities were adjusted to meet this store\'s order rules.', 'fluent-cart-bulk-order'),
-
-        // Quick order (paste / CSV)
-        'file_read_failed' => __('Could not read the file. Please try again.', 'fluent-cart-bulk-order'),
-        'sku_missing'      => __('Missing SKU', 'fluent-cart-bulk-order'),
-        'sku_unknown'      => __('No matching product', 'fluent-cart-bulk-order'),
-        /* translators: {count}: how many variants share the SKU. Keep {count} as-is. */
-        'sku_ambiguous'    => __('Matches {count} variants — add it manually', 'fluent-cart-bulk-order'),
-        /* translators: {qty}: the unreadable value the shopper pasted. Keep {qty} as-is. */
-        'qty_invalid'      => __('Invalid quantity "{qty}"', 'fluent-cart-bulk-order'),
-        /* translators: {count}: how many rows were added. Keep {count} as-is. */
-        'report_added_one' => __('{count} item added', 'fluent-cart-bulk-order'),
-        /* translators: {count}: how many rows were added. Keep {count} as-is. */
-        'report_added'     => __('{count} items added', 'fluent-cart-bulk-order'),
-        /* translators: {count}: how many pasted lines were not added. Keep {count} as-is. */
-        'report_skipped'   => __('{count} skipped', 'fluent-cart-bulk-order'),
-        /* translators: {line}: the line number in the pasted text or CSV. Keep {line} as-is. */
-        'report_line'      => __('Line {line}', 'fluent-cart-bulk-order'),
-        /* translators: {label}: product name; {qty}: quantity added. Keep both as-is. */
-        'report_item'      => __('{label} × {qty}', 'fluent-cart-bulk-order'),
-        /* translators: {qty}: the quantity originally asked for. Keep {qty} as-is. */
-        'report_adjusted'  => __('(adjusted from {qty} to meet order rules)', 'fluent-cart-bulk-order'),
-    ];
+    return \FluentCartBulkOrder\Strings::bulkOrder();
 }
 
 /**
- * Every shopper-facing sentence in assets/js/product-table.js.
+ * Every sentence assets/js/product-table.js prints.
  *
- * @see fcbo_bulk_order_strings() for why whole sentences are translated
- *      here rather than assembled from fragments in JS.
- *
+ * @see \FluentCartBulkOrder\Strings::productTable()
  * @return array<string,string>
  */
 function fcbo_product_table_strings()
 {
-    return [
-        'loading'      => __('Loading products...', 'fluent-cart-bulk-order'),
-        'load_failed'  => __('Failed to load products.', 'fluent-cart-bulk-order'),
-        'no_products'  => __('No products found.', 'fluent-cart-bulk-order'),
+    fcbo_load_strings();
 
-        // Add-to-cart button, through its whole cycle
-        'add_to_cart'  => __('Add to Cart', 'fluent-cart-bulk-order'),
-        'out_of_stock' => __('Out of Stock', 'fluent-cart-bulk-order'),
-        'adding'       => __('Adding...', 'fluent-cart-bulk-order'),
-        'added'        => __('Added!', 'fluent-cart-bulk-order'),
-
-        // Order rules, shown next to the quantity input
-        /* translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is. */
-        'rule_min_and_step' => __('Min {min}, in {step}s', 'fluent-cart-bulk-order'),
-        /* translators: {step}: case-pack multiple. Keep {step} as-is. */
-        'rule_step'         => __('Sold in {step}s', 'fluent-cart-bulk-order'),
-        /* translators: {min}: minimum quantity. Keep {min} as-is. */
-        'rule_min'          => __('Min {min}', 'fluent-cart-bulk-order'),
-        /* translators: {qty}: the quantity now set. Keep {qty} as-is. */
-        'qty_adjusted'      => __('Quantity adjusted to {qty} to meet this product\'s order rules.', 'fluent-cart-bulk-order'),
-
-        'cart_missing'  => __('FluentCart cart is not available. Please refresh the page.', 'fluent-cart-bulk-order'),
-        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
-        'add_failed'    => __('Failed: {error}', 'fluent-cart-bulk-order'),
-        'unknown_error' => __('Unknown error', 'fluent-cart-bulk-order'),
-
-        /* translators: {current}: current page number; {total}: how many pages there are. Keep both as-is. */
-        'page_of' => __('Page {current} of {total}', 'fluent-cart-bulk-order'),
-    ];
+    return \FluentCartBulkOrder\Strings::productTable();
 }
 
 /**
- * Every shopper-facing sentence in assets/js/saved-orders.js.
+ * Every sentence assets/js/saved-orders.js prints.
  *
- * @see fcbo_bulk_order_strings() for why whole sentences are translated
- *      here rather than assembled from fragments in JS.
- *
+ * @see \FluentCartBulkOrder\Strings::savedOrders()
  * @return array<string,string>
  */
 function fcbo_saved_orders_strings()
 {
-    return [
-        'divider_saved' => __('Saved orders', 'fluent-cart-bulk-order'),
-        'divider_past'  => __('Past orders', 'fluent-cart-bulk-order'),
+    fcbo_load_strings();
 
-        'cart_missing'      => __('FluentCart cart is not available. Please refresh the page and try again.', 'fluent-cart-bulk-order'),
-        'nothing_available' => __('None of the items in this order are available anymore.', 'fluent-cart-bulk-order'),
-        'mixed_types'       => __('This order mixes subscription and one-time products, which cannot be reordered together.', 'fluent-cart-bulk-order'),
-
-        'adding'  => __('Adding items to cart...', 'fluent-cart-bulk-order'),
-        /* translators: {count}: items being added; {skipped}: items no longer available. Keep both as-is. */
-        'adding_some' => __('Adding {count} item(s); {skipped} unavailable skipped...', 'fluent-cart-bulk-order'),
-        'redirecting' => __('Redirecting to checkout...', 'fluent-cart-bulk-order'),
-        'checkout_not_configured' => __('Checkout page is not configured. Please check FluentCart settings.', 'fluent-cart-bulk-order'),
-        /* translators: {error}: the error the cart reported. Keep {error} as-is. */
-        'add_failed'    => __('Failed to add an item: {error}', 'fluent-cart-bulk-order'),
-        'unknown_error' => __('Unknown error', 'fluent-cart-bulk-order'),
-
-        /* translators: {name}: the name the shopper gave the saved order. Keep {name} as-is. */
-        'delete_confirm' => __('Delete saved order "{name}"?', 'fluent-cart-bulk-order'),
-        'delete_done'    => __('Saved order deleted.', 'fluent-cart-bulk-order'),
-        'delete_failed'  => __('Could not delete the saved order. Please try again.', 'fluent-cart-bulk-order'),
-    ];
+    return \FluentCartBulkOrder\Strings::savedOrders();
 }
 
 /**
- * Enqueue CSS and JS for the bulk pricing display.
+ * Enqueue the tier-display CSS and JS, once per request.
+ *
+ * @see \FluentCartBulkOrder\Display\SingleProductTiers::enqueueAssets()
+ * @return void
  */
 function fcbo_enqueue_bulk_pricing_assets()
 {
-    static $enqueued = false;
-    if ($enqueued) {
-        return;
-    }
-    $enqueued = true;
+    fcbo_load_display();
 
-    wp_enqueue_style(
-        'fcbo-bulk-pricing-display',
-        FCBO_URL . 'assets/css/bulk-pricing-display.css',
-        [],
-        FCBO_VERSION
-    );
-
-    wp_enqueue_script(
-        'fcbo-bulk-pricing-display',
-        FCBO_URL . 'assets/js/bulk-pricing-display.js',
-        [],
-        FCBO_VERSION,
-        true
-    );
-
-    wp_localize_script('fcbo-bulk-pricing-display', 'fcboBpConfig', [
-        'currency_sign' => fcbo_get_currency_sign(),
-        'i18n'          => fcbo_savings_strings(),
-    ]);
+    \FluentCartBulkOrder\Display\SingleProductTiers::enqueueAssets();
 }
 
 /**
- * Render the order table rows for variants.
+ * The per-variant order table rendered beneath the tier list.
  *
- * Each row has: title, quantity input, price cell (updated by JS).
- * Footer row has: grand total + Add to Cart button.
- *
- * @param array  $variants [{id, title, price, tiers}]
- * @param string $titleHeader Column header for the first column
+ * @see \FluentCartBulkOrder\Display\SingleProductTiers::renderOrderTable()
+ * @param array  $variants
+ * @param string $titleHeader
+ * @return void
  */
 function fcbo_render_order_table($variants, $titleHeader)
 {
-    echo '<table class="fcbo-bp-order-table">';
-    echo '<thead><tr>';
-    echo '<th>' . esc_html($titleHeader) . '</th>';
-    echo '<th>' . esc_html__('Quantity', 'fluent-cart-bulk-order') . '</th>';
-    echo '<th>' . esc_html__('Total', 'fluent-cart-bulk-order') . '</th>';
-    echo '</tr></thead><tbody>';
+    fcbo_load_display();
 
-    foreach ($variants as $v) {
-        $dataAttr = esc_attr(wp_json_encode([
-            'id'    => (int) $v['id'],
-            'price' => (int) $v['price'],
-            'tiers' => $v['tiers'],
-        ]));
-
-        // The two empty spans are filled by bulk-pricing-display.js as the
-        // quantity changes: the nudge toward the next tier sits under the input
-        // the shopper is typing in, the line saving under the price it changes.
-        printf(
-            '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /><span class="fcbo-bp-nudge"></span></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
-            $dataAttr,
-            esc_html($v['title'])
-        );
-    }
-
-    echo '</tbody><tfoot><tr>';
-    echo '<td><strong>' . esc_html__('Total', 'fluent-cart-bulk-order') . '</strong></td>';
-    echo '<td class="fcbo-bp-grand-saving"></td>';
-    echo '<td class="fcbo-bp-grand-total"><span class="fcbo-bp-muted">&mdash;</span></td>';
-    echo '</tr></tfoot></table>';
-    echo '<div class="fcbo-bp-checkout-row">';
-    echo '<button type="button" class="fcbo-bp-checkout-btn">' . esc_html__('Add to Cart', 'fluent-cart-bulk-order') . '</button>';
-    echo '</div>';
+    \FluentCartBulkOrder\Display\SingleProductTiers::renderOrderTable($variants, $titleHeader);
 }
 
 /**
- * Render bulk pricing tiers on the single product page.
+ * Render the bulk-pricing tier table on a single product page.
  *
- * Shows tier info followed by an order table with quantity inputs, live totals,
- * and a single Add to Cart button.
+ * Hooked to `fluent_cart/product/single/after_quantity_block`.
  *
- * @param array $args ['product' => Product, 'scope' => string]
+ * @see \FluentCartBulkOrder\Display\SingleProductTiers::render()
+ * @param mixed $args Product context from FluentCart.
+ * @return void
  */
 function fcbo_render_single_product_tiers($args)
 {
-    if (empty($args['product'])) {
-        return;
-    }
+    fcbo_load_display();
 
-    // Hide the tier tables/order widget from shoppers the policy excludes.
-    // Administrators can always preview the display (R5).
-    if (!fcbo_user_qualifies_for_bulk_pricing(null, 'display')) {
-        return;
-    }
-
-    $product = $args['product'];
-    $pricingData = fcbo_get_all_bulk_pricing([$product->ID]);
-    // Resolve tiers against the viewer's roles so the preview matches their cart price.
-    $userRoles = (array) wp_get_current_user()->roles;
-    $isSimple = isset($product->detail->variation_type) && $product->detail->variation_type === 'simple';
-
-    if ($isSimple) {
-        $variant = $product->variants->first();
-        if (!$variant) {
-            return;
-        }
-
-        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
-        if (empty($tiers)) {
-            return;
-        }
-
-        fcbo_enqueue_bulk_pricing_assets();
-
-        echo '<div class="fcbo-bp-wrap">';
-        echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
-        echo '<div class="fcbo-bp-simple"><ul>';
-        foreach ($tiers as $tier) {
-            $minQty = (int) ($tier['min_qty'] ?? 0);
-            $maxQty = (int) ($tier['max_qty'] ?? 0);
-
-            $range = $maxQty > 0
-                ? sprintf('%d – %d', $minQty, $maxQty)
-                : sprintf('%d+', $minQty);
-
-            printf(
-                '<li>' . esc_html__('Buy %s:', 'fluent-cart-bulk-order') . ' <span class="fcbo-bp-discount">%s</span></li>',
-                esc_html($range),
-                esc_html(fcbo_format_tier_discount_label($tier))
-            );
-        }
-        echo '</ul></div>';
-
-        fcbo_render_order_table([
-            [
-                'id'    => $variant->id,
-                'title' => $product->post_title,
-                'price' => (int) $variant->item_price,
-                'tiers' => $tiers,
-            ],
-        ], __('Product', 'fluent-cart-bulk-order'));
-
-        echo '</div>';
-        return;
-    }
-
-    // Variable product: collect variants that have tiers
-    $variantsWithTiers = [];
-    foreach ($product->variants as $variant) {
-        $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
-        if (empty($tiers)) {
-            continue;
-        }
-        $variantsWithTiers[] = [
-            'id'    => $variant->id,
-            'title' => $variant->variation_title ?: 'Default',
-            'price' => (int) $variant->item_price,
-            'tiers' => $tiers,
-        ];
-    }
-
-    if (empty($variantsWithTiers)) {
-        return;
-    }
-
-    fcbo_enqueue_bulk_pricing_assets();
-
-    // Check if all variants share identical tiers — collapse if so
-    $allSame = true;
-    $firstTiers = $variantsWithTiers[0]['tiers'];
-    for ($i = 1, $len = count($variantsWithTiers); $i < $len; $i++) {
-        if ($variantsWithTiers[$i]['tiers'] !== $firstTiers) {
-            $allSame = false;
-            break;
-        }
-    }
-
-    echo '<div class="fcbo-bp-wrap">';
-    echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
-
-    // Tier info table
-    echo '<table class="fcbo-bp-table">';
-    if ($allSame) {
-        echo '<thead><tr>';
-        echo '<th>' . esc_html__('Qty Range', 'fluent-cart-bulk-order') . '</th>';
-        echo '<th>' . esc_html__('Discount', 'fluent-cart-bulk-order') . '</th>';
-        echo '</tr></thead><tbody>';
-
-        foreach ($firstTiers as $tier) {
-            $minQty = (int) ($tier['min_qty'] ?? 0);
-            $maxQty = (int) ($tier['max_qty'] ?? 0);
-            $range  = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
-
-            printf(
-                '<tr><td>%s</td><td class="fcbo-bp-discount">%s</td></tr>',
-                esc_html($range),
-                esc_html(fcbo_format_tier_discount_label($tier))
-            );
-        }
-    } else {
-        echo '<thead><tr>';
-        echo '<th>' . esc_html__('Variant', 'fluent-cart-bulk-order') . '</th>';
-        echo '<th>' . esc_html__('Qty Range', 'fluent-cart-bulk-order') . '</th>';
-        echo '<th>' . esc_html__('Discount', 'fluent-cart-bulk-order') . '</th>';
-        echo '</tr></thead><tbody>';
-
-        foreach ($variantsWithTiers as $entry) {
-            foreach ($entry['tiers'] as $idx => $tier) {
-                $minQty = (int) ($tier['min_qty'] ?? 0);
-                $maxQty = (int) ($tier['max_qty'] ?? 0);
-                $range  = $maxQty > 0 ? sprintf('%d – %d', $minQty, $maxQty) : sprintf('%d+', $minQty);
-
-                echo '<tr>';
-                if ($idx === 0) {
-                    printf(
-                        '<td rowspan="%d">%s</td>',
-                        count($entry['tiers']),
-                        esc_html($entry['title'])
-                    );
-                }
-                printf(
-                    '<td>%s</td><td class="fcbo-bp-discount">%s</td>',
-                    esc_html($range),
-                    esc_html(fcbo_format_tier_discount_label($tier))
-                );
-                echo '</tr>';
-            }
-        }
-    }
-    echo '</tbody></table>';
-
-    fcbo_render_order_table($variantsWithTiers, __('Variant', 'fluent-cart-bulk-order'));
-
-    echo '</div>';
+    \FluentCartBulkOrder\Display\SingleProductTiers::render($args);
 }
 
 /**

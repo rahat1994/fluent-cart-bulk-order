@@ -17,6 +17,15 @@ Runs in milliseconds. Covers:
   wrong is invisible: a wrapper that passes an attribute the store owner never
   set overrides the store-wide defaults, and the only symptom is a table quietly
   ignoring the settings page.
+- `includes/Wholesale/` — the three pure classes behind the wholesale
+  application flow. `ApplicationStatus` is the state machine that decides
+  whether a request may grant the `wholesale-customer` role; `ApplicationSchema`
+  normalises the owner-configured extra fields; `ApplicationInput` validates a
+  submission against that schema. All three fail quietly when they are wrong —
+  a duplicate field key silently overwrites another answer, a required select
+  with no options makes the form unsubmittable, and a validator that trusted the
+  submission's keys instead of the schema's would let a crafted POST write
+  fields nobody configured.
 
 These classes are pure functions over arrays, which is exactly why they are the
 ones worth pinning. `tests/bootstrap.php` does **not** load WordPress; it defines

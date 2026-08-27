@@ -33,6 +33,12 @@ if (!function_exists('esc_html')) {
     }
 }
 
+// The attribute schema behind the block and Elementor wrappers. It is here for
+// the same reason the pricing classes are: it is a pure map from array to array,
+// and it is the one place the shortcode-attribute precedence rule could be
+// broken without anything visibly failing.
+require_once dirname(__DIR__) . '/includes/Shortcodes/AttributeSchema.php';
+
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';

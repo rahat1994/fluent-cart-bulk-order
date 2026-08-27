@@ -2,3 +2,8 @@
 .worktrees/
 
 .playwright-mcp/
+
+# Composer dev tooling. The plugin itself has no runtime dependencies, so
+# vendor/ is only ever PHPUnit and friends — never shipped to a store.
+/vendor/
+.phpunit.result.cache

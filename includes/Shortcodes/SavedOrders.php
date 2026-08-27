@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Shortcodes;
 
+use FluentCartBulkOrder\Analytics\Surface;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -50,6 +52,9 @@ class SavedOrders extends AbstractShortcode
      */
     protected function output(array $atts)
     {
+        // No autoloader — every dependency is required where it is used.
+        require_once FCBO_DIR . 'includes/Analytics/Surface.php';
+
         // Cart assets are needed so Reorder can add items via window.fluentCartCart.
         $this->loadFluentCartCartAssets();
 
@@ -79,7 +84,14 @@ class SavedOrders extends AbstractShortcode
 
         wp_localize_script('fcbo-saved-orders', 'fcboSoConfig', array_merge($this->restConfig(), [
             'currency_sign' => $this->currencySign(),
-            'checkout_url'  => esc_url_raw($this->checkoutPageUrl()),
+            // Marked as its own surface. A reorder is a different act from
+            // assembling a new order, and an owner who sees most of their bulk
+            // revenue arriving through Saved Orders has learned something the
+            // Bulk Order Form's own number would have hidden.
+            'checkout_url'  => esc_url_raw(Surface::mark(
+                $this->checkoutPageUrl(),
+                Surface::SAVED_ORDERS
+            )),
             // Shopper-facing sentences, translated server-side. The JS only
             // fills {placeholders}. @see fcbo_saved_orders_strings()
             'i18n'          => fcbo_saved_orders_strings(),

@@ -33,6 +33,21 @@ if (!function_exists('esc_html')) {
     }
 }
 
+// Number formatting, which WordPress localises and the suite does not need to.
+// Same class of stub as __(): a passthrough that lets a pure class build a
+// human-readable label without a locale behind it.
+if (!function_exists('number_format_i18n')) {
+    function number_format_i18n($number, $decimals = 0)
+    {
+        return number_format((float) $number, (int) $decimals);
+    }
+}
+
+// A plain integer constant from wp-includes/default-constants.php, in the same
+// category as ABSPATH: something that must simply exist, with no behaviour of
+// its own to stub out.
+defined('DAY_IN_SECONDS') || define('DAY_IN_SECONDS', 86400);
+
 // The attribute schema behind the block and Elementor wrappers. It is here for
 // the same reason the pricing classes are: it is a pure map from array to array,
 // and it is the one place the shortcode-attribute precedence rule could be
@@ -69,3 +84,16 @@ require_once dirname(__DIR__) . '/includes/Export/OrderCsv.php';
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';
+
+// The four pure classes behind owner analytics. Every one of them decides
+// something an owner then acts on, and every one of them fails quietly when it
+// is wrong: a window boundary computed in the wrong timezone reports the wrong
+// quarter, a tier signature that is not stable merges two different discounts
+// into one row, a revenue split that does not clamp prints a negative
+// "normal checkout", and a tier-usage merge that drops a key hides the unused
+// tier the whole panel exists to surface.
+require_once dirname(__DIR__) . '/includes/Analytics/Period.php';
+require_once dirname(__DIR__) . '/includes/Analytics/Surface.php';
+require_once dirname(__DIR__) . '/includes/Analytics/TierSignature.php';
+require_once dirname(__DIR__) . '/includes/Analytics/TierUsage.php';
+require_once dirname(__DIR__) . '/includes/Analytics/RevenueSplit.php';

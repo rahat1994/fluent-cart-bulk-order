@@ -39,6 +39,32 @@ class Activator
     public static function activate()
     {
         self::registerWholesaleRole();
+        self::createAnalyticsTable();
+    }
+
+    /**
+     * Create the analytics attribution table.
+     *
+     * Not the only place this happens, and deliberately so. AnalyticsFlow calls
+     * the same installer on every request, guarded by a version option, because
+     * a store that already had this plugin ACTIVE when analytics shipped never
+     * runs this hook again — an upgrade is not an activation. This call is what
+     * makes a fresh install arrive with the table already there instead of
+     * creating it on its first page load.
+     *
+     * Both routes go through the same idempotent installer, so running both is
+     * harmless. @see \FluentCartBulkOrder\Analytics\AttributionStore::install()
+     *
+     * AttributionStore touches no FluentCart class at include time, which
+     * matters here: this hook runs with no guarantee that FluentCart is loaded.
+     *
+     * @return void
+     */
+    private static function createAnalyticsTable()
+    {
+        require_once __DIR__ . '/Analytics/AttributionStore.php';
+
+        \FluentCartBulkOrder\Analytics\AttributionStore::install();
     }
 
     /**

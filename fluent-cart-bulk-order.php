@@ -123,6 +123,15 @@ add_action('plugins_loaded', function () {
     require_once FCBO_DIR . 'includes/Export/OrderExportFlow.php';
     \FluentCartBulkOrder\Export\OrderExportFlow::register();
 
+    // Owner-side analytics: which orders came through bulk ordering, who is
+    // buying, and which quantity tiers buyers actually reach. Two halves —
+    // a recorder that stamps an order as it is created, and a screen that
+    // reads it back. The recorder is the reason this is not a report that
+    // could have been written against existing data.
+    // @see \FluentCartBulkOrder\Analytics\AnalyticsFlow
+    require_once FCBO_DIR . 'includes/Analytics/AnalyticsFlow.php';
+    \FluentCartBulkOrder\Analytics\AnalyticsFlow::register();
+
     add_action('fluent_cart/init', function () {
         require_once FCBO_DIR . 'includes/BulkPricingIntegration.php';
         (new \FluentCartBulkOrder\BulkPricingIntegration())->register();

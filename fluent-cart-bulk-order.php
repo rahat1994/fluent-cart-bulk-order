@@ -74,11 +74,15 @@ add_action('plugins_loaded', function () {
     require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
     (new \FluentCartBulkOrder\Shortcodes\ShortcodeHandler())->register();
 
-    // A block editor wrapper over two of those tags, for owners who never touch
-    // a shortcode. Both render THROUGH the shortcodes above, so they inherit the
-    // gates and the store-wide defaults rather than reimplementing them. `init`
-    // because register_block_type() must not run earlier than that.
+    // Editor wrappers over two of those tags, for owners who never touch a
+    // shortcode. Both render THROUGH the shortcodes above, so they inherit the
+    // gates and the store-wide defaults rather than reimplementing them.
+    //
+    // `init` because register_block_type() must not run earlier than that, and
+    // `elementor/widgets/register` because that hook cannot fire unless
+    // Elementor is installed - which is the whole of the guard Elementor needs.
     add_action('init', 'fcbo_register_blocks');
+    add_action('elementor/widgets/register', 'fcbo_register_elementor_widgets');
 
     add_action('rest_api_init', 'fcbo_register_routes');
 
@@ -348,6 +352,25 @@ function fcbo_register_blocks()
     fcbo_load_blocks();
 
     \FluentCartBulkOrder\Blocks\BlockHandler::register();
+}
+
+/**
+ * Register the Elementor widgets for the bulk order form and the product table.
+ *
+ * Only ever called from `elementor/widgets/register`. The widget classes extend
+ * \Elementor\Widget_Base and so cannot even be parsed without Elementor, which
+ * is why WidgetHandler - and not this function - is what requires them.
+ *
+ * @see \FluentCartBulkOrder\Integrations\Elementor\WidgetHandler::register()
+ * @param mixed $widgetsManager Elementor's widgets manager.
+ * @return void
+ */
+function fcbo_register_elementor_widgets($widgetsManager)
+{
+    require_once FCBO_DIR . 'includes/Shortcodes/AttributeSchema.php';
+    require_once FCBO_DIR . 'includes/Integrations/Elementor/WidgetHandler.php';
+
+    \FluentCartBulkOrder\Integrations\Elementor\WidgetHandler::register($widgetsManager);
 }
 
 /**

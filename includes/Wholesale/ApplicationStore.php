@@ -280,7 +280,6 @@ class ApplicationStore
     public static function review($userId, $status, $reviewerId, $note = '')
     {
         $userId = (int) $userId;
-        $record = self::get($userId);
 
         // The transition is judged on META_STATUS, NOT on the record's own copy
         // of it. write() is two update_user_meta() calls and is not atomic, so
@@ -315,7 +314,12 @@ class ApplicationStore
             return null;
         }
 
-        // Past this line the decision is exclusively ours.
+        // Past this line the decision is exclusively ours — and only now is it
+        // safe to read the record. Read before the claim, it could be a copy
+        // from before an applicant's own in-flight edit landed, and writing it
+        // back would quietly undo answers they had just corrected.
+        $record = self::get($userId);
+
         $record['status']      = $status;
         $record['reviewed_at'] = time();
         $record['reviewer_id'] = (int) $reviewerId;

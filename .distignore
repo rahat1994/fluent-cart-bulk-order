@@ -1,0 +1,49 @@
+# Everything in this file is kept OUT of the distributed zip.
+#
+# The zip that goes to WordPress.org must contain only what runs at a store.
+# What ships is: fluent-cart-bulk-order.php, uninstall.php, includes/, assets/,
+# blocks/, languages/, readme.txt and LICENSE. Anything else listed below.
+#
+# Read by bin/build-zip.sh (`composer build`), and by `wp dist-archive`, which
+# uses this same file format.
+
+# Version control and CI
+.git
+.gitignore
+.gitattributes
+.github
+
+# Agent and editor scratch space
+.claude
+.worktrees
+.playwright-mcp
+.vscode
+.idea
+.DS_Store
+
+# Project documentation. Useful in the repo, dead weight at a store.
+docs
+CONCEPTS.md
+.distignore
+
+# Tests and their config
+tests
+phpunit.xml.dist
+.phpunit.result.cache
+
+# Dev tooling: composer is dev-only here (the plugin has no runtime
+# dependencies), so neither the manifest nor the lock nor vendor/ ships.
+composer.json
+composer.lock
+vendor
+node_modules
+package.json
+package-lock.json
+phpcs.xml
+phpcs.xml.dist
+
+# The build script itself, and anything it produces
+bin
+build
+dist
+*.zip

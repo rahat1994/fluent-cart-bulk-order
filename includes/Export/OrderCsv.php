@@ -8,7 +8,7 @@ defined('ABSPATH') || exit;
  * One order, as a CSV file — and the two rules that keep that file safe.
  *
  * ---------------------------------------------------------------------------
- * WHY THIS FILE HAS NO WORDPRESS IN IT
+ * WHY THIS FILE HAS NO WP FUNCTIONS IN IT
  * ---------------------------------------------------------------------------
  *
  * Same reason as QuoteInput and PoNumber: everything here is a map from an

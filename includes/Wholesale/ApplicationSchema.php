@@ -24,7 +24,7 @@ defined('ABSPATH') || exit;
  * nothing to decide on.
  *
  * ---------------------------------------------------------------------------
- * WHY THERE IS NO WORDPRESS IN THIS FILE
+ * WHY THERE ARE NO WP FUNCTIONS IN THIS FILE
  * ---------------------------------------------------------------------------
  *
  * Everything here is a pure map from array to array, which is what lets the

@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<ruleset name="Fluent Cart Bulk Order">
+	<description>Coding standards for Fluent Cart Bulk Order. Run with `composer lint`.</description>
+
+	<!--
+	WHAT THIS RULESET IS FOR
+
+	It exists to keep the plugin passing the checks WordPress.org actually runs
+	against a submission - the Plugin Check plugin and the review team behind
+	it. Those are the correctness checks: escaping, sanitisation, nonces, direct
+	database access, i18n, global prefixing, and use of deprecated or discouraged
+	WordPress APIs. Every one of them can hide a real bug, so every one of them
+	is on and every finding is either fixed or carries a per-line
+	`phpcs:ignore` saying why it is not one.
+
+	It is deliberately NOT the whole `WordPress` standard. That standard also
+	carries WordPress-Core's formatting layer - tab indentation, `if ( $x )`
+	spacing, long array syntax, snake_case variables and methods, one class per
+	hyphenated lowercase file. This codebase is written in a PSR-12-shaped style
+	throughout and reformatting ~100 files to match would be a 35,000-line diff
+	that changes no behaviour, hides real review in noise, and is not something
+	wp.org asks for. The formatting layer is therefore out of scope for this
+	ruleset rather than silenced inside it.
+	-->
+
+	<file>.</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/.git/*</exclude-pattern>
+	<exclude-pattern>*/docs/*</exclude-pattern>
+	<!-- The staging copy `composer build` writes. Same files, counted twice. -->
+	<exclude-pattern>*/build/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<!--
+	The oldest WordPress this plugin supports. Keep in step with `Requires at
+	least` in readme.txt and in the plugin header - the deprecation sniffs read
+	this to decide which WordPress APIs count as gone.
+	-->
+	<config name="minimum_wp_version" value="6.7"/>
+
+	<!-- Escaping, sanitisation, nonces, and the rest of the security layer. -->
+	<rule ref="WordPress.Security"/>
+
+	<!-- Correct use of the WordPress API: i18n, enqueueing, deprecated calls. -->
+	<rule ref="WordPress.WP"/>
+
+	<!-- Direct database access: prepared statements, caching, schema changes. -->
+	<rule ref="WordPress.DB"/>
+
+	<rule ref="WordPress.PHP">
+		<!--
+		Yoda conditions are a WordPress-Core formatting preference, not a
+		correctness check, and nothing at wp.org enforces them. This codebase
+		writes `$x === 'y'` consistently; flipping ~180 conditions would be a
+		style refactor riding along in unrelated work.
+		-->
+		<exclude name="WordPress.PHP.YodaConditions"/>
+		<!-- Deprecated in WPCS 3.3, removed in 4.0. Its job belongs to PHPCompatibility. -->
+		<exclude name="WordPress.PHP.POSIXFunctions"/>
+	</rule>
+
+	<rule ref="WordPress.CodeAnalysis"/>
+	<rule ref="Generic.PHP.DeprecatedFunctions"/>
+	<rule ref="Squiz.PHP.NonExecutableCode"/>
+
+	<!--
+	Every global this plugin declares - function, class, constant, variable and
+	hook name - must carry one of these. `fcbo`/`FCBO` for procedural code and
+	constants, the namespace for classes.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="fcbo"/>
+				<element value="FCBO"/>
+				<element value="FluentCartBulkOrder"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+	NOT enabled: WordPress.NamingConventions.ValidHookName. It requires
+	underscores only, and this plugin's own hooks are slash-namespaced
+	(`fcbo/quotes/decided`) to match the convention of the host it extends,
+	FluentCart (`fluent_cart/cart/item_price`). Renaming them would break every
+	site that has hooked one, which is not a rename a lint run gets to make.
+	-->
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="fluent-cart-bulk-order"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+	The test suite is not shipped (see .distignore) and its bootstrap exists
+	precisely to declare the globals WordPress would otherwise provide - ABSPATH,
+	`__()`, `esc_html()`. Three sniffs are structurally wrong there and nowhere
+	else; the security and i18n sniffs above still run over the tests.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+</ruleset>

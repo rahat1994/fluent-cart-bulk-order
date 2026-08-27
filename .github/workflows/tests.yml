@@ -38,3 +38,26 @@ jobs:
 
       - name: Run unit tests
         run: composer test
+
+  lint:
+    name: Coding standards
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # One version is enough: phpcs reads the code, it does not run it, so the
+      # findings do not change with the interpreter. The ruleset itself is
+      # phpcs.xml.dist — read the comments there for what it covers and why.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Run phpcs
+        run: composer lint

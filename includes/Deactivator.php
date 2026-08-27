@@ -283,6 +283,7 @@ class Deactivator
             $ids = get_posts([
                 'post_type'              => 'fcbo_quote',
                 'post_status'            => 'any',
+                // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- a deliberate delete batch on uninstall, not a front-end query; the loop above explains why the batch is capped at all.
                 'posts_per_page'         => 200,
                 'fields'                 => 'ids',
                 'no_found_rows'          => true,

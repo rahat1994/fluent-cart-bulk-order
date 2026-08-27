@@ -173,7 +173,7 @@ class BlockHandler
             return;
         }
 
-        $metadata = json_decode(file_get_contents($dir . '/block.json'), true);
+        $metadata = wp_json_file_decode($dir . '/block.json', ['associative' => true]);
         $declared = isset($metadata['attributes']) ? array_keys((array) $metadata['attributes']) : [];
         $expected = array_keys(AttributeSchema::controls($tag));
 

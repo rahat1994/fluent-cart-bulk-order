@@ -1,7 +1,7 @@
 ---
 title: "per_page looked broken: it counted products while the table rendered one row per variant"
 date: 2026-07-18
-category: docs/solutions/ui-bugs
+category: ui-bugs
 module: fluent-cart-bulk-order
 problem_type: ui_bug
 component: frontend_stimulus

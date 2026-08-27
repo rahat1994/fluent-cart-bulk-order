@@ -409,8 +409,12 @@ class Reports
      * instead of quietly claiming a tier is unused when its feed was never
      * read.
      *
-     * Not cached on its own — it is part of what forPeriod() caches, and it is
-     * only ever read on the one page that draws the table.
+     * Deliberately NOT cached, and deliberately not folded into forPeriod().
+     * The configured set does not depend on the reporting window, and it is the
+     * one thing on this screen an owner changes and then immediately comes back
+     * to check: a tier added a minute ago must appear in "nobody reached this"
+     * at once, not a quarter of an hour later. The cost is two bounded queries
+     * on a single admin page.
      *
      * @param int|null $maxFeeds Product feeds to read at most; null for the
      *                            class default.

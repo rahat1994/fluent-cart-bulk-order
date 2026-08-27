@@ -91,6 +91,17 @@ class AttributionStore
     const VERSION_OPTION = 'fcbo_analytics_schema';
 
     /**
+     * Transient set when a table creation FAILS, to stop the retry running on
+     * every request. @see ensureInstalled().
+     */
+    const BACKOFF_TRANSIENT = 'fcbo_analytics_install_backoff';
+
+    /**
+     * How long to wait before trying to create the table again.
+     */
+    const BACKOFF_TTL = HOUR_IN_SECONDS;
+
+    /**
      * Request memo for exists(). Null until the first check.
      *
      * @var bool|null
@@ -124,11 +135,31 @@ class AttributionStore
      * again, and would otherwise be left recording into a table that does not
      * exist.
      *
+     * ---------------------------------------------------------------------
+     * THE BACKOFF IS NOT BELT-AND-BRACES; IT IS THE POINT
+     * ---------------------------------------------------------------------
+     *
+     * install() pulls in `wp-admin/includes/upgrade.php`, which drags
+     * `admin.php` and `schema.php` behind it — the whole wp-admin API, on a
+     * FRONT-END request. That is a fine price to pay once, on the first page
+     * load after an upgrade.
+     *
+     * It is not a fine price to pay forever. Because the version is only
+     * recorded on SUCCESS (so a fixable problem self-heals), a site whose
+     * database user has no CREATE grant would otherwise bootstrap wp-admin and
+     * fail a dbDelta on every single front-end request for the rest of its
+     * life. The transient below caps that at one attempt an hour: still
+     * self-healing, no longer a permanent tax on every page view.
+     *
      * @return void
      */
     public static function ensureInstalled()
     {
         if (get_option(self::VERSION_OPTION) === self::SCHEMA_VERSION) {
+            return;
+        }
+
+        if (get_transient(self::BACKOFF_TRANSIENT)) {
             return;
         }
 
@@ -193,14 +224,18 @@ class AttributionStore
         self::$tableExists = null;
 
         // The version is stored ONLY on success, so a site whose database user
-        // cannot CREATE TABLE retries on the next request instead of recording
-        // the attempt and giving up for good. It pays one failed dbDelta per
-        // request until somebody fixes the grant — which is the loud half of
-        // the trade, and the right half: the quiet alternative is a feature
-        // that silently never works and never says why.
+        // cannot CREATE TABLE heals itself the moment the grant is fixed rather
+        // than recording the attempt and giving up for good. The failure branch
+        // sets a backoff instead, so that retry costs one attempt an hour and
+        // not one per page view. @see ensureInstalled().
         if (self::exists()) {
+            delete_transient(self::BACKOFF_TRANSIENT);
             update_option(self::VERSION_OPTION, self::SCHEMA_VERSION, true);
+
+            return;
         }
+
+        set_transient(self::BACKOFF_TRANSIENT, 1, self::BACKOFF_TTL);
     }
 
     /**
@@ -216,7 +251,8 @@ class AttributionStore
      * rather than doubling every figure the order contributes to.
      *
      * @param int                              $orderId
-     * @param array<int, array<string, mixed>> $rows From OrderAttribution::rows().
+     * @param array<int, array<string, mixed>> $rows One per order line, shaped by
+     *                                                \FluentCartBulkOrder\Analytics\OrderAttribution.
      * @return int Rows written.
      */
     public static function record($orderId, $rows)

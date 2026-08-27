@@ -16,6 +16,9 @@ defined('ABSPATH') || exit;
  * checkout completes, and the screen is required by the one admin request that
  * draws it. Not one report query runs anywhere but on that page.
  *
+ * Those two loads are separate methods and not one, because a checkout must not
+ * pay for the admin screen. @see loadRecorder().
+ *
  * The one unconditional cost is AttributionStore::ensureInstalled(), which is a
  * comparison against an autoloaded option — no query on the ordinary path. It
  * is here rather than only in the activation hook because a store that already
@@ -85,7 +88,7 @@ class AnalyticsFlow
      */
     public static function recordCheckout($data)
     {
-        self::load();
+        self::loadRecorder();
 
         // A failed statistic must never fail a sale. This runs mid-checkout,
         // between FluentCart creating the draft order and finalising it, so an
@@ -113,7 +116,7 @@ class AnalyticsFlow
      */
     public static function recordQuoteOrder($quoteId, $record, $status)
     {
-        self::load();
+        self::loadRecorder();
 
         try {
             OrderAttribution::recordQuoteOrder($quoteId, $record, $status);
@@ -176,24 +179,45 @@ class AnalyticsFlow
     }
 
     /**
-     * Load the classes the flow needs.
+     * Load only what RECORDING an order needs.
      *
-     * require_once throughout, so every entry point can call it.
+     * Split from load() deliberately. Recording runs on every FluentCart
+     * checkout — a shopper's request, on the store's most important page — and
+     * it never touches the report queries or the admin screen. Requiring those
+     * two files there would put tens of kilobytes of admin-only code into every
+     * checkout to decide, most of the time, that there is nothing to record.
+     *
+     * The report side is loaded by load(), from the one admin request that
+     * draws the screen.
+     *
+     * @return void
+     */
+    public static function loadRecorder()
+    {
+        require_once dirname(__DIR__) . '/Pricing/OrderRules.php';
+        require_once dirname(__DIR__) . '/Pricing/Tiers.php';
+        require_once dirname(__DIR__) . '/Pricing/FeedResolver.php';
+        require_once __DIR__ . '/Surface.php';
+        require_once __DIR__ . '/TierSignature.php';
+        require_once __DIR__ . '/AttributionStore.php';
+        require_once __DIR__ . '/OrderAttribution.php';
+    }
+
+    /**
+     * Load everything the SCREEN needs, recorder included.
+     *
+     * require_once throughout, so every entry point can call it and calling it
+     * after loadRecorder() costs nothing.
      *
      * @return void
      */
     public static function load()
     {
-        require_once dirname(__DIR__) . '/Pricing/OrderRules.php';
-        require_once dirname(__DIR__) . '/Pricing/Tiers.php';
-        require_once dirname(__DIR__) . '/Pricing/FeedResolver.php';
+        self::loadRecorder();
+
         require_once __DIR__ . '/Period.php';
-        require_once __DIR__ . '/Surface.php';
-        require_once __DIR__ . '/TierSignature.php';
         require_once __DIR__ . '/TierUsage.php';
         require_once __DIR__ . '/RevenueSplit.php';
-        require_once __DIR__ . '/AttributionStore.php';
-        require_once __DIR__ . '/OrderAttribution.php';
         require_once __DIR__ . '/Reports.php';
         require_once __DIR__ . '/AnalyticsScreen.php';
     }

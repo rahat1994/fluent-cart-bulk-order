@@ -710,7 +710,13 @@ class AnalyticsScreen
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        return sanitize_key(wp_unslash($_GET[Period::PARAM]));
+        $raw = wp_unslash($_GET[Period::PARAM]);
+
+        // `?period[]=x` makes this an ARRAY, and sanitize_key() handed an array
+        // is a TypeError — a fatal on the admin screen from a hand-edited URL.
+        // Period::sanitize() would have caught the value, but only if it ever
+        // reached it.
+        return is_scalar($raw) ? sanitize_key((string) $raw) : Period::DEFAULT_PERIOD;
     }
 
     /**

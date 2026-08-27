@@ -44,6 +44,25 @@ defined('ABSPATH') || exit;
  * with the record as the fallback. @see statusFor().
  *
  * ---------------------------------------------------------------------------
+ * WHAT THIS MEANS ON MULTISITE — a known, accepted limitation
+ * ---------------------------------------------------------------------------
+ *
+ * User meta lives in ONE table shared by the whole network, and these two keys
+ * are not site-prefixed. So an application is NETWORK-wide while the role it
+ * grants is PER-SITE (WordPress prefixes the capabilities meta key per site).
+ * A buyer approved on site A therefore holds the role only on site A, but their
+ * application reads as approved on site B as well — where the form will tell
+ * them they are already approved while the wholesale surfaces still refuse
+ * them.
+ *
+ * Not fixed, and not an accident. Prefixing the keys would make the review
+ * screen and the uninstall cleanup per-site too, and this plugin's existing
+ * user meta (`fcbo_saved_lists`) already has exactly this shape — changing one
+ * and not the other would be worse than either. A network selling wholesale
+ * from more than one of its sites is the case that would justify the work, and
+ * it deserves its own issue rather than being guessed at here.
+ *
+ * ---------------------------------------------------------------------------
  * TIMESTAMPS ARE UTC
  * ---------------------------------------------------------------------------
  *

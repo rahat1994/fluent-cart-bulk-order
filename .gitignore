@@ -7,3 +7,4 @@
 # vendor/ is only ever PHPUnit and friends — never shipped to a store.
 /vendor/
 .phpunit.result.cache
+/build/

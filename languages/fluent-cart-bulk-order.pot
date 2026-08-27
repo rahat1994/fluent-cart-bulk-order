@@ -1,0 +1,2322 @@
+# Copyright (C) 2026 Rahat Baksh
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Fluent Cart Bulk Order 1.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/fluent-cart-bulk-order\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-27T09:08:23+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.6.0\n"
+"X-Domain: fluent-cart-bulk-order\n"
+
+#. Plugin Name of the plugin
+#: includes/Settings.php:93
+#: includes/Settings.php:1447
+msgid "Fluent Cart Bulk Order"
+msgstr ""
+
+#. Description of the plugin
+msgid "Wholesale and B2B ordering for FluentCart: a multi-line bulk order form, a product table, quantity pricing tiers, order rules, quotes, PO numbers and a wholesale application flow."
+msgstr ""
+
+#. Author of the plugin
+msgid "Rahat Baksh"
+msgstr ""
+
+#. Author URI of the plugin
+msgid "https://profiles.wordpress.org/rahatbaksh/"
+msgstr ""
+
+#: fluent-cart-bulk-order.php:71
+msgid "Fluent Cart Bulk Order requires the FluentCart plugin to be installed and activated."
+msgstr ""
+
+#: fluent-cart-bulk-order.php:1243
+msgid "You must be logged in."
+msgstr ""
+
+#: fluent-cart-bulk-order.php:1248
+msgid "Please enter a name for this order."
+msgstr ""
+
+#: fluent-cart-bulk-order.php:1253
+msgid "There are no valid items to save."
+msgstr ""
+
+#. translators: %s: FluentCart order number.
+#: fluent-cart-bulk-order.php:1517
+msgid "Order #%s"
+msgstr ""
+
+#: includes/AccessPolicy.php:217
+msgid "You must be logged in to access this resource."
+msgstr ""
+
+#: includes/AccessPolicy.php:225
+msgid "You do not have permission to access this resource."
+msgstr ""
+
+#: includes/Activator.php:100
+msgid "Wholesale Customer"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:75
+#: includes/Analytics/AnalyticsScreen.php:118
+msgid "Bulk Order Analytics"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:106
+msgid "You do not have permission to view bulk order analytics."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:122
+msgid "How much of the store's revenue comes through bulk ordering, who is buying, and which quantity tiers are actually being reached."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:196
+msgid "Where the revenue came from"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:201
+msgid "Revenue"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:202
+#: includes/Analytics/AnalyticsScreen.php:282
+#: includes/Analytics/AnalyticsScreen.php:343
+#: includes/Analytics/AnalyticsScreen.php:493
+msgid "Orders"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:203
+#: includes/Analytics/AnalyticsScreen.php:283
+#: includes/Shortcodes/BulkOrderForm.php:161
+msgid "Amount"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:204
+msgid "Share"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:208
+msgid "Bulk orders"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:214
+msgid "Normal checkout"
+msgstr ""
+
+#. translators: %s: the reporting window, e.g. "Last 90 days".
+#: includes/Analytics/AnalyticsScreen.php:224
+msgid "All orders (%s)"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:236
+msgid "An order counts as a bulk order when a Bulk Pricing Tier set the price of at least one of its lines, when the buyer reached checkout from a bulk-order surface, or when it was created from an accepted quote. Everything else is normal checkout."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:278
+msgid "Where those bulk orders started"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:281
+msgid "Entry point"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:284
+msgid "Share of bulk revenue"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:301
+msgid "The Product Table adds items to the cart and leaves the shopper on the catalog page, so there is no handoff to mark and its orders appear under \"Entry point not recorded\". Only the Bulk Order Form and Saved Orders send the buyer to checkout themselves."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:316
+msgid "Top wholesale customers"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:320
+msgid "These figures include your whole order history, not only orders placed since this screen was installed — they are read from FluentCart's own orders and from each buyer's role."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:331
+msgid "No wholesale customer has a paid order in this period."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:341
+#: includes/Export/OrderCsv.php:144
+#: includes/Export/OrderExportScreen.php:249
+#: includes/Export/OrderReceiptView.php:299
+msgid "Customer"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:342
+#: includes/Export/OrderCsv.php:145
+#: includes/Export/OrderReceiptView.php:303
+msgid "Email"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:344
+msgid "Spend"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:345
+msgid "Last order"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:380
+msgid "Tier utilization"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:396
+msgid "This store has more product-level pricing feeds than this screen reads at once, so the list of configured tiers below is partial. Tiers that were actually used are all shown."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:406
+msgid "No bulk pricing tiers are configured yet. Add them to a Bulk Pricing feed and this table will show which ones buyers actually reach."
+msgstr ""
+
+#. translators: 1: number of tiers reached; 2: number of tiers configured; 3: the reporting window, e.g. "Last 90 days".
+#: includes/Analytics/AnalyticsScreen.php:422
+msgid "%1$s of %2$s configured tiers were reached in this period (%3$s)."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:431
+msgid "Tiers buyers reached"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:433
+msgid "None of the configured tiers were reached in this period."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:442
+msgid "Tiers nobody reached"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:444
+msgid "Every configured tier was reached at least once. Nothing is going unused."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:450
+msgid "Tiers that no longer exist"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:458
+msgid "These priced real orders in this period but are no longer on any feed — they were edited or removed. Editing a tier makes a new one here, because the orders under the old one were charged the old price."
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:488
+#: includes/Display/SingleProductTiers.php:66
+#: includes/Export/OrderCsv.php:149
+#: includes/Export/OrderReceiptView.php:212
+#: includes/Integrations/Elementor/ProductTableWidget.php:127
+#: includes/Settings.php:735
+#: includes/Shortcodes/ProductTable.php:111
+msgid "Quantity"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:489
+#: includes/Display/SingleProductTiers.php:208
+#: includes/Display/SingleProductTiers.php:226
+#: includes/Export/OrderReceiptView.php:328
+msgid "Discount"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:490
+msgid "Applies to"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:494
+msgid "Units"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:495
+msgid "Line revenue"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:496
+msgid "Discount given"
+msgstr ""
+
+#. translators: %d: a product id whose product has been deleted.
+#: includes/Analytics/AnalyticsScreen.php:587
+msgid "Product #%d"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:589
+msgid "Every product"
+msgstr ""
+
+#. translators: 1: what the tier applies to, e.g. a product name; 2: a user role name.
+#: includes/Analytics/AnalyticsScreen.php:598
+msgid "%1$s — %2$s only"
+msgstr ""
+
+#: includes/Analytics/AnalyticsScreen.php:638
+msgid "No bulk orders have been recorded yet. This panel fills in as orders come in — it can only see orders placed after this version of the plugin was installed, because nothing recorded which tier priced a line before then."
+msgstr ""
+
+#. translators: %s: a date, e.g. 2026-08-27.
+#: includes/Analytics/AnalyticsScreen.php:652
+msgid "Counts orders placed since %s, when recording started. Orders older than that are not included here."
+msgstr ""
+
+#. translators: 1: a time, e.g. 14:05; 2: number of minutes.
+#: includes/Analytics/AnalyticsScreen.php:672
+msgid "Figures computed at %1$s and refreshed every %2$s minutes."
+msgstr ""
+
+#. translators: %s: a percentage number, e.g. 42.5
+#: includes/Analytics/AnalyticsScreen.php:749
+msgid "%s%%"
+msgstr ""
+
+#: includes/Analytics/Period.php:125
+msgid "Last 30 days"
+msgstr ""
+
+#: includes/Analytics/Period.php:127
+msgid "Last 12 months"
+msgstr ""
+
+#: includes/Analytics/Period.php:129
+msgid "All time"
+msgstr ""
+
+#: includes/Analytics/Period.php:132
+msgid "Last 90 days"
+msgstr ""
+
+#: includes/Analytics/Surface.php:114
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:40
+msgid "Bulk Order Form"
+msgstr ""
+
+#: includes/Analytics/Surface.php:116
+msgid "Saved Orders"
+msgstr ""
+
+#: includes/Analytics/Surface.php:118
+msgid "Converted quote"
+msgstr ""
+
+#: includes/Analytics/Surface.php:120
+msgid "Entry point not recorded"
+msgstr ""
+
+#. translators: %s: a minimum quantity, e.g. 50. Describes an open-ended tier.
+#: includes/Analytics/TierSignature.php:142
+msgid "%s or more"
+msgstr ""
+
+#. translators: 1: lowest quantity in the tier; 2: highest quantity in the tier.
+#: includes/Analytics/TierSignature.php:147
+msgid "%1$s to %2$s"
+msgstr ""
+
+#. translators: 1: block.json path, 2: shortcode tag.
+#: includes/Blocks/BlockHandler.php:191
+msgid "%1$s declares different attributes than AttributeSchema does for %2$s. The two must list the same names or the block will drop settings on save."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:24
+#: includes/BulkPricingIntegration.php:110
+#: includes/Display/SingleProductTiers.php:137
+#: includes/Display/SingleProductTiers.php:201
+msgid "Bulk Pricing"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:29
+msgid "Configure quantity-based discount tiers for the bulk order form."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:77
+msgid "Feed Name"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:79
+msgid "e.g. Default Bulk Pricing"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:84
+msgid "Discount Tiers"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:95
+msgid "Role-specific Pricing"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:103
+msgid "Order Rules"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:212
+msgid "All variations"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:301
+msgid "Applies to every qualifying customer unless a role-specific list below overrides it."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:324
+msgid "No discount tiers configured. Click \"Add Tier\" to create one."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:328
+msgid "Min Qty"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:332
+msgid "Max Qty (0 = no limit)"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:336
+#: includes/Settings.php:1154
+msgid "Type"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:338
+msgid "Percent off (%)"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:339
+msgid "Fixed unit price"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:340
+#: includes/BulkPricingIntegration.php:346
+msgid "Amount off"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:344
+msgid "Discount %"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:345
+#: includes/Export/OrderCsv.php:150
+#: includes/Export/OrderReceiptView.php:213
+msgid "Unit price"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:353
+msgid "+ Add Tier"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:396
+msgid "+ Add role pricing"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:398
+#: includes/Strings.php:68
+msgid "Remove"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:409
+msgid "Optional. Give specific roles their own price list. A shopper falls back to the default Discount Tiers above when their role has no list."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:445
+#: includes/BulkPricingIntegration.php:508
+#: includes/Shortcodes/BulkOrderForm.php:259
+msgid "Settings → Bulk Order"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:455
+msgid "Administrators can preview these tiers on product pages, but are not charged them at checkout, because this role is not in the bulk pricing policy."
+msgstr ""
+
+#. translators: %s: link to the Bulk Pricing settings page.
+#: includes/BulkPricingIntegration.php:458
+msgid "Add it under %s to apply the discount for real."
+msgstr ""
+
+#. translators: %s: role name, e.g. "Contributor".
+#: includes/BulkPricingIntegration.php:467
+msgid "%s does not receive bulk pricing, so these tiers will never apply."
+msgstr ""
+
+#. translators: %s: link to the Bulk Pricing settings page.
+#: includes/BulkPricingIntegration.php:472
+msgid "Add the role under %s to activate them."
+msgstr ""
+
+#. translators: %s: comma-separated role names.
+#: includes/BulkPricingIntegration.php:499
+msgid "Bulk pricing currently reaches these roles only: %s."
+msgstr ""
+
+#. translators: %s: link to the Bulk Pricing settings page.
+#: includes/BulkPricingIntegration.php:504
+msgid "Changed under %s."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:527
+msgid "Optional. Constrain how much of this product can be ordered per line. Leave at the defaults (0 and 1) for no restriction."
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:530
+msgid "Minimum qty"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:534
+msgid "Sold in multiples of"
+msgstr ""
+
+#: includes/BulkPricingIntegration.php:538
+msgid "The minimum is rounded up to a whole multiple when you save — a minimum of 20 with multiples of 12 becomes 24."
+msgstr ""
+
+#. translators: 1: minimum quantity, 2: case-pack size, 3: nearest valid quantity
+#: includes/Cart/RuleEnforcement.php:82
+msgid "This product has a minimum of %1$d and is sold in multiples of %2$d. Try %3$d."
+msgstr ""
+
+#. translators: 1: case-pack size, 2: nearest valid quantity
+#: includes/Cart/RuleEnforcement.php:88
+msgid "This product is sold in multiples of %1$d. Try %2$d."
+msgstr ""
+
+#. translators: 1: minimum quantity
+#: includes/Cart/RuleEnforcement.php:93
+msgid "This product has a minimum order quantity of %1$d."
+msgstr ""
+
+#. translators: 1: shortfall amount, 2: minimum order total
+#: includes/Cart/RuleEnforcement.php:129
+msgid "Add %1$s more to reach the %2$s minimum order total."
+msgstr ""
+
+#. translators: %s: money amount, e.g. $12.50
+#: includes/Cart/SavingsDisplay.php:43
+msgid "You saved %s"
+msgstr ""
+
+#: includes/Checkout/PoField.php:91
+msgid "Required. Your purchase-order reference is printed on the receipt and kept with the order."
+msgstr ""
+
+#: includes/Checkout/PoField.php:93
+msgid "Optional. Add your purchase-order reference and it is printed on the receipt and kept with the order."
+msgstr ""
+
+#. translators: %s: what the store calls the purchase-order field, e.g. "PO number".
+#: includes/Checkout/PoField.php:171
+msgid "Please enter your %s to complete this order."
+msgstr ""
+
+#: includes/Checkout/PoSettings.php:102
+#: includes/Export/OrderCsv.php:143
+msgid "PO number"
+msgstr ""
+
+#: includes/Display/SingleProductTiers.php:67
+#: includes/Display/SingleProductTiers.php:88
+#: includes/Export/OrderExportScreen.php:251
+#: includes/Export/OrderReceiptView.php:339
+#: includes/Shortcodes/BulkOrderForm.php:163
+#: includes/Shortcodes/SavedOrders.php:110
+msgid "Total"
+msgstr ""
+
+#: includes/Display/SingleProductTiers.php:93
+#: includes/Strings.php:165
+msgid "Add to Cart"
+msgstr ""
+
+#. translators: %s: quantity range the tier covers, e.g. "10 – 24" or "25+".
+#: includes/Display/SingleProductTiers.php:149
+msgid "Buy %s:"
+msgstr ""
+
+#: includes/Display/SingleProductTiers.php:163
+#: includes/Export/OrderCsv.php:147
+#: includes/Export/OrderReceiptView.php:210
+#: includes/Quotes/QuoteReviewScreen.php:539
+#: includes/Shortcodes/BulkOrderForm.php:157
+msgid "Product"
+msgstr ""
+
+#: includes/Display/SingleProductTiers.php:207
+#: includes/Display/SingleProductTiers.php:225
+msgid "Qty Range"
+msgstr ""
+
+#: includes/Display/SingleProductTiers.php:224
+#: includes/Display/SingleProductTiers.php:254
+#: includes/Export/OrderCsv.php:148
+msgid "Variant"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:139
+#: includes/Export/OrderExportScreen.php:247
+#: includes/Export/OrderReceiptView.php:290
+#: includes/Shortcodes/SavedOrders.php:107
+msgid "Order"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:140
+#: includes/Export/OrderExportScreen.php:248
+#: includes/Export/OrderReceiptView.php:291
+msgid "Date"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:141
+#: includes/Export/OrderReceiptView.php:306
+msgid "Order status"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:142
+#: includes/Export/OrderReceiptView.php:307
+msgid "Payment status"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:146
+#: includes/Export/OrderReceiptView.php:211
+#: includes/Quotes/QuoteReviewScreen.php:540
+#: includes/Shortcodes/BulkOrderForm.php:158
+msgid "SKU"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:151
+#: includes/Export/OrderReceiptView.php:214
+#: includes/Quotes/QuoteReviewScreen.php:544
+msgid "Line total"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:152
+msgid "Order subtotal"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:153
+msgid "Order discount"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:154
+msgid "Order shipping"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:155
+msgid "Order tax"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:156
+msgid "Order total"
+msgstr ""
+
+#: includes/Export/OrderCsv.php:157
+msgid "Currency"
+msgstr ""
+
+#: includes/Export/OrderExportFlow.php:157
+msgid "You do not have permission to export this order."
+msgstr ""
+
+#: includes/Export/OrderExportFlow.php:312
+msgid "Download CSV"
+msgstr ""
+
+#: includes/Export/OrderExportFlow.php:316
+msgid "Download PDF"
+msgstr ""
+
+#: includes/Export/OrderExportFlow.php:317
+msgid "Print / save as PDF"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:60
+#: includes/Export/OrderExportScreen.php:103
+msgid "Order Exports"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:91
+msgid "You do not have permission to export orders."
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:107
+msgid "Every order in the store, newest first, with the purchase-order number the buyer gave at checkout. Download one as a CSV a buyer can file, or as a printable receipt."
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:120
+msgid "There are no orders yet."
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:121
+msgid "No order matches that reference or PO number."
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:221
+msgid "Search orders"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:227
+msgid "Order number or PO number"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:232
+msgid "Search"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:252
+msgid "Export"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:304
+msgid "CSV"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:308
+msgid "PDF"
+msgstr ""
+
+#: includes/Export/OrderExportScreen.php:309
+msgid "Print"
+msgstr ""
+
+#. translators: %s: the order's reference, e.g. an invoice number.
+#: includes/Export/OrderReceiptView.php:156
+msgid "Order %s"
+msgstr ""
+
+#: includes/Export/OrderReceiptView.php:219
+msgid "This order has no line items."
+msgstr ""
+
+#: includes/Export/OrderReceiptView.php:259
+msgid "Print or save as PDF"
+msgstr ""
+
+#: includes/Export/OrderReceiptView.php:324
+msgid "Subtotal"
+msgstr ""
+
+#: includes/Export/OrderReceiptView.php:329
+msgid "Shipping"
+msgstr ""
+
+#: includes/Export/OrderReceiptView.php:330
+msgid "Tax"
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:66
+msgid "Comma-separated role slugs that may also see this form. Adds to the roles allowed in Settings; it never replaces them."
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:69
+msgid "Redirect URL"
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:71
+msgid "Send the shopper here instead of the store checkout page. Same site only."
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:78
+#: includes/Settings.php:365
+#: includes/Shortcodes/BulkOrderForm.php:190
+msgid "Request a quote"
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:80
+msgid "Lets the buyer send this order to the store for a price instead of checking out."
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:82
+msgid "Offer"
+msgstr ""
+
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:83
+msgid "Do not offer"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:42
+msgid "Product Table"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:68
+#: includes/Settings.php:262
+msgid "Rows per page"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:72
+msgid "Leave blank to follow the store-wide setting."
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:75
+#: includes/Settings.php:270
+msgid "Columns"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:83
+msgid "Leave empty to follow the store-wide column choice. Order is fixed; picking columns only selects which ones appear."
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:86
+msgid "Search box"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:89
+msgid "Show"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:90
+msgid "Hide"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:94
+msgid "Category"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:96
+msgid "Product category slug or term ID. Leave blank for the whole catalogue."
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:99
+msgid "Comma-separated role slugs that may also see this table. Adds to the roles allowed in Settings; it never replaces them."
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:102
+msgid "Variants"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:105
+msgid "Expanded"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:106
+msgid "Collapsed"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:124
+#: includes/Settings.php:732
+#: includes/Shortcodes/ProductTable.php:108
+msgid "ID"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:125
+#: includes/Settings.php:733
+#: includes/Shortcodes/ProductTable.php:109
+msgid "Title"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:126
+#: includes/Settings.php:734
+#: includes/Shortcodes/ProductTable.php:110
+msgid "Price"
+msgstr ""
+
+#: includes/Integrations/Elementor/ProductTableWidget.php:128
+#: includes/Settings.php:736
+#: includes/Shortcodes/ProductTable.php:112
+msgid "Action"
+msgstr ""
+
+#: includes/Integrations/Elementor/ShortcodeWidget.php:85
+msgid "Settings"
+msgstr ""
+
+#. translators: %s: shortcode attribute name.
+#: includes/Integrations/Elementor/ShortcodeWidget.php:121
+msgid "No Elementor control is defined for the \"%s\" attribute, so it fell back to a plain text field."
+msgstr ""
+
+#: includes/Integrations/Elementor/ShortcodeWidget.php:194
+msgid "Use store default"
+msgstr ""
+
+#: includes/Integrations/Elementor/ShortcodeWidget.php:209
+msgid "Extra roles"
+msgstr ""
+
+#. translators: %s: formatted unit price, e.g. $8.50
+#: includes/Pricing/Tiers.php:137
+msgid "%s/unit"
+msgstr ""
+
+#. translators: %s: formatted amount, e.g. $2.00
+#: includes/Pricing/Tiers.php:140
+msgid "%s off"
+msgstr ""
+
+#. translators: %s: percentage number, e.g. 10
+#: includes/Pricing/Tiers.php:146
+msgid "%s%% off"
+msgstr ""
+
+#. translators: 1: the store name, 2: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:85
+msgid "[%1$s] New quote request — %2$s"
+msgstr ""
+
+#. translators: %s: the buyer's name.
+#: includes/Quotes/QuoteNotifier.php:93
+msgid "%s has asked for a quote."
+msgstr ""
+
+#. translators: %s: the buyer's email address.
+#. translators: %s: the applicant's email address.
+#: includes/Quotes/QuoteNotifier.php:99
+#: includes/Wholesale/Notifier.php:160
+msgid "Email: %s"
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:107
+msgid "What they asked for:"
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:112
+msgid "Price it here:"
+msgstr ""
+
+#. translators: 1: the store name, 2: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:174
+msgid "[%1$s] Your quote is ready — %2$s"
+msgstr ""
+
+#. translators: %s: the buyer's name.
+#. translators: %s: the applicant's name.
+#: includes/Quotes/QuoteNotifier.php:182
+#: includes/Quotes/QuoteNotifier.php:240
+#: includes/Quotes/QuoteNotifier.php:288
+#: includes/Wholesale/Notifier.php:228
+#: includes/Wholesale/Notifier.php:266
+msgid "Hello %s,"
+msgstr ""
+
+#. translators: 1: the store name, 2: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:188
+msgid "Here is the price %1$s has quoted for %2$s."
+msgstr ""
+
+#. translators: %s: money amount saved against the catalogue price.
+#: includes/Quotes/QuoteNotifier.php:200
+msgid "That is %s below the list price."
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:206
+#: includes/Quotes/QuoteNotifier.php:254
+#: includes/Quotes/QuoteNotifier.php:301
+#: includes/Wholesale/Notifier.php:299
+msgid "Note from the store:"
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:215
+msgid "To accept it, get in touch with the store and they will turn this quote into an order for you."
+msgstr ""
+
+#. translators: 1: the store name, 2: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:232
+msgid "[%1$s] Your order from %2$s"
+msgstr ""
+
+#. translators: %s: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:246
+msgid "%s has been turned into an order at the quoted prices."
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:263
+msgid "The store will be in touch about payment."
+msgstr ""
+
+#. translators: 1: the store name, 2: the quote reference.
+#: includes/Quotes/QuoteNotifier.php:280
+msgid "[%1$s] About %2$s"
+msgstr ""
+
+#. translators: 1: the quote reference, 2: the store name.
+#: includes/Quotes/QuoteNotifier.php:294
+msgid "Thank you for asking about %1$s. %2$s is not able to quote it at the moment."
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:306
+msgid "You are welcome to send another request at any time."
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:326
+msgid "(no items)"
+msgstr ""
+
+#. translators: 1: product name, 2: quantity, 3: unit price, 4: line total.
+#: includes/Quotes/QuoteNotifier.php:344
+msgid "- %1$s x %2$d @ %3$s = %4$s"
+msgstr ""
+
+#. translators: %s: the order total.
+#: includes/Quotes/QuoteNotifier.php:357
+msgid "Total: %s"
+msgstr ""
+
+#: includes/Quotes/QuoteNotifier.php:377
+#: includes/Quotes/QuoteReviewScreen.php:560
+msgid "(product no longer in the catalogue)"
+msgstr ""
+
+#. translators: %s: a product SKU.
+#: includes/Quotes/QuoteNotifier.php:387
+msgid " (SKU %s)"
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:79
+#: includes/Quotes/QuoteOrder.php:300
+msgid "FluentCart is not available, so no order could be created."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:88
+msgid "This quote has no items, so there is nothing to order."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:95
+msgid "FluentCart cannot put a subscription product into a manually created order. Place the subscription part through FluentCart, then convert the rest of this quote."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:110
+msgid "None of the items on this quote could be matched to a product, so no order was created."
+msgstr ""
+
+#. translators: %s: the error FluentCart reported.
+#: includes/Quotes/QuoteOrder.php:146
+msgid "FluentCart could not create the order: %s"
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:159
+msgid "FluentCart did not return an order. Nothing was charged; please try again."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:293
+msgid "The buyer who sent this quote no longer has an account, so no order could be created for them."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:325
+msgid "The buyer has no usable email address, so FluentCart cannot create a customer for them."
+msgstr ""
+
+#: includes/Quotes/QuoteOrder.php:340
+msgid "FluentCart could not find or create a customer for this buyer."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:83
+#: includes/Quotes/QuoteReviewScreen.php:139
+#: includes/Quotes/QuoteStore.php:132
+#: includes/Settings.php:358
+msgid "Quote Requests"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:131
+#: includes/Quotes/QuoteReviewScreen.php:187
+msgid "You do not have permission to review quote requests."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:145
+msgid "No quote requests to show."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:174
+msgid "This action must be submitted from the quote review screen."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:363
+msgid "Quote sent. The buyer has been emailed the prices you set."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:364
+msgid "Order created at the quoted prices, and the buyer has been emailed. It is waiting for payment in FluentCart."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:365
+msgid "Quote declined. The buyer has been emailed."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:366
+msgid "Nothing changed — that quote had already been decided, or it no longer exists."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:367
+#: includes/Wholesale/ReviewScreen.php:285
+msgid "That decision could not be recorded. Please try again."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:368
+msgid "No order was created and the quote is unchanged."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:402
+msgid "Waiting"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:403
+#: includes/Quotes/QuoteReviewScreen.php:770
+msgid "Quoted"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:404
+msgid "Converted"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:405
+#: includes/Quotes/QuoteReviewScreen.php:772
+msgid "Declined"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:406
+#: includes/Wholesale/ReviewScreen.php:311
+msgid "All"
+msgstr ""
+
+#. translators: %s: date and time the quote was requested.
+#: includes/Quotes/QuoteReviewScreen.php:505
+msgid "Requested %s"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:512
+msgid "The buyer no longer has an account on this site."
+msgstr ""
+
+#. translators: %d: the FluentCart order id.
+#: includes/Quotes/QuoteReviewScreen.php:522
+msgid "Open order #%d in FluentCart"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:541
+#: includes/Shortcodes/BulkOrderForm.php:162
+msgid "Qty"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:542
+msgid "List price"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:543
+msgid "Your price"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:579
+msgid "Unit price in cents"
+msgstr ""
+
+#. translators: %s: an example price in minor units, e.g. 1250.
+#: includes/Quotes/QuoteReviewScreen.php:598
+msgid "Prices are in the smallest currency unit — %s means 12.50. Leave a box as it is to quote the list price."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:616
+msgid "Quote total:"
+msgstr ""
+
+#. translators: 1: list-price total, 2: amount saved.
+#: includes/Quotes/QuoteReviewScreen.php:625
+msgid "(list %1$s, saving %2$s)"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:637
+msgid "This quote contains a subscription product. FluentCart cannot put one into a manually created order, so this quote cannot be converted here — price it, send it, and place the subscription part through FluentCart."
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:659
+msgid "What the buyer asked for:"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:668
+msgid "Your note:"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:682
+msgid "Note to the buyer"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:683
+msgid "Optional — the buyer will see this in their email"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:710
+msgid "Send quote to buyer"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:717
+msgid "Convert to order"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:723
+msgid "Decline"
+msgstr ""
+
+#. translators: 1: status word, 2: date and time.
+#: includes/Quotes/QuoteReviewScreen.php:745
+msgid "%1$s on %2$s"
+msgstr ""
+
+#. translators: 1: status word, 2: reviewer name, 3: date and time.
+#: includes/Quotes/QuoteReviewScreen.php:753
+msgid "%1$s by %2$s on %3$s"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:769
+msgid "Waiting for a price"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:771
+msgid "Converted to an order"
+msgstr ""
+
+#: includes/Quotes/QuoteReviewScreen.php:775
+msgid "Unknown"
+msgstr ""
+
+#: includes/Quotes/QuoteStore.php:133
+msgid "Quote Request"
+msgstr ""
+
+#. translators: %d: the quote's numeric reference.
+#: includes/Quotes/QuoteStore.php:443
+msgid "Quote #%d"
+msgstr ""
+
+#: includes/Rest/QuotesController.php:73
+msgid "This store is not taking quote requests."
+msgstr ""
+
+#: includes/Rest/QuotesController.php:85
+msgid "You must be logged in to request a quote."
+msgstr ""
+
+#: includes/Rest/QuotesController.php:93
+msgid "You already have several quote requests waiting. Please wait for those before sending another."
+msgstr ""
+
+#: includes/Rest/QuotesController.php:103
+#: includes/Strings.php:138
+msgid "Add at least one product before requesting a quote."
+msgstr ""
+
+#: includes/Rest/QuotesController.php:117
+msgid "None of those products are available any more, so there is nothing to quote."
+msgstr ""
+
+#: includes/Rest/QuotesController.php:132
+msgid "Your request could not be saved. Please try again."
+msgstr ""
+
+#: includes/Settings.php:94
+msgid "Bulk Order"
+msgstr ""
+
+#: includes/Settings.php:156
+msgid "Bulk Pricing Access"
+msgstr ""
+
+#: includes/Settings.php:163
+msgid "Apply bulk pricing to"
+msgstr ""
+
+#: includes/Settings.php:171
+msgid "Who sees tier prices"
+msgstr ""
+
+#: includes/Settings.php:205
+msgid "Minimum Order Total"
+msgstr ""
+
+#: includes/Settings.php:212
+msgid "Minimum order total"
+msgstr ""
+
+#: includes/Settings.php:220
+msgid "Require it of"
+msgstr ""
+
+#: includes/Settings.php:234
+msgid "Surface Access"
+msgstr ""
+
+#: includes/Settings.php:241
+msgid "Also allow these roles"
+msgstr ""
+
+#: includes/Settings.php:255
+msgid "Product Table Defaults"
+msgstr ""
+
+#: includes/Settings.php:278
+msgid "Display"
+msgstr ""
+
+#: includes/Settings.php:292
+msgid "Checkout"
+msgstr ""
+
+#: includes/Settings.php:299
+msgid "Send bulk orders to"
+msgstr ""
+
+#: includes/Settings.php:317
+msgid "Purchase Orders"
+msgstr ""
+
+#: includes/Settings.php:324
+msgid "PO number field"
+msgstr ""
+
+#: includes/Settings.php:332
+msgid "Ask these roles"
+msgstr ""
+
+#: includes/Settings.php:340
+msgid "Who this binds"
+msgstr ""
+
+#: includes/Settings.php:373
+#: includes/Settings.php:406
+msgid "Notifications"
+msgstr ""
+
+#: includes/Settings.php:391
+#: includes/Wholesale/ReviewScreen.php:75
+#: includes/Wholesale/ReviewScreen.php:128
+msgid "Wholesale Applications"
+msgstr ""
+
+#: includes/Settings.php:398
+msgid "Extra questions"
+msgstr ""
+
+#: includes/Settings.php:414
+msgid "FluentCRM tags"
+msgstr ""
+
+#: includes/Settings.php:460
+msgid "Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages."
+msgstr ""
+
+#: includes/Settings.php:514
+msgid "Leave all unchecked and bulk pricing applies to everyone — including logged-out visitors. See the summary below for what that means today."
+msgstr ""
+
+#: includes/Settings.php:542
+msgid "Everyone, including logged-out visitors, can see tier prices on your product pages."
+msgstr ""
+
+#: includes/Settings.php:547
+msgid "This is the default. To keep trade prices off the public storefront, tick the roles above that should see them — anyone else, signed in or not, then sees only your normal price."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Settings.php:565
+msgid "Only these roles see tier prices: %s."
+msgstr ""
+
+#: includes/Settings.php:570
+msgid "Logged-out visitors do not. Administrators can always see the tier table so they can check it, but they are not given the discount at checkout — an administrator's own order is charged the same as any other shopper the policy excludes."
+msgstr ""
+
+#: includes/Settings.php:581
+msgid "Require a minimum order value from specific roles. This is enforced at checkout on the server, so it cannot be bypassed by editing the page."
+msgstr ""
+
+#: includes/Settings.php:602
+msgid "Leave blank or 0 for no minimum (default). Compared against the order subtotal, before shipping and tax."
+msgstr ""
+
+#: includes/Settings.php:615
+msgid "Leave all unchecked = the minimum applies to nobody. Unlike the setting above, this one is opt-in."
+msgstr ""
+
+#: includes/Settings.php:642
+msgid "Administrators and wholesale customers can always reach the bulk order form, the product table and saved orders. Add any other roles that should reach them too."
+msgstr ""
+
+#: includes/Settings.php:676
+msgid "(always allowed)"
+msgstr ""
+
+#: includes/Settings.php:681
+msgid "This widens both the on-page surfaces and the REST endpoints behind them, so a role added here can actually load products. A shortcode \"roles\" attribute still widens one placement only, and does not reach the REST routes."
+msgstr ""
+
+#: includes/Settings.php:692
+msgid "Defaults for every [fluent_cart_product_table] on the site. A shortcode attribute always overrides what you set here, for that placement only."
+msgstr ""
+
+#. translators: 1: lowest allowed value, 2: highest allowed value, 3: the default.
+#: includes/Settings.php:716
+msgid "Between %1$d and %2$d. Default %3$d. Counts variant rows, not products."
+msgstr ""
+
+#: includes/Settings.php:755
+msgid "Columns always appear in this order. Selecting all of them is the same as selecting none: the table shows everything."
+msgstr ""
+
+#: includes/Settings.php:770
+msgid "Show the search box"
+msgstr ""
+
+#: includes/Settings.php:777
+msgid "Open variant rows by default"
+msgstr ""
+
+#: includes/Settings.php:780
+msgid "Opening variant rows suits small catalogues; leave it off when products have many variants."
+msgstr ""
+
+#: includes/Settings.php:791
+msgid "By default a finished bulk order goes to the store checkout page. Point it somewhere else if wholesale orders use their own checkout."
+msgstr ""
+
+#: includes/Settings.php:809
+msgid "Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A \"redirect\" attribute on the shortcode still wins for that placement."
+msgstr ""
+
+#: includes/Settings.php:845
+msgid "Purchasing departments buy against a purchase-order number and need it on the paperwork. Turn this on and the field appears at checkout, is saved with the order, and is printed on the receipt and in every export."
+msgstr ""
+
+#: includes/Settings.php:854
+msgid "Open the order exports screen"
+msgstr ""
+
+#: includes/Settings.php:874
+msgid "Off — do not ask (default)"
+msgstr ""
+
+#: includes/Settings.php:875
+msgid "Optional — show the field, allow an empty one"
+msgstr ""
+
+#: includes/Settings.php:876
+msgid "Required — refuse the order without one"
+msgstr ""
+
+#. translators: %d: the maximum number of characters a PO number may have.
+#: includes/Settings.php:897
+msgid "\"Required\" is enforced on the server, so it holds even if the checkout page is edited. Up to %d characters; anything longer is shortened rather than refused."
+msgstr ""
+
+#: includes/Settings.php:931
+msgid "Leave all unchecked and every shopper is asked, including logged-out ones. Tick the wholesale roles to ask only your trade buyers."
+msgstr ""
+
+#: includes/Settings.php:963
+msgid "Nobody. The field does not appear at checkout."
+msgstr ""
+
+#: includes/Settings.php:976
+msgid "EVERY shopper, including logged-out ones, must enter a PO number to complete an order."
+msgstr ""
+
+#: includes/Settings.php:977
+msgid "Every shopper, including logged-out ones, is offered the field. Nobody is refused for leaving it blank."
+msgstr ""
+
+#: includes/Settings.php:984
+msgid "That includes your retail customers. If you only want it from trade buyers, tick their roles above."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Settings.php:999
+msgid "Only these roles are asked, and they must answer: %s."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Settings.php:1002
+msgid "Only these roles are offered the field: %s."
+msgstr ""
+
+#: includes/Settings.php:1012
+msgid "Everyone else checks out exactly as they do today."
+msgstr ""
+
+#: includes/Settings.php:1033
+msgid "Lets a buyer send you their filled bulk order table and ask for a price instead of checking out. You review it, set the prices, and turn it into a FluentCart order — which also lets a buyer ask for a subscription product and a one-time product together, something the cart cannot do."
+msgstr ""
+
+#: includes/Settings.php:1038
+msgid "Open the quote requests screen"
+msgstr ""
+
+#: includes/Settings.php:1051
+msgid "Show a \"Request a quote\" button on the bulk order form"
+msgstr ""
+
+#: includes/Settings.php:1054
+msgid "A \"quotes\" attribute on the shortcode still wins for that placement, so you can offer quotes on one page and not another."
+msgstr ""
+
+#: includes/Settings.php:1069
+msgid "Email me when a buyer asks for a quote"
+msgstr ""
+
+#: includes/Settings.php:1072
+msgid "Sent to the site admin email. Repeat requests from the same buyer within fifteen minutes are not emailed again, but every one of them still appears on the quote requests screen."
+msgstr ""
+
+#: includes/Settings.php:1115
+msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Users > Wholesale Applications, and approving one grants the Wholesale Customer role."
+msgstr ""
+
+#: includes/Settings.php:1123
+msgid "The form always asks for a company name and a tax / VAT ID. Anything below is asked as well."
+msgstr ""
+
+#: includes/Settings.php:1146
+msgid "Single line"
+msgstr ""
+
+#: includes/Settings.php:1147
+msgid "Paragraph"
+msgstr ""
+
+#: includes/Settings.php:1148
+msgid "Choose one"
+msgstr ""
+
+#: includes/Settings.php:1149
+msgid "Tick box"
+msgstr ""
+
+#: includes/Settings.php:1153
+msgid "Question"
+msgstr ""
+
+#: includes/Settings.php:1155
+msgid "Choices"
+msgstr ""
+
+#: includes/Settings.php:1156
+msgid "Required"
+msgstr ""
+
+#: includes/Settings.php:1173
+msgid "Clear a question to remove it. \"Choices\" is only used by \"Choose one\" — put one choice on each line. A \"Choose one\" question with no choices is dropped, because nobody could answer it."
+msgstr ""
+
+#: includes/Settings.php:1181
+msgid "Answers already given are stored under the question's key. Renaming a question keeps its key, so past applications keep their answers; changing the key starts a new question."
+msgstr ""
+
+#. translators: %d: the maximum number of extra questions.
+#: includes/Settings.php:1194
+msgid "A key is worked out from the question when you leave it blank, using only Latin letters and digits — so if your question is written in another script, type a key yourself. company_name and tax_id are taken by the two built-in questions. At most %d extra questions."
+msgstr ""
+
+#: includes/Settings.php:1202
+msgid "You have reached the limit. Clear a question to make room for another."
+msgstr ""
+
+#: includes/Settings.php:1231
+msgid "e.g. Trade reference"
+msgstr ""
+
+#: includes/Settings.php:1236
+msgid "Key"
+msgstr ""
+
+#: includes/Settings.php:1239
+msgid "auto"
+msgstr ""
+
+#: includes/Settings.php:1260
+msgid ""
+"Retail\n"
+"Wholesale"
+msgstr ""
+
+#: includes/Settings.php:1275
+msgid "Must answer"
+msgstr ""
+
+#: includes/Settings.php:1290
+msgid "Email me when someone applies"
+msgstr ""
+
+#. translators: %s: the site's admin email address.
+#: includes/Settings.php:1297
+msgid "Sent to %s. Applicants are always emailed when you approve or reject them."
+msgstr ""
+
+#: includes/Settings.php:1331
+msgid "FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here."
+msgstr ""
+
+#: includes/Settings.php:1332
+msgid "FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear."
+msgstr ""
+
+#: includes/Settings.php:1340
+msgid "When someone applies"
+msgstr ""
+
+#: includes/Settings.php:1346
+msgid "When you approve them"
+msgstr ""
+
+#: includes/Settings.php:1352
+msgid "The applicant's contact is tagged so you can run FluentCRM automations from it. A contact is created if they do not have one; an existing contact is never changed beyond the tag."
+msgstr ""
+
+#: includes/Settings.php:1406
+msgid "— no tag —"
+msgstr ""
+
+#. translators: %d: a FluentCRM tag id that no longer exists.
+#: includes/Settings.php:1419
+msgid "Tag #%d — no longer in FluentCRM"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:55
+msgid "Please log in to access the bulk order form."
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:63
+msgid "You do not have permission to access the bulk order form."
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:131
+msgid "Quick order (paste or CSV)"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:135
+msgid "Paste one \"SKU, quantity\" per line, or upload a CSV. An optional header row is ignored."
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:141
+msgid "Upload CSV"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:145
+msgid "Add to order"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:159
+msgid "Categories"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:160
+msgid "Image"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:182
+msgid "+ Add Row"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:185
+msgid "Save order"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:195
+msgid "Proceed to Checkout"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:208
+msgid "Send this order to the store and ask for a price. Nothing is charged and nothing is added to your cart — the store will email you a quote."
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:211
+msgid "Anything the store should know? (optional)"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:215
+msgid "Delivery date, purchase order number, anything else…"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:218
+msgid "Send quote request"
+msgstr ""
+
+#: includes/Shortcodes/BulkOrderForm.php:263
+msgid "Bulk pricing does not apply to your account, so this form is showing retail prices — the same prices you would be charged at checkout."
+msgstr ""
+
+#. translators: %s: link to the Bulk Pricing settings page.
+#: includes/Shortcodes/BulkOrderForm.php:266
+msgid "Add your role under %s to see and receive the discounts."
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:87
+msgid "Please log in to access the product table."
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:95
+msgid "You do not have permission to access the product table."
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:158
+#: includes/Strings.php:69
+msgid "Search products..."
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:172
+#: includes/Strings.php:160
+msgid "Loading products..."
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:178
+msgid "Prev"
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:179
+msgid "Page 1 of 1"
+msgstr ""
+
+#: includes/Shortcodes/ProductTable.php:180
+msgid "Next"
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:39
+msgid "Please log in to view your saved orders."
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:47
+msgid "You do not have permission to view saved orders."
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:108
+msgid "Created"
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:109
+msgid "Items"
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:111
+msgid "Actions"
+msgstr ""
+
+#: includes/Shortcodes/SavedOrders.php:115
+msgid "Loading saved orders..."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:107
+msgid "Please log in to apply for a wholesale account."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:131
+msgid "Log in"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:135
+msgid "Create an account"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:152
+msgid "You do not have permission to apply for a wholesale account."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:226
+msgid "Thank you. Your application has been sent for review."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:227
+msgid "Your application has been updated and is waiting for review."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:228
+msgid "Please check the highlighted answers and send the form again."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:229
+msgid "Your application could not be saved. Please try again."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:230
+msgid "You already have a wholesale account."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:255
+msgid "Your wholesale account is active"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:256
+msgid "You now see wholesale pricing and the bulk ordering tools when you are signed in."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:273
+msgid "Your application is being reviewed"
+msgstr ""
+
+#. translators: %s: the date the application was sent.
+#: includes/Shortcodes/WholesaleApplication.php:279
+msgid "We received it on %s. You can correct your answers below until we review it — sending the form again replaces what you sent, it does not start a second application."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:291
+msgid "Your application was not approved"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:295
+msgid "You are welcome to apply again below."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:319
+msgid "Note from the store"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:359
+msgid "Update my application"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:360
+msgid "Send my application"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:450
+msgid "Please choose"
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:497
+msgid "Please answer this question."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:498
+msgid "Please choose one of the listed options."
+msgstr ""
+
+#: includes/Shortcodes/WholesaleApplication.php:503
+msgid "Please check this answer."
+msgstr ""
+
+#. translators: {amount}: money amount, e.g. $12.50. Keep {amount} as-is.
+#: includes/Strings.php:46
+msgid "You saved {amount}"
+msgstr ""
+
+#. translators: {qty}: how many more units; {percent}: discount percentage. Keep both as-is.
+#: includes/Strings.php:48
+msgid "Add {qty} more to unlock {percent}% off"
+msgstr ""
+
+#. translators: {qty}: how many more units. Keep {qty} as-is. Used when the next tier is a money amount, not a percentage.
+#: includes/Strings.php:50
+msgid "Add {qty} more to unlock a better price"
+msgstr ""
+
+#: includes/Strings.php:72
+msgid "Product search results"
+msgstr ""
+
+#: includes/Strings.php:73
+msgid "Search failed"
+msgstr ""
+
+#: includes/Strings.php:74
+msgid "No products found"
+msgstr ""
+
+#: includes/Strings.php:75
+msgid "No available variants"
+msgstr ""
+
+#: includes/Strings.php:76
+msgid "(Out of stock)"
+msgstr ""
+
+#. translators: {sku}: a product SKU. Keep {sku} as-is.
+#: includes/Strings.php:78
+msgid "SKU {sku}"
+msgstr ""
+
+#: includes/Strings.php:81
+msgid "Add at least one product before saving."
+msgstr ""
+
+#: includes/Strings.php:82
+msgid "Name this saved order:"
+msgstr ""
+
+#: includes/Strings.php:83
+msgid "Please enter a name for the saved order."
+msgstr ""
+
+#: includes/Strings.php:84
+msgid "Saving order..."
+msgstr ""
+
+#: includes/Strings.php:85
+msgid "Could not save the order."
+msgstr ""
+
+#: includes/Strings.php:86
+msgid "Could not save the order. Please try again."
+msgstr ""
+
+#. translators: {name}: the name the shopper gave the saved order. Keep {name} as-is.
+#: includes/Strings.php:88
+msgid "Saved order \"{name}\"."
+msgstr ""
+
+#: includes/Strings.php:91
+msgid "Please select at least one product."
+msgstr ""
+
+#: includes/Strings.php:92
+msgid "Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding."
+msgstr ""
+
+#. translators: {amount}: money still needed; {minimum}: the required order total. Keep both as-is.
+#: includes/Strings.php:94
+msgid "Add {amount} more to reach the {minimum} minimum order total."
+msgstr ""
+
+#: includes/Strings.php:95
+#: includes/Strings.php:204
+msgid "FluentCart cart is not available. Please refresh the page and try again."
+msgstr ""
+
+#: includes/Strings.php:96
+#: includes/Strings.php:208
+msgid "Adding items to cart..."
+msgstr ""
+
+#: includes/Strings.php:97
+#: includes/Strings.php:211
+msgid "Redirecting to checkout..."
+msgstr ""
+
+#: includes/Strings.php:98
+#: includes/Strings.php:212
+msgid "Checkout page is not configured. Please check FluentCart settings."
+msgstr ""
+
+#. translators: {index}: which item is being added; {total}: how many there are. Keep both as-is.
+#: includes/Strings.php:100
+msgid "Adding item {index} of {total}..."
+msgstr ""
+
+#. translators: {error}: the error the cart reported. Keep {error} as-is.
+#: includes/Strings.php:102
+msgid "Failed to add item: {error}"
+msgstr ""
+
+#: includes/Strings.php:103
+#: includes/Strings.php:183
+#: includes/Strings.php:215
+msgid "Unknown error"
+msgstr ""
+
+#. translators: {min}: minimum quantity; {step}: case-pack multiple; {qty}: the quantity now set. Keep all three as-is.
+#: includes/Strings.php:107
+msgid "Minimum order is {min}, in multiples of {step}. Quantity set to {qty}."
+msgstr ""
+
+#. translators: {step}: case-pack multiple; {qty}: the quantity now set. Keep both as-is.
+#: includes/Strings.php:109
+msgid "Sold in multiples of {step}. Quantity rounded up to {qty}."
+msgstr ""
+
+#. translators: {min}: minimum quantity; {qty}: the quantity now set. Keep both as-is.
+#: includes/Strings.php:111
+msgid "Minimum order quantity is {min}. Quantity set to {qty}."
+msgstr ""
+
+#: includes/Strings.php:112
+msgid "Some quantities were adjusted to meet this store's order rules."
+msgstr ""
+
+#: includes/Strings.php:115
+msgid "Could not read the file. Please try again."
+msgstr ""
+
+#: includes/Strings.php:116
+msgid "Missing SKU"
+msgstr ""
+
+#: includes/Strings.php:117
+msgid "No matching product"
+msgstr ""
+
+#. translators: {count}: how many variants share the SKU. Keep {count} as-is.
+#: includes/Strings.php:119
+msgid "Matches {count} variants — add it manually"
+msgstr ""
+
+#. translators: {qty}: the unreadable value the shopper pasted. Keep {qty} as-is.
+#: includes/Strings.php:121
+msgid "Invalid quantity \"{qty}\""
+msgstr ""
+
+#. translators: {count}: how many rows were added. Keep {count} as-is.
+#: includes/Strings.php:123
+msgid "{count} item added"
+msgstr ""
+
+#. translators: {count}: how many rows were added. Keep {count} as-is.
+#: includes/Strings.php:125
+msgid "{count} items added"
+msgstr ""
+
+#. translators: {count}: how many pasted lines were not added. Keep {count} as-is.
+#: includes/Strings.php:127
+msgid "{count} skipped"
+msgstr ""
+
+#. translators: {line}: the line number in the pasted text or CSV. Keep {line} as-is.
+#: includes/Strings.php:129
+msgid "Line {line}"
+msgstr ""
+
+#. translators: {label}: product name; {qty}: quantity added. Keep both as-is.
+#: includes/Strings.php:131
+msgid "{label} × {qty}"
+msgstr ""
+
+#. translators: {qty}: the quantity originally asked for. Keep {qty} as-is.
+#: includes/Strings.php:133
+msgid "(adjusted from {qty} to meet order rules)"
+msgstr ""
+
+#: includes/Strings.php:139
+msgid "Sending your quote request..."
+msgstr ""
+
+#. translators: {reference}: the quote's reference, e.g. "Quote #41". Keep {reference} as-is.
+#: includes/Strings.php:141
+msgid "Request sent as {reference}. The store will email you a price."
+msgstr ""
+
+#. translators: {reference}: the quote's reference; {skipped}: how many products are no longer available. Keep both as-is.
+#: includes/Strings.php:143
+msgid "Request sent as {reference}, but {skipped} item(s) are no longer available and were left out."
+msgstr ""
+
+#: includes/Strings.php:144
+msgid "Your quote request could not be sent."
+msgstr ""
+
+#: includes/Strings.php:145
+msgid "Your quote request could not be sent. Please try again."
+msgstr ""
+
+#: includes/Strings.php:161
+msgid "Failed to load products."
+msgstr ""
+
+#: includes/Strings.php:162
+msgid "No products found."
+msgstr ""
+
+#: includes/Strings.php:166
+msgid "Out of Stock"
+msgstr ""
+
+#: includes/Strings.php:167
+msgid "Adding..."
+msgstr ""
+
+#: includes/Strings.php:168
+msgid "Added!"
+msgstr ""
+
+#. translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is.
+#: includes/Strings.php:172
+msgid "Min {min}, in {step}s"
+msgstr ""
+
+#. translators: {step}: case-pack multiple. Keep {step} as-is.
+#: includes/Strings.php:174
+msgid "Sold in {step}s"
+msgstr ""
+
+#. translators: {min}: minimum quantity. Keep {min} as-is.
+#: includes/Strings.php:176
+msgid "Min {min}"
+msgstr ""
+
+#. translators: {qty}: the quantity now set. Keep {qty} as-is.
+#: includes/Strings.php:178
+msgid "Quantity adjusted to {qty} to meet this product's order rules."
+msgstr ""
+
+#: includes/Strings.php:180
+msgid "FluentCart cart is not available. Please refresh the page."
+msgstr ""
+
+#. translators: {error}: the error the cart reported. Keep {error} as-is.
+#: includes/Strings.php:182
+msgid "Failed: {error}"
+msgstr ""
+
+#. translators: {current}: current page number; {total}: how many pages there are. Keep both as-is.
+#: includes/Strings.php:186
+msgid "Page {current} of {total}"
+msgstr ""
+
+#: includes/Strings.php:201
+msgid "Saved orders"
+msgstr ""
+
+#: includes/Strings.php:202
+msgid "Past orders"
+msgstr ""
+
+#: includes/Strings.php:205
+msgid "None of the items in this order are available anymore."
+msgstr ""
+
+#: includes/Strings.php:206
+msgid "This order mixes subscription and one-time products, which cannot be reordered together."
+msgstr ""
+
+#. translators: {count}: items being added; {skipped}: items no longer available. Keep both as-is.
+#: includes/Strings.php:210
+msgid "Adding {count} item(s); {skipped} unavailable skipped..."
+msgstr ""
+
+#. translators: {error}: the error the cart reported. Keep {error} as-is.
+#: includes/Strings.php:214
+msgid "Failed to add an item: {error}"
+msgstr ""
+
+#. translators: {name}: the name the shopper gave the saved order. Keep {name} as-is.
+#: includes/Strings.php:218
+msgid "Delete saved order \"{name}\"?"
+msgstr ""
+
+#: includes/Strings.php:219
+msgid "Saved order deleted."
+msgstr ""
+
+#: includes/Strings.php:220
+msgid "Could not delete the saved order. Please try again."
+msgstr ""
+
+#: includes/Wholesale/ApplicationController.php:74
+msgid "This page cannot be opened directly."
+msgstr ""
+
+#: includes/Wholesale/ApplicationController.php:162
+msgid "Please log in before applying for a wholesale account."
+msgstr ""
+
+#: includes/Wholesale/ApplicationSchema.php:121
+msgid "Company name"
+msgstr ""
+
+#: includes/Wholesale/ApplicationSchema.php:129
+msgid "Tax / VAT ID"
+msgstr ""
+
+#. translators: 1: how many questions were not saved, 2: the maximum number of extra questions.
+#: includes/Wholesale/ApplicationSettings.php:216
+msgid "%1$d question could not be saved. A question needs a label containing Latin letters or digits — if yours is in another script, type a key yourself. The key must not be one another question uses, and company_name and tax_id belong to the two built-in questions. A \"Choose one\" question needs at least one choice. At most %2$d extra questions."
+msgid_plural "%1$d questions could not be saved. A question needs a label containing Latin letters or digits — if yours is in another script, type a key yourself. The key must not be one another question uses, and company_name and tax_id belong to the two built-in questions. A \"Choose one\" question needs at least one choice. At most %2$d extra questions."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: the store name.
+#: includes/Wholesale/Notifier.php:141
+msgid "[%s] New wholesale application"
+msgstr ""
+
+#. translators: %s: the applicant's name.
+#: includes/Wholesale/Notifier.php:149
+msgid "%s has updated their wholesale application."
+msgstr ""
+
+#. translators: %s: the applicant's name.
+#: includes/Wholesale/Notifier.php:154
+msgid "%s has applied for a wholesale account."
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:164
+msgid "Their answers:"
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:167
+msgid "Review it here:"
+msgstr ""
+
+#. translators: %s: the store name.
+#: includes/Wholesale/Notifier.php:221
+msgid "[%s] Your wholesale account is approved"
+msgstr ""
+
+#. translators: %s: the store name.
+#: includes/Wholesale/Notifier.php:234
+msgid "Your application for a wholesale account at %s has been approved."
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:238
+msgid "Sign in and you will see your wholesale prices and the bulk ordering tools."
+msgstr ""
+
+#. translators: %s: the store name.
+#: includes/Wholesale/Notifier.php:259
+msgid "[%s] About your wholesale application"
+msgstr ""
+
+#. translators: %s: the store name.
+#: includes/Wholesale/Notifier.php:272
+msgid "Thank you for applying for a wholesale account at %s. We are not able to approve it at the moment."
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:280
+msgid "You are welcome to apply again."
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:313
+msgid "(no answers stored)"
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:325
+#: includes/Wholesale/ReviewScreen.php:458
+msgid "Yes"
+msgstr ""
+
+#: includes/Wholesale/Notifier.php:326
+#: includes/Wholesale/ReviewScreen.php:459
+msgid "No"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:120
+#: includes/Wholesale/ReviewScreen.php:173
+msgid "You do not have permission to review wholesale applications."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:134
+msgid "No applications to show."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:160
+msgid "This action must be submitted from the review screen."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:281
+msgid "Application approved. The wholesale role has been granted and the applicant has been emailed."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:282
+msgid "Application rejected. The applicant has been emailed."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:283
+msgid "Nothing changed — that application had already been decided, or the user no longer exists."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:284
+msgid "Nothing changed. The Wholesale Customer role no longer exists on this site, so there is nothing to grant. Deactivating and reactivating this plugin recreates it."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:308
+msgid "Pending"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:309
+#: includes/Wholesale/ReviewScreen.php:536
+msgid "Approved"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:310
+#: includes/Wholesale/ReviewScreen.php:537
+msgid "Rejected"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:350
+msgid "Applicant"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:351
+msgid "Application"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:352
+msgid "Decision"
+msgstr ""
+
+#. translators: %s: date and time the application was sent.
+#: includes/Wholesale/ReviewScreen.php:395
+msgid "Applied %s"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:423
+msgid "No answers stored."
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:463
+msgid "Not answered"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:511
+msgid "Note to the applicant"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:512
+msgid "Optional note — the applicant will see this"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:520
+msgid "Approve"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:521
+msgid "Reject"
+msgstr ""
+
+#: includes/Wholesale/ReviewScreen.php:542
+msgid "No decision"
+msgstr ""
+
+#. translators: 1: reviewer name, 2: date and time.
+#: includes/Wholesale/ReviewScreen.php:555
+msgid "by %1$s on %2$s"
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+msgctxt "block title"
+msgid "Bulk Order Form"
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+msgctxt "block description"
+msgid "The bulk order form: search products by name or SKU, paste a SKU list, set quantities and send the whole order to checkout."
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+msgctxt "block keyword"
+msgid "bulk"
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+msgctxt "block keyword"
+msgid "wholesale"
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+msgctxt "block keyword"
+msgid "order"
+msgstr ""
+
+#: blocks/bulk-order-form/block.json
+#: blocks/product-table/block.json
+msgctxt "block keyword"
+msgid "fluentcart"
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block title"
+msgid "Product Table"
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block description"
+msgid "A paged, searchable catalogue table with per-row quantity entry and quick add-to-cart."
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block keyword"
+msgid "catalogue"
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block keyword"
+msgid "catalog"
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block keyword"
+msgid "products"
+msgstr ""
+
+#: blocks/product-table/block.json
+msgctxt "block keyword"
+msgid "table"
+msgstr ""

@@ -95,6 +95,7 @@ class OrderReceiptView
      */
     private static function servePdf($order)
     {
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- FluentCart's own filter, not ours. This is how the host's PDF stack is asked for a receipt; an `fcbo/` name here would be a question nothing answers.
         $path = apply_filters('fluent_cart/pdf/generate_receipt', null, [
             'order'       => $order,
             'template_id' => 'order_receipt',

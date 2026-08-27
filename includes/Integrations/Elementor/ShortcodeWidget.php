@@ -115,7 +115,7 @@ abstract class ShortcodeWidget extends \Elementor\Widget_Base
         }
 
         _doing_it_wrong(
-            get_class($this) . '::controlDefinitions',
+            esc_html(get_class($this)) . '::controlDefinitions',
             sprintf(
                 /* translators: %s: shortcode attribute name. */
                 esc_html__('No Elementor control is defined for the "%s" attribute, so it fell back to a plain text field.', 'fluent-cart-bulk-order'),

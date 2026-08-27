@@ -1,16 +1,22 @@
 <?php
 /**
  * Plugin Name: Fluent Cart Bulk Order
- * Description: Adds a [fluent_cart_bulk_order] shortcode that renders an interactive bulk order table for FluentCart stores.
- * Version: 1.0.1
- * Author: Rahat Baksh
+ * Description: Wholesale and B2B ordering for FluentCart: a multi-line bulk order form, a product table, quantity pricing tiers, order rules, quotes, PO numbers and a wholesale application flow.
+ * Version: 1.1.0
+ * Requires at least: 6.7
  * Requires PHP: 7.4
+ * Requires Plugins: fluent-cart
+ * Author: Rahat Baksh
+ * Author URI: https://profiles.wordpress.org/rahatbaksh/
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: fluent-cart-bulk-order
+ * Domain Path: /languages
  */
 
 defined('ABSPATH') || exit;
 
-define('FCBO_VERSION', '1.0.1');
+define('FCBO_VERSION', '1.1.0');
 define('FCBO_DIR', plugin_dir_path(__FILE__));
 define('FCBO_URL', plugin_dir_url(__FILE__));
 
@@ -1507,6 +1513,7 @@ function fcbo_build_past_orders_response($limit = 20)
 
         $created = $order->created_at ? strtotime((string) $order->created_at) : 0;
         $pseudoLists[] = [
+            /* translators: %s: FluentCart order number. */
             'name'       => sprintf(__('Order #%s', 'fluent-cart-bulk-order'), $order->id),
             'created_at' => $created ?: 0,
             'updated_at' => $created ?: 0,

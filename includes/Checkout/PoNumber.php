@@ -8,7 +8,7 @@ defined('ABSPATH') || exit;
  * What a purchase-order number is allowed to be, and when one is demanded.
  *
  * ---------------------------------------------------------------------------
- * WHY THIS FILE HAS NO WORDPRESS IN IT
+ * WHY THIS FILE HAS NO WP FUNCTIONS IN IT
  * ---------------------------------------------------------------------------
  *
  * Same reason as QuoteInput: the rules below decide whether a checkout is

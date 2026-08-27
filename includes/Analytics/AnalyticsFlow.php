@@ -143,7 +143,7 @@ class AnalyticsFlow
         // on the store's most important page.
         require_once __DIR__ . '/Surface.php';
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading a display-only marker on a public checkout page; it authorises nothing and is passed through a closed allowlist below.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- reading a display-only marker on a public checkout page; it authorises nothing, and it is sanitized two lines down after the is_scalar() guard, because sanitize_key() handed `?fcbo_src[]=x` would fatal.
         $raw = isset($_GET[Surface::PARAM]) ? wp_unslash($_GET[Surface::PARAM]) : '';
 
         // This one IS a superglobal, unlike the checkout payload the recorder

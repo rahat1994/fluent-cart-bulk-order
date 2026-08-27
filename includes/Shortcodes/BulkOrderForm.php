@@ -119,7 +119,10 @@ class BulkOrderForm extends AbstractShortcode
         ob_start();
         ?>
         <div id="fcbo-bulk-order" class="fcbo-wrap">
-            <?php echo $this->pricingPolicyNotice(); ?>
+            <?php
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pricingPolicyNotice() returns markup it builds itself; every value inside it is already esc_html__()/esc_url(), and the only non-literal part is an <a> tag this method assembled. Escaping the return value would print the tags.
+            echo $this->pricingPolicyNotice();
+            ?>
 
             <div class="fcbo-quick-order">
                 <button type="button" id="fcbo-quick-toggle" class="fcbo-quick-toggle"

@@ -36,7 +36,7 @@ defined('ABSPATH') || exit;
  * attributes does.
  *
  * ---------------------------------------------------------------------------
- * WHY NO WORDPRESS IN THIS FILE
+ * WHY THERE ARE NO WP FUNCTIONS IN THIS FILE
  * ---------------------------------------------------------------------------
  *
  * Every function here is a pure map from array to array. That is deliberate:

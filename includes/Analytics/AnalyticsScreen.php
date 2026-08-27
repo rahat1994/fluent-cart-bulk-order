@@ -709,7 +709,7 @@ class AnalyticsScreen
             return Period::DEFAULT_PERIOD;
         }
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized three lines down, after the is_scalar() guard; sanitize_key() here would fatal on `?period[]=x`. See below.
         $raw = wp_unslash($_GET[Period::PARAM]);
 
         // `?period[]=x` makes this an ARRAY, and sanitize_key() handed an array

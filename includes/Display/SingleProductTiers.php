@@ -68,18 +68,18 @@ class SingleProductTiers
         echo '</tr></thead><tbody>';
 
         foreach ($variants as $v) {
-            $dataAttr = esc_attr(wp_json_encode([
+            $variantData = wp_json_encode([
                 'id'    => (int) $v['id'],
                 'price' => (int) $v['price'],
                 'tiers' => $v['tiers'],
-            ]));
+            ]);
 
             // The two empty spans are filled by bulk-pricing-display.js as the
             // quantity changes: the nudge toward the next tier sits under the input
             // the shopper is typing in, the line saving under the price it changes.
             printf(
                 '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /><span class="fcbo-bp-nudge"></span></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
-                $dataAttr,
+                esc_attr($variantData),
                 esc_html($v['title'])
             );
         }
@@ -145,6 +145,7 @@ class SingleProductTiers
                     : sprintf('%d+', $minQty);
 
                 printf(
+                    /* translators: %s: quantity range the tier covers, e.g. "10 – 24" or "25+". */
                     '<li>' . esc_html__('Buy %s:', 'fluent-cart-bulk-order') . ' <span class="fcbo-bp-discount">%s</span></li>',
                     esc_html($range),
                     esc_html(fcbo_format_tier_discount_label($tier))

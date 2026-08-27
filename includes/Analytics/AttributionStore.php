@@ -362,7 +362,7 @@ class AttributionStore
 
         $table = self::table();
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this plugin's own table, interpolated from $wpdb->prefix and a class constant; there are no user-supplied values in this statement, and MIN() on an indexed column needs no cache.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this plugin's own table, interpolated from $wpdb->prefix and a class constant; there are no user-supplied values in this statement, and MIN() on an indexed column needs no cache.
         $since = $wpdb->get_var("SELECT MIN(created_at) FROM {$table}");
 
         return $since ? (string) $since : null;
@@ -408,7 +408,7 @@ class AttributionStore
 
         $table = $wpdb->prefix . self::TABLE;
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- DROP TABLE cannot take a bound table name; the value is built from $wpdb->prefix and a class constant, neither of which is user input.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- DROP TABLE cannot take a bound table name; the value is built from $wpdb->prefix and a class constant, neither of which is user input. The schema change is the point of the method: it runs from uninstall only. @see \FluentCartBulkOrder\Deactivator::uninstall()
         $wpdb->query("DROP TABLE IF EXISTS {$table}");
 
         delete_option(self::VERSION_OPTION);

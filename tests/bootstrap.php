@@ -49,6 +49,14 @@ require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationStatus.php';
 require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationSchema.php';
 require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationInput.php';
 
+// The two pure classes behind the request-a-quote flow, here for the same
+// reason. QuoteStatus decides whether a request may create a real order at a
+// hand-typed price; QuoteInput decides which of a submission's values are
+// allowed anywhere near a stored quote — and it is the one place that knows an
+// empty price box means "leave this line alone" rather than "free".
+require_once dirname(__DIR__) . '/includes/Quotes/QuoteStatus.php';
+require_once dirname(__DIR__) . '/includes/Quotes/QuoteInput.php';
+
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';

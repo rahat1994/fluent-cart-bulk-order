@@ -74,6 +74,15 @@ class BulkOrderFormWidget extends ShortcodeWidget
                 // below unwraps it before it reaches the shortcode.
                 'default'     => ['url' => ''],
             ],
+            'quotes' => [
+                'label'       => esc_html__('Request a quote', 'fluent-cart-bulk-order'),
+                'type'        => \Elementor\Controls_Manager::SELECT,
+                'description' => esc_html__('Lets the buyer send this order to the store for a price instead of checking out.', 'fluent-cart-bulk-order'),
+                'options'     => $this->ternaryOptions(
+                    esc_html__('Offer', 'fluent-cart-bulk-order'),
+                    esc_html__('Do not offer', 'fluent-cart-bulk-order')
+                ),
+            ],
         ];
     }
 

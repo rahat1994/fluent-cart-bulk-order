@@ -99,6 +99,11 @@ class AttributeSchema
         'fluent_cart_bulk_order' => [
             'roles'    => self::TEXT,
             'redirect' => self::TEXT,
+            // Whether this placement offers "Request a quote". TERNARY rather
+            // than a checkbox for the reason on self::TERNARY: an owner has to
+            // be able to say "no quotes on THIS page" without that being the
+            // same value as "follow the store setting".
+            'quotes'   => self::TERNARY,
         ],
         'fluent_cart_product_table' => [
             'per_page'        => self::NUMBER,

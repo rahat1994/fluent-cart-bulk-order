@@ -551,6 +551,57 @@
     color: var(--fcbo-warning);
 }
 
+/* Request a quote
+   ---------------------------------------------------------------------------
+   Same surface treatment as the quick-order panel on purpose: both are
+   "a second thing you can do with the table you just filled in", and giving
+   them different chrome would suggest they belong to different features. */
+.fcbo-quote-panel {
+    margin-top: 12px;
+    padding: 16px;
+    border: 1px solid var(--fcbo-line);
+    border-radius: 6px;
+    background: var(--fcbo-fill-soft);
+}
+
+.fcbo-quote-help {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--fcbo-text-2);
+}
+
+.fcbo-quote-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.fcbo-quote-note {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--fcbo-line-firm);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+    resize: vertical;
+    background: transparent;
+    color: inherit;
+}
+
+.fcbo-quote-note:focus {
+    outline: none;
+    border-color: var(--fcbo-accent);
+    box-shadow: 0 0 0 1px var(--fcbo-accent);
+}
+
+.fcbo-quote-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .fcbo-wrap {

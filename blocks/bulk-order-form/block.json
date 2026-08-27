@@ -24,6 +24,10 @@
 		"redirect": {
 			"type": "string",
 			"default": ""
+		},
+		"quotes": {
+			"type": "string",
+			"default": ""
 		}
 	}
 }

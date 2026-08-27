@@ -3,6 +3,7 @@
 namespace FluentCartBulkOrder\Shortcodes;
 
 use FluentCartBulkOrder\AccessPolicy;
+use FluentCartBulkOrder\Quotes\QuoteSettings;
 use FluentCartBulkOrder\StoreDefaults;
 
 defined('ABSPATH') || exit;
@@ -18,6 +19,8 @@ defined('ABSPATH') || exit;
  *   roles     Extra role slugs allowed to see this placement (widens Gate 1).
  *   redirect  Same-site URL to send the shopper to instead of the store
  *             checkout page.
+ *   quotes    "true"/"false" to offer, or not offer, "Request a quote" on this
+ *             placement. Omitted means the store-wide setting decides.
  *
  * @see \FluentCartBulkOrder\Shortcodes\AbstractShortcode For the gate order.
  */
@@ -25,12 +28,21 @@ class BulkOrderForm extends AbstractShortcode
 {
     /**
      * @inheritDoc
+     *
+     * `quotes` defaults to the STORE-WIDE value rather than to '' — that is
+     * what puts it in the defaults layer of shortcode_atts() and therefore what
+     * makes an attribute written on the page beat it. Reading the setting
+     * anywhere later would reverse the precedence.
+     * @see \FluentCartBulkOrder\StoreDefaults
      */
     protected function defaults()
     {
+        require_once FCBO_DIR . 'includes/Quotes/QuoteSettings.php';
+
         return [
             'roles'    => '',
             'redirect' => '',
+            'quotes'   => QuoteSettings::enabled() ? 'true' : 'false',
         ];
     }
 
@@ -75,6 +87,7 @@ class BulkOrderForm extends AbstractShortcode
         );
 
         $currency_sign = $this->currencySign();
+        $quotesOn      = $this->quotesEnabled($atts);
 
         wp_localize_script('fcbo-bulk-order', 'fcboConfig', array_merge($this->restConfig(), [
             'checkout_url'  => esc_url_raw($this->resolveCheckoutUrl($atts['redirect'])),
@@ -155,11 +168,42 @@ class BulkOrderForm extends AbstractShortcode
                     <button type="button" id="fcbo-save-order" class="fcbo-btn fcbo-btn-secondary">
                         <?php esc_html_e('Save order', 'fluent-cart-bulk-order'); ?>
                     </button>
+                    <?php if ($quotesOn) : ?>
+                        <button type="button" id="fcbo-quote-toggle" class="fcbo-btn fcbo-btn-secondary"
+                                aria-expanded="false" aria-controls="fcbo-quote-panel">
+                            <?php esc_html_e('Request a quote', 'fluent-cart-bulk-order'); ?>
+                        </button>
+                    <?php endif; ?>
                 </div>
                 <button type="button" id="fcbo-checkout" class="fcbo-btn fcbo-btn-primary">
                     <?php esc_html_e('Proceed to Checkout', 'fluent-cart-bulk-order'); ?>
                 </button>
             </div>
+
+            <?php if ($quotesOn) : ?>
+                <!-- Below the actions, not above the table: asking for a quote is
+                     something a shopper decides once the order is filled in, so the
+                     panel opens where their eyes already are. It stays in the DOM
+                     hidden rather than being built by JS, so the note field is a
+                     real form control that a password manager, a translation
+                     extension and a screen reader all see. -->
+                <div id="fcbo-quote-panel" class="fcbo-quote-panel" hidden>
+                    <p class="fcbo-quote-help">
+                        <?php esc_html_e('Send this order to the store and ask for a price. Nothing is charged and nothing is added to your cart — the store will email you a quote.', 'fluent-cart-bulk-order'); ?>
+                    </p>
+                    <label class="fcbo-quote-label" for="fcbo-quote-note">
+                        <?php esc_html_e('Anything the store should know? (optional)', 'fluent-cart-bulk-order'); ?>
+                    </label>
+                    <textarea id="fcbo-quote-note" class="fcbo-quote-note" rows="4"
+                              maxlength="2000"
+                              placeholder="<?php esc_attr_e('Delivery date, purchase order number, anything else…', 'fluent-cart-bulk-order'); ?>"></textarea>
+                    <div class="fcbo-quote-controls">
+                        <button type="button" id="fcbo-quote-send" class="fcbo-btn fcbo-btn-primary">
+                            <?php esc_html_e('Send quote request', 'fluent-cart-bulk-order'); ?>
+                        </button>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <div id="fcbo-status" class="fcbo-status" style="display:none;"></div>
         </div>
@@ -207,6 +251,34 @@ class BulkOrderForm extends AbstractShortcode
                 $link
             )
             . '</div>';
+    }
+
+    /**
+     * Whether this placement offers "Request a quote".
+     *
+     * The value has ALREADY been through the three-layer resolution by the time
+     * it gets here: defaults() seeded it from the store-wide setting and
+     * shortcode_atts() let an explicit attribute beat that. So this method only
+     * reads the resolved string — it must NOT consult StoreDefaults again, which
+     * would reverse the precedence the whole arrangement exists to hold.
+     * @see docs/solutions/architecture-patterns/wrapper-must-omit-unset-shortcode-attributes.md
+     *
+     * `filter_var` with FILTER_VALIDATE_BOOLEAN rather than a truthiness test,
+     * because the literal string "false" is truthy in PHP and an author who
+     * writes `quotes="false"` means the opposite of what that would do.
+     *
+     * @param array<string, mixed> $atts Resolved attributes.
+     * @return bool
+     */
+    private function quotesEnabled(array $atts)
+    {
+        $value = isset($atts['quotes']) ? $atts['quotes'] : '';
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return (bool) filter_var((string) $value, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

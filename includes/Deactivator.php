@@ -80,6 +80,7 @@ class Deactivator
      *   REMOVED  the two wholesale application user meta keys, for every user.
      *            @see removeWholesaleApplications() for why these are
      *            scaffolding rather than customer content.
+     *   REMOVED  every `fcbo_quote` post and its meta. @see removeQuotes().
      *   KEPT     `fcbo_bulk_pricing` post meta — the per-product tier tables a
      *            store owner may have spent hours entering. Reinstalling the
      *            plugin picks them straight back up.
@@ -162,6 +163,72 @@ class Deactivator
         delete_option(StoreDefaults::OPTION);
 
         remove_role(AccessPolicy::WHOLESALE_ROLE);
+
+        // Quotes are posts, and posts are per-site, so this belongs INSIDE the
+        // per-site loop rather than beside the network-wide user meta above.
+        self::removeQuotes();
+    }
+
+    /**
+     * Delete every quote request stored on the current site.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THIS GOES AND `fcbo_saved_lists` STAYS
+     * ---------------------------------------------------------------------------
+     *
+     * Same line as the wholesale applications. A saved order is something a
+     * CUSTOMER made for themselves. A quote is this plugin's paperwork about a
+     * negotiation an OWNER conducted, in a post type nothing else can read: with
+     * the plugin gone the type is never registered again, so the rows become
+     * invisible in wp-admin and no screen will ever offer to clean them up.
+     *
+     * What does NOT go is any FluentCart order a quote was converted into. That
+     * order is the store's sales history, it lives in FluentCart's own tables,
+     * and it is not ours to delete.
+     *
+     * `get_posts()` in batches with `fields => ids`, and `wp_delete_post()` with
+     * force so nothing lands in the trash for a plugin that is being removed.
+     * wp_delete_post() also removes the post's meta, which is why the two meta
+     * keys are not deleted separately.
+     *
+     * The post type slug is hardcoded rather than read from QuoteStore. That
+     * class pulls in the whole Quotes namespace, and uninstall.php deliberately
+     * loads as little as it can get away with — @see uninstall.php. The trade is
+     * one string that must not drift; QuoteStore::POST_TYPE names this method so
+     * the next person renaming it finds this.
+     *
+     * @return void
+     */
+    private static function removeQuotes()
+    {
+        // A store with thousands of quotes must not try to load them all at
+        // once. Each pass takes the next 200 ids and deletes them, and because
+        // deleting removes them from the result set, the offset stays at 0.
+        //
+        // The pass counter is the loop's only exit guarantee. If a site filters
+        // `pre_delete_post` to veto the deletion, the same 200 ids come back
+        // forever — an infinite loop inside an uninstall, which the admin sees
+        // as a hung Delete button. 500 passes is 100,000 quotes, far beyond any
+        // real store, and stopping early only leaves rows behind.
+        $passes = 0;
+
+        do {
+            $ids = get_posts([
+                'post_type'              => 'fcbo_quote',
+                'post_status'            => 'any',
+                'posts_per_page'         => 200,
+                'fields'                 => 'ids',
+                'no_found_rows'          => true,
+                'update_post_meta_cache' => false,
+                'update_post_term_cache' => false,
+            ]);
+
+            foreach ($ids as $id) {
+                wp_delete_post((int) $id, true);
+            }
+
+            $passes++;
+        } while (count($ids) === 200 && $passes < 500);
     }
 
     /**

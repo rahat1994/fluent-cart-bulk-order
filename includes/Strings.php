@@ -131,6 +131,18 @@ class Strings
             'report_item'      => __('{label} × {qty}', 'fluent-cart-bulk-order'),
             /* translators: {qty}: the quantity originally asked for. Keep {qty} as-is. */
             'report_adjusted'  => __('(adjusted from {qty} to meet order rules)', 'fluent-cart-bulk-order'),
+
+            // Request a quote. In this table rather than one of their own,
+            // because the button is part of the bulk order form and its script
+            // already receives exactly one i18n object.
+            'quote_need_product' => __('Add at least one product before requesting a quote.', 'fluent-cart-bulk-order'),
+            'quote_sending'      => __('Sending your quote request...', 'fluent-cart-bulk-order'),
+            /* translators: {reference}: the quote's reference, e.g. "Quote #41". Keep {reference} as-is. */
+            'quote_sent'         => __('Request sent as {reference}. The store will email you a price.', 'fluent-cart-bulk-order'),
+            /* translators: {reference}: the quote's reference; {skipped}: how many products are no longer available. Keep both as-is. */
+            'quote_sent_partial' => __('Request sent as {reference}, but {skipped} item(s) are no longer available and were left out.', 'fluent-cart-bulk-order'),
+            'quote_failed'       => __('Your quote request could not be sent.', 'fluent-cart-bulk-order'),
+            'quote_failed_retry' => __('Your quote request could not be sent. Please try again.', 'fluent-cart-bulk-order'),
         ];
     }
 

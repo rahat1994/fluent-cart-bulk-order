@@ -42,6 +42,53 @@ defined('ABSPATH') || exit;
 class Notifier
 {
     /**
+     * How long one applicant's admin notice is suppressed for, in seconds.
+     *
+     * Fifteen minutes. Long enough to make a flood pointless, short enough that
+     * a genuine "I forgot to mention" resubmission an hour later still reaches
+     * the owner. @see claimAdminNotice() for what this is actually defending.
+     */
+    const ADMIN_NOTICE_INTERVAL = 900;
+
+    /**
+     * Whether this applicant is due an admin notice, claiming it if so.
+     *
+     * ---------------------------------------------------------------------------
+     * THIS IS A SECURITY CONTROL, NOT TIDINESS
+     * ---------------------------------------------------------------------------
+     *
+     * Submitting an application is something ANY logged-in user may do, and a
+     * WordPress nonce is not single-use — the same one is accepted for about a
+     * day. Without a throttle, a subscriber with one valid nonce can POST the
+     * form in a loop and make the store's own server send one email per
+     * request. That is outbound-mail amplification: it burns the store's SMTP
+     * quota and can get the sending domain blocked, which takes the order
+     * confirmations down with it.
+     *
+     * The suppressed notice costs the owner nothing real. The review screen
+     * always shows the latest answers, and a resubmission inside the window is
+     * by definition an edit to an application they have already been told about.
+     *
+     * A transient rather than user meta so it expires on its own and leaves
+     * nothing to clean up on uninstall.
+     *
+     * @param int $userId
+     * @return bool True when the caller may send.
+     */
+    private static function claimAdminNotice($userId)
+    {
+        $key = 'fcbo_wholesale_notified_' . (int) $userId;
+
+        if (get_transient($key)) {
+            return false;
+        }
+
+        set_transient($key, 1, self::ADMIN_NOTICE_INTERVAL);
+
+        return true;
+    }
+
+    /**
      * Someone applied — tell the site admin, if the owner wants to be told.
      *
      * @param int                  $userId
@@ -58,6 +105,10 @@ class Notifier
         $user = get_userdata((int) $userId);
 
         if (!$user) {
+            return;
+        }
+
+        if (!self::claimAdminNotice($userId)) {
             return;
         }
 

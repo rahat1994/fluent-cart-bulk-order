@@ -15,7 +15,7 @@ defined('ABSPATH') || exit;
 /*
  * No autoloader in this plugin, on purpose (@see fluent-cart-bulk-order.php).
  * ShortcodeHandler requires AbstractShortcode and this file; the `use`
- * statements above load nothing on their own, so the six Wholesale classes this
+ * statements above load nothing on their own, so the seven Wholesale classes this
  * shortcode calls have to be named here. Doing it at the top of the file rather
  * than inside a method keeps it to one place a reader can check against the
  * `use` list.
@@ -29,6 +29,7 @@ require_once FCBO_DIR . 'includes/Wholesale/ApplicationInput.php';
 require_once FCBO_DIR . 'includes/Wholesale/ApplicationSettings.php';
 require_once FCBO_DIR . 'includes/Wholesale/ApplicationStore.php';
 require_once FCBO_DIR . 'includes/Wholesale/ApplicationController.php';
+require_once FCBO_DIR . 'includes/Wholesale/WholesaleFlow.php';
 
 /**
  * `[fluent_cart_wholesale_application]` — where a shopper asks for a wholesale
@@ -419,9 +420,15 @@ class WholesaleApplication extends AbstractShortcode
         switch ($field['type']) {
             case ApplicationSchema::TYPE_TEXTAREA:
                 printf(
-                    '<textarea id="%1$s" name="%2$s" rows="4"%3$s>%4$s</textarea>',
+                    // maxlength matches ApplicationInput::MAX_VALUE_LENGTH so the
+                    // browser stops at the same number the server does. Without
+                    // it a long answer is truncated on save with a "thank you,
+                    // your application has been sent" message, and neither the
+                    // applicant nor the admin who reads half a sentence is told.
+                    '<textarea id="%1$s" name="%2$s" rows="4" maxlength="%3$d"%4$s>%5$s</textarea>',
                     esc_attr($id),
                     esc_attr($name),
+                    ApplicationInput::MAX_VALUE_LENGTH,
                     $required ? ' required' : '',
                     esc_textarea(is_scalar($value) ? (string) $value : '')
                 );
@@ -454,10 +461,11 @@ class WholesaleApplication extends AbstractShortcode
 
             default:
                 printf(
-                    '<input type="text" id="%1$s" name="%2$s" value="%3$s"%4$s />',
+                    '<input type="text" id="%1$s" name="%2$s" value="%3$s" maxlength="%4$d"%5$s />',
                     esc_attr($id),
                     esc_attr($name),
                     esc_attr(is_scalar($value) ? (string) $value : ''),
+                    ApplicationInput::MAX_VALUE_LENGTH,
                     $required ? ' required' : ''
                 );
         }
@@ -525,14 +533,22 @@ class WholesaleApplication extends AbstractShortcode
      * result never carries the `?fcbo_wholesale=` arg from a previous
      * submission, which would leave a stale notice on the page after the next.
      *
+     * `is_singular()` FIRST, and it is not decoration. get_queried_object_id()
+     * returns a TERM id on a taxonomy archive and a USER id on an author
+     * archive, so a bare `if ($id)` guard would hand `get_permalink(5)` a
+     * number that is not a post id — and get_permalink() would happily resolve
+     * it to whatever post happens to have that id. The applicant would then be
+     * redirected to an unrelated page and never see the "we have your
+     * application" notice, which reads as the form having done nothing. Reached
+     * whenever the shortcode sits in a widget, a template part, or a term
+     * description rather than on a page of its own.
+     *
      * @return string
      */
     private function currentUrl()
     {
-        $postId = get_queried_object_id();
-
-        if ($postId) {
-            $permalink = get_permalink($postId);
+        if (is_singular()) {
+            $permalink = get_permalink(get_queried_object_id());
 
             if ($permalink) {
                 return $permalink;

@@ -815,7 +815,11 @@ class Settings
         echo '<th style="width:14%;">' . esc_html__('Required', 'fluent-cart-bulk-order') . '</th>';
         echo '</tr></thead><tbody>';
 
-        $rows = array_merge($fields, array_fill(0, self::WHOLESALE_BLANK_ROWS, null));
+        // Only offer blank rows the schema would actually accept. Appending
+        // three unconditionally means an owner already at the cap is invited to
+        // fill in rows that are silently discarded on save.
+        $spare = max(0, \FluentCartBulkOrder\Wholesale\ApplicationSchema::MAX_EXTRA_FIELDS - count($fields));
+        $rows  = array_merge($fields, array_fill(0, min(self::WHOLESALE_BLANK_ROWS, $spare), null));
 
         foreach ($rows as $index => $field) {
             $this->renderWholesaleFieldRow($name, (int) $index, $field, $types);
@@ -838,6 +842,25 @@ class Settings
                 'fluent-cart-bulk-order'
             )
         );
+
+        // The three rules that quietly reject a question, said out loud. Each
+        // one is a drop with no error, and an owner who does not know them sees
+        // "Settings saved" and a question that is not there.
+        printf(
+            '<p class="description">%s</p>',
+            esc_html(sprintf(
+                /* translators: %d: the maximum number of extra questions. */
+                __('A key is worked out from the question when you leave it blank, using only Latin letters and digits — so if your question is written in another script, type a key yourself. company_name and tax_id are taken by the two built-in questions. At most %d extra questions.', 'fluent-cart-bulk-order'),
+                \FluentCartBulkOrder\Wholesale\ApplicationSchema::MAX_EXTRA_FIELDS
+            ))
+        );
+
+        if ($spare === 0) {
+            printf(
+                '<p class="description"><strong>%s</strong></p>',
+                esc_html__('You have reached the limit. Clear a question to make room for another.', 'fluent-cart-bulk-order')
+            );
+        }
     }
 
     /**
@@ -947,21 +970,17 @@ class Settings
     {
         $this->loadWholesale();
 
-        if (!\FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::isAvailable()) {
+        $available = \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::isAvailable();
+        $tags      = $available ? \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::tagOptions() : [];
+
+        if (!$available || !$tags) {
+            $this->preserveTagChoices();
+
             printf(
                 '<p class="description">%s</p>',
-                esc_html__('FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear.', 'fluent-cart-bulk-order')
-            );
-
-            return;
-        }
-
-        $tags = \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::tagOptions();
-
-        if (!$tags) {
-            printf(
-                '<p class="description">%s</p>',
-                esc_html__('FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here.', 'fluent-cart-bulk-order')
+                $available
+                    ? esc_html__('FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here.', 'fluent-cart-bulk-order')
+                    : esc_html__('FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear.', 'fluent-cart-bulk-order')
             );
 
             return;
@@ -989,6 +1008,39 @@ class Settings
     }
 
     /**
+     * Carry the stored tag ids through a page load that cannot draw the pickers.
+     *
+     * ---------------------------------------------------------------------------
+     * WITHOUT THIS, SAVING ANY OTHER SETTING ERASES THE OWNER'S TAGS
+     * ---------------------------------------------------------------------------
+     *
+     * The whole page is ONE form posting one `fcbo_store_defaults[...]` array,
+     * and StoreDefaults::sanitizeWholesale() reads an absent tag key as 0,
+     * meaning "do not tag". So on any page load where the two `<select>`s are
+     * not rendered — FluentCRM deactivated for an update, its tag list
+     * temporarily unreadable — pressing Save on an unrelated field silently
+     * discards a tag configuration that took the owner a trip to FluentCRM to
+     * set up. Reactivating FluentCRM does not bring it back, and nothing says
+     * what happened.
+     *
+     * A hidden input is the same trick `allowed_extra_roles` and
+     * `table_columns` already use for their all-unchecked case: make sure the
+     * key is always submitted, so "absent" can keep its one meaning.
+     *
+     * @return void
+     */
+    private function preserveTagChoices()
+    {
+        foreach (['wholesale_crm_tag_applied', 'wholesale_crm_tag_approved'] as $key) {
+            printf(
+                '<input type="hidden" name="%1$s" value="%2$d" />',
+                esc_attr($this->defaultsName($key)),
+                (int) StoreDefaults::get($key, 0)
+            );
+        }
+    }
+
+    /**
      * One labelled tag dropdown.
      *
      * @param string             $key   StoreDefaults key.
@@ -1003,6 +1055,23 @@ class Settings
         printf('<p><label>%s<br />', esc_html($label));
         printf('<select name="%s">', esc_attr($this->defaultsName($key)));
         printf('<option value="0">%s</option>', esc_html__('— no tag —', 'fluent-cart-bulk-order'));
+
+        // A tag the owner chose and then deleted inside FluentCRM is no longer
+        // in the list, so the select would fall back to showing "— no tag —" —
+        // which is a lie: the dead id is still stored and still handed to
+        // attachTags(), where it succeeds and tags nothing. Showing it says
+        // what is actually configured, and lets the owner fix it.
+        if ($selected > 0 && !isset($tags[$selected])) {
+            printf(
+                '<option value="%1$d" selected>%2$s</option>',
+                $selected,
+                esc_html(sprintf(
+                    /* translators: %d: a FluentCRM tag id that no longer exists. */
+                    __('Tag #%d — no longer in FluentCRM', 'fluent-cart-bulk-order'),
+                    $selected
+                ))
+            );
+        }
 
         foreach ($tags as $id => $title) {
             printf(

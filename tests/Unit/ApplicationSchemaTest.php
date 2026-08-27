@@ -136,6 +136,49 @@ class ApplicationSchemaTest extends TestCase
     }
 
     /**
+     * Inner whitespace is collapsed, and this one is not cosmetic.
+     *
+     * The settings page stores an option through `sanitize_textarea_field()`,
+     * which KEEPS runs of spaces and tabs. The submitted answer comes back
+     * through `sanitize_text_field()`, which collapses them to one space.
+     * ApplicationInput compares the two with a strict in_array, so an option
+     * typed as "Retail  Shops" could never be matched by the value the browser
+     * posts — and because HTML collapses whitespace when it RENDERS, the owner
+     * and the shopper both saw "Retail Shops" and nothing looked wrong.
+     *
+     * A required select in that state makes the form unsubmittable for every
+     * shopper on the site, from a double space on a settings page.
+     */
+    public function testInnerWhitespaceIsCollapsedInOptionsAndLabels()
+    {
+        $fields = ApplicationSchema::normalizeFields([
+            [
+                'label'   => "Trade   reference",
+                'type'    => 'select',
+                'options' => ["Retail  Shops", "Export\tOnly"],
+            ],
+        ]);
+
+        $this->assertSame('Trade reference', $fields[0]['label']);
+        $this->assertSame(['Retail Shops', 'Export Only'], $fields[0]['options']);
+    }
+
+    /**
+     * The collapse must not merge two options into one.
+     *
+     * normalizeOptions() splits on newlines BEFORE trimming, so a blank line
+     * between two choices still separates them rather than joining them with a
+     * space.
+     */
+    public function testCollapsingWhitespaceDoesNotMergeOptions()
+    {
+        $this->assertSame(
+            ['Retail Shops', 'Export Only'],
+            ApplicationSchema::normalizeOptions("Retail  Shops\n\n  Export\tOnly  ")
+        );
+    }
+
+    /**
      * A field with no label is not a question.
      */
     public function testFieldsWithoutALabelAreDropped()

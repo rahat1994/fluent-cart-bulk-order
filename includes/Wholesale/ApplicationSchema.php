@@ -383,7 +383,37 @@ class ApplicationSchema
     }
 
     /**
-     * Trim and length-cap one piece of owner text.
+     * Trim, collapse inner whitespace, and length-cap one piece of owner text.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THE WHITESPACE COLLAPSE IS LOAD-BEARING, NOT TIDINESS
+     * ---------------------------------------------------------------------------
+     *
+     * A select option is stored on the settings side and compared against on the
+     * submission side, and until this line existed the two sides used different
+     * rules:
+     *
+     *   settings save    sanitize_textarea_field() — keeps runs of spaces and
+     *                    tabs, because it is told to keep newlines and
+     *                    WordPress skips the whole whitespace collapse when it is
+     *   submission       sanitize_text_field() — collapses [\r\n\t ]+ to ONE space
+     *
+     * So an owner who typed "Retail  Shops" (two spaces, or a tab pasted from a
+     * spreadsheet) stored `Retail  Shops` and the shopper posted back
+     * `Retail Shops`. ApplicationInput compares with `in_array(..., true)`, so
+     * the only option on the list never matched — and because HTML collapses
+     * whitespace when it RENDERS, the owner and the shopper both saw "Retail
+     * Shops" and nothing looked wrong. A required select in that state makes the
+     * form permanently unsubmittable for every shopper on the site, which is
+     * precisely the outcome the empty-options rule above exists to prevent.
+     *
+     * Collapsing here fixes both sides at once, because this is the one function
+     * both the rendered `<option value>` and the validator's option list come
+     * through. ApplicationSettings::extraFields() re-normalises on READ, so it
+     * also repairs options already in the database with no migration.
+     *
+     * normalizeOptions() splits on newlines BEFORE calling this, so collapsing
+     * `\n` here cannot merge two options into one.
      *
      * mb_substr where available so a cap never cuts a multi-byte character in
      * half — a truncated UTF-8 sequence is what turns a long label into a black
@@ -398,7 +428,7 @@ class ApplicationSchema
             return '';
         }
 
-        $text = trim((string) $text);
+        $text = trim((string) preg_replace('/[\r\n\t ]+/', ' ', (string) $text));
 
         if (function_exists('mb_substr')) {
             return mb_substr($text, 0, self::MAX_LABEL_LENGTH);

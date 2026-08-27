@@ -202,9 +202,13 @@ class ApplicationStore
             return null;
         }
 
+        // statusFor(), not get()['status']: META_STATUS is the authority.
+        // @see the class docblock, and review() for what reading the wrong one
+        // costs.
+        $current  = self::statusFor($userId);
         $existing = self::get($userId);
 
-        if (!ApplicationStatus::canApply($existing['status'])) {
+        if (!ApplicationStatus::canApply($current)) {
             return null;
         }
 
@@ -212,13 +216,23 @@ class ApplicationStore
 
         $record = [
             'status'       => ApplicationStatus::statusAfterApply(),
-            'fields'       => is_array($values) ? $values : [],
+            'fields'       => self::mergeFields($existing['fields'], $values),
             'submitted_at' => $existing['submitted_at'] > 0 ? (int) $existing['submitted_at'] : $now,
             'updated_at'   => $now,
             'reviewed_at'  => 0,
             'reviewer_id'  => 0,
             'note'         => '',
         ];
+
+        // Take the row before writing to it. Between the read above and this
+        // line an admin can have approved the application: without the claim,
+        // the applicant's in-flight submission writes `pending` back over the
+        // decision, leaving a user who HOLDS the wholesale role with a pending
+        // record — which the admin can then reject, taking the paperwork away
+        // and leaving the role behind.
+        if (!self::claimForApplicant($userId, $current)) {
+            return null;
+        }
 
         self::write($userId, $record);
 
@@ -268,7 +282,17 @@ class ApplicationStore
         $userId = (int) $userId;
         $record = self::get($userId);
 
-        if ($userId <= 0 || !ApplicationStatus::canTransition($record['status'], $status)) {
+        // The transition is judged on META_STATUS, NOT on the record's own copy
+        // of it. write() is two update_user_meta() calls and is not atomic, so
+        // a lost second write leaves the record saying `approved` while the
+        // query key still says `pending`. Gating on the record would then wedge
+        // that application forever: it stays in the Pending tab, which queries
+        // META_STATUS, while every retry is refused as "already decided".
+        // Gating on the query key — the authority, per the class docblock and
+        // statusFor() — makes the same failure self-healing on a retry.
+        $current = self::statusFor($userId);
+
+        if ($userId <= 0 || !ApplicationStatus::canTransition($current, $status)) {
             return null;
         }
 
@@ -281,17 +305,33 @@ class ApplicationStore
             return null;
         }
 
+        // CLAIM the decision before acting on it. canTransition() above read the
+        // status a moment ago; two overlapping requests — a double-clicked
+        // Approve, or two admins deciding at the same instant — both read
+        // `pending` and both pass. Without a claim they would both send the
+        // applicant an email, and a simultaneous approve and reject would
+        // decide by whichever wrote last.
+        if (!self::claim($userId, $status)) {
+            return null;
+        }
+
+        // Past this line the decision is exclusively ours.
         $record['status']      = $status;
         $record['reviewed_at'] = time();
         $record['reviewer_id'] = (int) $reviewerId;
         $record['note']        = (string) $note;
 
-        // The role is granted BEFORE the record is written. If add_role() were
-        // to fail, the application stays pending and the admin can try again —
-        // whereas an approved record with no role is a state no screen shows
-        // and nobody would notice.
-        if (ApplicationStatus::grantsRole($status)) {
-            self::grantRole($user);
+        // The role is granted BEFORE the record is written, and a failed grant
+        // hands the claim back. An approved record whose user does not hold the
+        // role is a state no screen shows: the applicant is told they have
+        // wholesale access, the review screen says Approved, and the state
+        // machine then refuses every retry — so nobody can see it, let alone
+        // fix it, without editing user meta by hand. Staying pending is a
+        // recoverable outcome; that is not.
+        if (ApplicationStatus::grantsRole($status) && !self::grantRole($user)) {
+            self::releaseClaim($userId);
+
+            return null;
         }
 
         self::write($userId, $record);
@@ -318,22 +358,193 @@ class ApplicationStore
      * their own store. add_role() is a no-op when the user already holds it.
      *
      * @param \WP_User $user
-     * @return void
+     * @return bool Whether the user holds the role once this returns. The
+     *              caller MUST check it — @see review() for what an unnoticed
+     *              failure here would leave behind.
      */
     private static function grantRole($user)
     {
         if (in_array(AccessPolicy::WHOLESALE_ROLE, (array) $user->roles, true)) {
-            return;
+            return true;
         }
 
-        // A site can remove the role after the plugin created it. Adding an
+        // A site can remove the role after the plugin created it — a role
+        // manager plugin, a migration, a half-finished uninstall. Nothing
+        // re-creates it, because Activator only runs on activation. Adding an
         // unknown role slug writes a capability set of nothing, which looks
-        // like success and silently grants no access at all.
+        // exactly like success and grants no access at all.
         if (!get_role(AccessPolicy::WHOLESALE_ROLE)) {
-            return;
+            return false;
         }
 
         $user->add_role(AccessPolicy::WHOLESALE_ROLE);
+
+        // Re-read rather than trust: add_role() returns void, and a site can
+        // veto the write from `user_has_cap` or by filtering the roles option.
+        $fresh = get_userdata($user->ID);
+
+        return $fresh && in_array(AccessPolicy::WHOLESALE_ROLE, (array) $fresh->roles, true);
+    }
+
+    /**
+     * Keep answers to questions the owner has since removed.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY A MERGE AND NOT A REPLACE
+     * ---------------------------------------------------------------------------
+     *
+     * ApplicationInput::validate() walks the CURRENT schema, so a key whose
+     * question the owner deleted never appears in the new values. A plain
+     * replace would therefore delete that answer — and both places that show an
+     * application (the review screen and the admin's email) go out of their way
+     * to keep showing such an answer under its raw key, on the stated grounds
+     * that dropping it "would change the record in front of them without saying
+     * so".
+     *
+     * The write path has to honour the same promise, because the applicant is
+     * actively invited back: a pending application says "you can correct your
+     * answers below". An applicant fixing a typo in their tax ID must not
+     * silently erase the trade reference an admin read yesterday and is
+     * part-way through judging.
+     *
+     * A question the owner still asks is always overwritten by the new answer;
+     * only keys the schema no longer knows about survive.
+     *
+     * @param array<string, mixed> $existing Answers already stored.
+     * @param mixed                $values   New, schema-validated answers.
+     * @return array<string, mixed>
+     */
+    private static function mergeFields($existing, $values)
+    {
+        $values   = is_array($values) ? $values : [];
+        $existing = is_array($existing) ? $existing : [];
+
+        foreach ($existing as $key => $old) {
+            if (!array_key_exists($key, $values)) {
+                $values[$key] = $old;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Take the applicant's own row before writing their submission to it.
+     *
+     * The mirror of claim(), for the other direction. An applicant is allowed
+     * to write from NONE, PENDING or REJECTED, and the only interleave that
+     * matters is an admin deciding in between — @see saveApplication().
+     *
+     * The NONE case needs no claim and cannot have one: there is no status row
+     * yet, and review() only acts on a PENDING row, so there is nothing for a
+     * first-time submission to race with.
+     *
+     * PENDING -> PENDING writes the same value, so MySQL reports zero rows
+     * CHANGED even when the row matched — which is why this cannot simply trust
+     * the affected-row count the way claim() does. It reads the value back
+     * instead: whatever happened concurrently, the only state an applicant may
+     * proceed from is one where the row still says `pending`. An admin decision
+     * that landed first leaves `approved` or `rejected` there, and this refuses.
+     *
+     * @param int    $userId
+     * @param string $from The status read a moment ago.
+     * @return bool
+     */
+    private static function claimForApplicant($userId, $from)
+    {
+        if ($from === ApplicationStatus::NONE) {
+            return true;
+        }
+
+        global $wpdb;
+
+        $updated = $wpdb->update(
+            $wpdb->usermeta,
+            ['meta_value' => ApplicationStatus::PENDING],
+            [
+                'user_id'    => $userId,
+                'meta_key'   => self::META_STATUS,
+                'meta_value' => $from,
+            ],
+            ['%s'],
+            ['%d', '%s', '%s']
+        );
+
+        if ($updated === false) {
+            return false;
+        }
+
+        wp_cache_delete($userId, 'user_meta');
+
+        return self::statusFor($userId) === ApplicationStatus::PENDING;
+    }
+
+    /**
+     * Take exclusive ownership of a pending application's decision.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY A CONDITIONAL UPDATE AND NOT A LOCK
+     * ---------------------------------------------------------------------------
+     *
+     * The obvious mutex — write a lock option, do the work, delete it — has a
+     * failure mode this cannot afford: a request that dies between the two
+     * leaves a lock nothing ever clears, and the application becomes
+     * permanently undecidable. There is no safe timeout to pick either, because
+     * the work here sends mail and talks to a CRM.
+     *
+     * A single conditional UPDATE has no such state. `WHERE meta_value =
+     * 'pending'` means the database itself picks one winner: exactly one
+     * concurrent statement matches the row, the rest affect zero rows and back
+     * out. Nothing is left behind if the winner then crashes — the status is
+     * simply already decided, which is true.
+     *
+     * This is the one place the plugin writes user meta with $wpdb rather than
+     * update_user_meta(), because update_user_meta() cannot express "only if it
+     * still says pending". The object cache is cleared by hand for that reason.
+     *
+     * @param int    $userId
+     * @param string $status The decided status to claim the row for.
+     * @return bool True for the one caller that won the claim.
+     */
+    private static function claim($userId, $status)
+    {
+        global $wpdb;
+
+        $claimed = $wpdb->update(
+            $wpdb->usermeta,
+            ['meta_value' => $status],
+            [
+                'user_id'    => $userId,
+                'meta_key'   => self::META_STATUS,
+                'meta_value' => ApplicationStatus::PENDING,
+            ],
+            ['%s'],
+            ['%d', '%s', '%s']
+        );
+
+        // 0 means another request already moved the row; false means the query
+        // failed. Neither is a claim.
+        if ($claimed !== 1) {
+            return false;
+        }
+
+        // $wpdb wrote behind update_user_meta()'s back, so the cached copy is
+        // now stale. Without this, statusFor() in the same request would still
+        // read `pending`.
+        wp_cache_delete($userId, 'user_meta');
+
+        return true;
+    }
+
+    /**
+     * Hand a claim back, leaving the application pending for another try.
+     *
+     * @param int $userId
+     * @return void
+     */
+    private static function releaseClaim($userId)
+    {
+        update_user_meta($userId, self::META_STATUS, ApplicationStatus::PENDING);
     }
 
     /**
@@ -350,15 +561,24 @@ class ApplicationStore
      */
     public static function userHasWholesaleRole($user = null)
     {
-        if (is_numeric($user)) {
+        // "Not supplied" and "supplied but did not resolve" must not collapse
+        // into the same branch. They did, and the result was that asking about
+        // a deleted or unknown user id silently answered about the CURRENT
+        // user instead — so a reviewing admin's own roles could stand in for
+        // the applicant's. Every caller today happens to pass the live user id,
+        // but a "no" that turns into a "yes" on a role check is the wrong shape
+        // of bug to leave for the next caller.
+        if ($user === null) {
+            $user = wp_get_current_user();
+        } elseif (is_numeric($user)) {
             $user = get_userdata((int) $user);
         }
 
-        if (!$user) {
-            $user = wp_get_current_user();
+        if (!$user instanceof \WP_User) {
+            return false;
         }
 
-        return !empty($user->roles) && in_array(AccessPolicy::WHOLESALE_ROLE, (array) $user->roles, true);
+        return in_array(AccessPolicy::WHOLESALE_ROLE, (array) $user->roles, true);
     }
 
     /**

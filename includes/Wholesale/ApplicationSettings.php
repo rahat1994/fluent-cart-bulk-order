@@ -154,7 +154,76 @@ class ApplicationSettings
             ]);
         }
 
-        return ApplicationSchema::normalizeFields($rows);
+        $clean = ApplicationSchema::normalizeFields($rows);
+
+        self::reportDroppedFields($rows, $clean);
+
+        return $clean;
+    }
+
+    /**
+     * Tell the owner when a question they typed did not survive the save.
+     *
+     * ---------------------------------------------------------------------------
+     * A SILENT DROP IS THE WORST OUTCOME AVAILABLE
+     * ---------------------------------------------------------------------------
+     *
+     * ApplicationSchema drops rather than repairs, for good reasons it
+     * documents. But dropping in silence turns those reasons into a trap: the
+     * owner types a question, presses Save, is told "Settings saved", and
+     * believes their form asks something it does not ask. They find out when an
+     * admin reviews an application and the answer they were counting on is
+     * missing.
+     *
+     * The reachable-by-accident cases are all here in one sentence, because an
+     * owner cannot be expected to guess which one they hit: a label with no
+     * Latin letters or digits (any wholly non-Latin question), a key already
+     * taken by a built-in or by another row, and a "Choose one" with no choices.
+     *
+     * `add_settings_error()` rather than a stored flag: this runs inside
+     * options.php, which is exactly where the Settings API collects and then
+     * displays these on the redirect back.
+     *
+     * @param array<int, array<string, mixed>> $submitted Rows as typed.
+     * @param array<int, array<string, mixed>> $kept      Rows that survived.
+     * @return void
+     */
+    private static function reportDroppedFields($submitted, $kept)
+    {
+        if (!function_exists('add_settings_error')) {
+            return;
+        }
+
+        // A row with no label is the empty "add another" row, not a loss.
+        $asked = 0;
+        foreach ($submitted as $row) {
+            if (isset($row['label']) && trim((string) $row['label']) !== '') {
+                $asked++;
+            }
+        }
+
+        $dropped = $asked - count($kept);
+
+        if ($dropped < 1) {
+            return;
+        }
+
+        add_settings_error(
+            StoreDefaults::OPTION,
+            'fcbo_wholesale_fields_dropped',
+            sprintf(
+                /* translators: 1: how many questions were not saved, 2: the maximum number of extra questions. */
+                _n(
+                    '%1$d question could not be saved. A question needs a label containing Latin letters or digits — if yours is in another script, type a key yourself. The key must not be one another question uses, and company_name and tax_id belong to the two built-in questions. A "Choose one" question needs at least one choice. At most %2$d extra questions.',
+                    '%1$d questions could not be saved. A question needs a label containing Latin letters or digits — if yours is in another script, type a key yourself. The key must not be one another question uses, and company_name and tax_id belong to the two built-in questions. A "Choose one" question needs at least one choice. At most %2$d extra questions.',
+                    $dropped,
+                    'fluent-cart-bulk-order'
+                ),
+                $dropped,
+                ApplicationSchema::MAX_EXTRA_FIELDS
+            ),
+            'error'
+        );
     }
 
     /**

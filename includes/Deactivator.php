@@ -44,10 +44,17 @@ class Deactivator
      *     would NOT give those users their role back.
      *   - Product tier meta and users' saved lists are store content, not
      *     plugin scaffolding.
-     *   - No rewrite rules, cron events, custom tables or transients are
-     *     registered, so there is nothing to flush or unschedule either. (If a
-     *     future change adds any of those, unscheduling belongs HERE, not in
-     *     uninstall — a deactivated plugin must not leave cron jobs behind.)
+     *   - No rewrite rules, cron events or custom tables are registered, so
+     *     there is nothing to flush or unschedule either. (If a future change
+     *     adds any of those, unscheduling belongs HERE, not in uninstall — a
+     *     deactivated plugin must not leave cron jobs behind.)
+     *   - The two transients the plugin sets both expire on their own and need
+     *     no teardown: `fcbo_wholesale_feedback_{user_id}` lives 60 seconds and
+     *     is read-and-deleted on the next page view, and
+     *     `fcbo_wholesale_notified_{user_id}` lives 15 minutes. Core's
+     *     `delete_expired_transients()` sweep collects anything left by a
+     *     visitor who never came back. A LONGER-LIVED transient added later
+     *     would need deleting, and that too belongs HERE.
      *
      * The hook is still wired in the main plugin file so this reasoning has a
      * home, and so the next person adding cron or rewrite rules has an obvious
@@ -92,14 +99,23 @@ class Deactivator
      * That is also why deleting the APPLICATION records below does not touch
      * the role: the record is our paperwork, the role assignment is the user's.
      *
-     * On multisite the same cleanup runs once per site in the network — see
+     * On multisite the per-site cleanup runs once per site in the network — see
      * removeSiteData() and eachSiteId() below for why that loop is necessary and
-     * what it assumes.
+     * what it assumes. The user meta is network-wide, so it is removed once,
+     * before the loop rather than inside it.
      *
      * @return void
      */
     public static function uninstall()
     {
+        // ONCE, and outside the loop. `wp_usermeta` is one table for the whole
+        // network and these keys are not site-prefixed, so the first pass
+        // already removes them everywhere. Calling it per site would re-scan
+        // the biggest table on the install for every site in the network and
+        // delete nothing after the first — and eachSiteId() already warns that
+        // a large network's real risk here is max_execution_time.
+        self::removeWholesaleApplications();
+
         if (!is_multisite()) {
             self::removeSiteData();
 
@@ -121,16 +137,15 @@ class Deactivator
      *
      *   - `delete_option()` writes to the current site's options table.
      *   - `remove_role()` edits the current site's `{prefix}user_roles` option.
-     *   - The application meta keys are per-site too. On a network, user meta
-     *     lives in ONE table shared by every site, but the keys this plugin
-     *     writes are unprefixed and therefore already network-wide — so the
-     *     delete is idempotent across the loop rather than repeated work with
-     *     different results. @see removeWholesaleApplications()
+     *
+     * The wholesale application meta is deliberately NOT here. It is
+     * network-wide by nature, so uninstall() removes it once, before the loop.
+     * @see removeWholesaleApplications()
      *
      * Safe to call on a site that never activated the plugin, and safe to call
-     * twice: delete_option() on a missing option, remove_role() on a missing
-     * role and delete_metadata() on a missing key all no-op. That idempotency
-     * is what makes a timed-out delete recoverable — see eachSiteId().
+     * twice: delete_option() on a missing option and remove_role() on a missing
+     * role both no-op. That idempotency is what makes a timed-out delete
+     * recoverable — see eachSiteId().
      *
      * @return void
      */
@@ -145,8 +160,6 @@ class Deactivator
         // missing from this list before the wholesale flow existed, which left
         // a `fcbo_store_defaults` row behind on every uninstall.
         delete_option(StoreDefaults::OPTION);
-
-        self::removeWholesaleApplications();
 
         remove_role(AccessPolicy::WHOLESALE_ROLE);
     }

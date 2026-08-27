@@ -72,9 +72,24 @@ class ReviewScreen
      */
     public static function addMenu()
     {
-        $pending = ApplicationStore::countByStatus(ApplicationStatus::PENDING);
-
         $title = __('Wholesale Applications', 'fluent-cart-bulk-order');
+
+        // The capability check is NOT redundant with add_users_page() below,
+        // and it is not about security here — it is about cost.
+        //
+        // `admin_menu` fires on EVERY wp-admin request for EVERY logged-in
+        // user, a subscriber opening profile.php included. countByStatus() is a
+        // WP_User_Query with count_total, which compiles to a SQL_CALC_FOUND_ROWS
+        // over wp_users joined to wp_usermeta plus a SELECT FOUND_ROWS() — two
+        // real queries on a site with no persistent object cache, on the one
+        // table a FluentCart store keeps its whole customer list in.
+        //
+        // The number is only ever SHOWN to a user who holds the capability, so
+        // counting for anyone else buys nothing at all. add_users_page() still
+        // enforces the gate that matters.
+        $pending = current_user_can(self::CAPABILITY)
+            ? ApplicationStore::countByStatus(ApplicationStatus::PENDING)
+            : 0;
 
         // The count bubble is the whole discovery mechanism for this screen. An
         // owner who never notices an application has a feature that does not

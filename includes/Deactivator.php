@@ -67,18 +67,30 @@ class Deactivator
      * nothing else:
      *
      *   REMOVED  the three `fcbo_*` options (Gate 2 + Gate 3 policy)
+     *   REMOVED  `fcbo_store_defaults` (every other setting, including the
+     *            wholesale application's questions and its FluentCRM tag ids)
      *   REMOVED  the `wholesale-customer` role definition
+     *   REMOVED  the two wholesale application user meta keys, for every user.
+     *            @see removeWholesaleApplications() for why these are
+     *            scaffolding rather than customer content.
      *   KEPT     `fcbo_bulk_pricing` post meta — the per-product tier tables a
      *            store owner may have spent hours entering. Reinstalling the
      *            plugin picks them straight back up.
      *   KEPT     `fcbo_saved_lists` user meta — customers' own saved order
      *            lists. Deleting another person's data on an admin's uninstall
      *            click is not ours to do.
+     *   KEPT     Anything inside FluentCRM. The tags an owner pointed us at are
+     *            their tags, in their CRM, and the contacts we tagged are
+     *            contacts they already had. This plugin never created a tag
+     *            precisely so that uninstall has nothing to argue about.
      *
      * Users who hold `wholesale-customer` keep the assignment in their user
      * meta. WordPress treats an unknown role as no capabilities, so they lose
      * wholesale access (correct — the plugin is gone) without being edited, and
      * reinstalling restores them exactly.
+     *
+     * That is also why deleting the APPLICATION records below does not touch
+     * the role: the record is our paperwork, the role assignment is the user's.
      *
      * On multisite the same cleanup runs once per site in the network — see
      * removeSiteData() and eachSiteId() below for why that loop is necessary and
@@ -104,16 +116,21 @@ class Deactivator
     /**
      * Delete this plugin's data for ONE site — whichever site is current.
      *
-     * Both calls are per-site by nature, which is the whole reason uninstall()
+     * Every call is per-site by nature, which is the whole reason uninstall()
      * has to loop on a network:
      *
      *   - `delete_option()` writes to the current site's options table.
      *   - `remove_role()` edits the current site's `{prefix}user_roles` option.
+     *   - The application meta keys are per-site too. On a network, user meta
+     *     lives in ONE table shared by every site, but the keys this plugin
+     *     writes are unprefixed and therefore already network-wide — so the
+     *     delete is idempotent across the loop rather than repeated work with
+     *     different results. @see removeWholesaleApplications()
      *
      * Safe to call on a site that never activated the plugin, and safe to call
-     * twice: delete_option() on a missing option and remove_role() on a missing
-     * role both no-op. That idempotency is what makes a timed-out delete
-     * recoverable — see eachSiteId().
+     * twice: delete_option() on a missing option, remove_role() on a missing
+     * role and delete_metadata() on a missing key all no-op. That idempotency
+     * is what makes a timed-out delete recoverable — see eachSiteId().
      *
      * @return void
      */
@@ -123,7 +140,57 @@ class Deactivator
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL);
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL_ROLES);
 
+        // Every setting that is not one of the three role gates, including the
+        // wholesale application's questions and its FluentCRM tag ids. It was
+        // missing from this list before the wholesale flow existed, which left
+        // a `fcbo_store_defaults` row behind on every uninstall.
+        delete_option(StoreDefaults::OPTION);
+
+        self::removeWholesaleApplications();
+
         remove_role(AccessPolicy::WHOLESALE_ROLE);
+    }
+
+    /**
+     * Delete every wholesale application record.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THIS GOES AND `fcbo_saved_lists` STAYS
+     * ---------------------------------------------------------------------------
+     *
+     * A saved order is something a CUSTOMER made for themselves — a basket they
+     * assembled and named, useful to them and to nobody else. Deleting it on an
+     * admin's uninstall click is not ours to do.
+     *
+     * An application record is the opposite: it is this plugin's paperwork
+     * about a decision an ADMIN made, and it has no meaning without the plugin
+     * that reads it. Leaving it behind would put two orphan meta rows on every
+     * applicant, invisible in wp-admin (both keys are underscore-prefixed and
+     * therefore protected), that nothing will ever clean up.
+     *
+     * What does NOT go is the role assignment. A user who was approved keeps
+     * `wholesale-customer` in their capabilities, exactly like every other user
+     * who holds it — see the docblock on uninstall(). Deleting the record does
+     * not revoke anything; it deletes the note about when it was granted.
+     *
+     * `delete_metadata()` with `$delete_all = true` is the one call that
+     * removes a meta key for every user in one query, rather than paging
+     * through the user table. The `$object_id` and `$meta_value` arguments are
+     * ignored when that flag is set, which is why they are 0 and ''.
+     *
+     * The key names are hardcoded rather than read from ApplicationStore. That
+     * class pulls in AccessPolicy and the whole Wholesale namespace, and
+     * uninstall.php deliberately loads as little as it can get away with —
+     * @see uninstall.php. The trade is two strings that must not drift; the
+     * constants on ApplicationStore name this method so the next person
+     * renaming one finds it.
+     *
+     * @return void
+     */
+    private static function removeWholesaleApplications()
+    {
+        delete_metadata('user', 0, '_fcbo_wholesale_application', '', true);
+        delete_metadata('user', 0, '_fcbo_wholesale_status', '', true);
     }
 
     /**

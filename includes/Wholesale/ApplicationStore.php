@@ -63,11 +63,17 @@ class ApplicationStore
      * out of the Custom Fields box on the user editor — an admin must not be
      * able to hand-edit a status into `approved` there, because that would
      * bypass the role grant and leave the two disagreeing.
+     *
+     * RENAMING THIS ALSO MEANS EDITING
+     * \FluentCartBulkOrder\Deactivator::removeWholesaleApplications(), which
+     * repeats the literal because uninstall.php must not load this class.
      */
     const META_RECORD = '_fcbo_wholesale_application';
 
     /**
      * The record's status, duplicated for querying. @see the class docblock.
+     *
+     * Same rename caveat as META_RECORD.
      */
     const META_STATUS = '_fcbo_wholesale_status';
 

@@ -75,7 +75,8 @@ class Deactivator
      *
      *   REMOVED  the three `fcbo_*` options (Gate 2 + Gate 3 policy)
      *   REMOVED  `fcbo_store_defaults` (every other setting, including the
-     *            wholesale application's questions and its FluentCRM tag ids)
+     *            wholesale application's questions, its FluentCRM tag ids, and
+     *            the purchase-order field's mode and role list)
      *   REMOVED  the `wholesale-customer` role definition
      *   REMOVED  the two wholesale application user meta keys, for every user.
      *            @see removeWholesaleApplications() for why these are
@@ -87,6 +88,14 @@ class Deactivator
      *   KEPT     `fcbo_saved_lists` user meta — customers' own saved order
      *            lists. Deleting another person's data on an admin's uninstall
      *            click is not ours to do.
+     *   KEPT     `fcbo_po_number` rows in FluentCart's `fct_order_meta` table.
+     *            A purchase-order number is part of a completed sale: it is the
+     *            reference the buyer's accounts department paid against, and it
+     *            sits in the HOST's table beside the order it belongs to. This
+     *            plugin put it there, but deleting it would edit the store's own
+     *            accounting record — the same line that keeps a converted
+     *            quote's FluentCart order. Reinstalling reads the existing
+     *            values straight back.
      *   KEPT     Anything inside FluentCRM. The tags an owner pointed us at are
      *            their tags, in their CRM, and the contacts we tagged are
      *            contacts they already had. This plugin never created a tag

@@ -57,6 +57,15 @@ require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationInput.php';
 require_once dirname(__DIR__) . '/includes/Quotes/QuoteStatus.php';
 require_once dirname(__DIR__) . '/includes/Quotes/QuoteInput.php';
 
+// The two pure classes behind the B2B checkout extras. PoNumber decides
+// whether a checkout is refused for a missing purchase-order number, and
+// OrderCsv decides what ends up in a file the store hands to a buyer's
+// accounts department. Both fail silently when they are wrong: an unreadable
+// mode that defaulted to "required" would stop a store selling, and a cell a
+// spreadsheet runs as a formula still downloads perfectly.
+require_once dirname(__DIR__) . '/includes/Checkout/PoNumber.php';
+require_once dirname(__DIR__) . '/includes/Export/OrderCsv.php';
+
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';

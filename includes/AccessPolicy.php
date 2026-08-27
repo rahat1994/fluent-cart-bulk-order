@@ -8,10 +8,10 @@ defined('ABSPATH') || exit;
  * Every access gate in the plugin, in one place.
  *
  * ---------------------------------------------------------------------------
- * THE THREE GATES — an overall view
+ * THE FOUR GATES — an overall view
  * ---------------------------------------------------------------------------
  *
- * The plugin has THREE independent role gates. They are separate on purpose,
+ * The plugin has FOUR independent role gates. They are separate on purpose,
  * they use DIFFERENT role lists, and they have DIFFERENT empty-list meanings.
  * Confusing one for another is the single most common source of "why can't my
  * customer see this?" bugs, so the whole set is documented together here.
@@ -42,6 +42,25 @@ defined('ABSPATH') || exit;
  *                     checkouts on upgrade.
  *       Guards      : the checkout backstop (fcbo_validate_checkout_minimum).
  *       Entry points: minOrderTotalRoles(), userSubjectToMinOrder()
+ *
+ *   GATE 4 — PO NUMBER. "Is this shopper asked for a purchase-order number?"
+ *       Roles from  : StoreDefaults `po_roles` (Settings > Purchase Orders).
+ *       Empty means : EVERY shopper, guests included — like Gate 2, NOT Gate 3.
+ *                     Read the note below before changing that.
+ *       Guards      : the checkout field, its server-side backstop, and whether
+ *                     the field is drawn at all.
+ *       Entry points: poNumberRoles(), userSubjectToPoNumber()
+ *
+ *       WHY NOT GATE 3'S "EMPTY MEANS NOBODY" RULE. Gate 3 has no on/off
+ *       switch of its own: a non-zero amount IS the switch, so its role list
+ *       has to carry the "not configured yet" meaning or an upgrade would start
+ *       refusing retail checkouts. Gate 4 has an explicit three-state mode that
+ *       is OFF by default (@see \FluentCartBulkOrder\Checkout\PoNumber), so
+ *       nothing here can fire until an owner deliberately turns it on. That
+ *       frees the role list to mean the plainer thing — "no restriction" — and
+ *       an owner who wants PO numbers from wholesale buyers only ticks the
+ *       roles. The settings page states, in words, who the current combination
+ *       actually binds. @see \FluentCartBulkOrder\Settings::renderPoAudienceField()
  *
  * ---------------------------------------------------------------------------
  * HOW THE GATES INTERACT — the traps
@@ -340,6 +359,57 @@ class AccessPolicy
         $subject   = !empty($roles) && (bool) array_intersect($roles, $userRoles);
 
         return (bool) apply_filters('fcbo/user_subject_to_min_order', $subject, $user);
+    }
+
+    /* =====================================================================
+     * GATE 4 — PO NUMBER
+     * ===================================================================== */
+
+    /**
+     * Roles the PO number field applies to.
+     *
+     * Stored inside the StoreDefaults array rather than as a top-level option,
+     * because it is new: the three `fcbo_*` options exist only because they
+     * predate that array, and adding a fourth would be copying a compatibility
+     * decision as if it were a design one.
+     *
+     * An empty list means EVERY shopper. @see the Gate 4 note in this class'
+     * docblock for why that is Gate 2's rule and not Gate 3's.
+     *
+     * @return string[] Role slugs; empty = no restriction.
+     */
+    public static function poNumberRoles()
+    {
+        return (array) StoreDefaults::get('po_roles', []);
+    }
+
+    /**
+     * Whether a shopper is asked for a purchase-order number.
+     *
+     * Answers WHO only. Whether the field is shown at all, and whether an empty
+     * one refuses the checkout, is the mode's business —
+     * @see \FluentCartBulkOrder\Checkout\PoSettings, which ANDs the two.
+     *
+     * Note this is the one gate that must give a sensible answer for a
+     * logged-out shopper, because a store can take a guest checkout.
+     * wp_get_current_user() returns a user with no roles for a guest, so an
+     * empty policy includes them and a role-scoped policy does not — which is
+     * the right answer both ways round.
+     *
+     * @param \WP_User|null $user Defaults to the current user.
+     * @return bool
+     */
+    public static function userSubjectToPoNumber($user = null)
+    {
+        if ($user === null) {
+            $user = wp_get_current_user();
+        }
+
+        $roles     = self::poNumberRoles();
+        $userRoles = isset($user->roles) ? (array) $user->roles : [];
+        $subject   = empty($roles) || (bool) array_intersect($roles, $userRoles);
+
+        return (bool) apply_filters('fcbo/user_subject_to_po_number', $subject, $user);
     }
 
     /* =====================================================================

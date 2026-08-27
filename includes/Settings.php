@@ -14,15 +14,17 @@ defined('ABSPATH') || exit;
  * This class owns the FORM only. The values behind it are split in two, and the
  * split is deliberate:
  *
- *   - The three role gates keep their own top-level options, named by
+ *   - Three of the four role gates keep their own top-level options, named by
  *     AccessPolicy (`fcbo_apply_to_roles`, `fcbo_min_order_total`,
  *     `fcbo_min_order_total_roles`). They predate this page; renaming them would
  *     drop the saved policy of every store that already configured one.
  *
  *   - Everything else lives in one serialized array owned by StoreDefaults,
- *     which also holds the sanitizer and the precedence rule.
+ *     which also holds the sanitizer and the precedence rule. Gate 4, the PO
+ *     number policy, is there rather than in an option of its own — the three
+ *     above are a compatibility decision, not a pattern to copy.
  *
- * The gate LOGIC is in AccessPolicy, which documents how the three gates differ.
+ * The gate LOGIC is in AccessPolicy, which documents how the gates differ.
  * Nothing here decides who gets what; it only stores what the owner chose.
  *
  * ---------------------------------------------------------------------------
@@ -110,6 +112,7 @@ class Settings
         $this->registerMinOrderSection();
         $this->registerProductTableSection();
         $this->registerCheckoutSection();
+        $this->registerPoNumberSection();
         $this->registerQuotesSection();
         $this->registerWholesaleSection();
     }
@@ -297,6 +300,47 @@ class Settings
             [$this, 'renderCheckoutRedirectField'],
             self::PAGE_SLUG,
             'fcbo_checkout_section'
+        );
+    }
+
+    /**
+     * The purchase-order field at checkout, and who is asked for one.
+     *
+     * No register_setting() call of its own — both values live in the single
+     * `fcbo_store_defaults` option that registerStoreDefaults() already
+     * registered, and are validated by StoreDefaults::sanitize().
+     */
+    private function registerPoNumberSection()
+    {
+        add_settings_section(
+            'fcbo_po_section',
+            __('Purchase Orders', 'fluent-cart-bulk-order'),
+            [$this, 'renderPoIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_po_mode_field',
+            __('PO number field', 'fluent-cart-bulk-order'),
+            [$this, 'renderPoModeField'],
+            self::PAGE_SLUG,
+            'fcbo_po_section'
+        );
+
+        add_settings_field(
+            'fcbo_po_roles_field',
+            __('Ask these roles', 'fluent-cart-bulk-order'),
+            [$this, 'renderPoRolesField'],
+            self::PAGE_SLUG,
+            'fcbo_po_section'
+        );
+
+        add_settings_field(
+            'fcbo_po_audience_field',
+            __('Who this binds', 'fluent-cart-bulk-order'),
+            [$this, 'renderPoAudienceField'],
+            self::PAGE_SLUG,
+            'fcbo_po_section'
         );
     }
 
@@ -766,6 +810,207 @@ class Settings
             'Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A "redirect" attribute on the shortcode still wins for that placement.',
             'fluent-cart-bulk-order'
         ) . '</p>';
+    }
+
+    /* =====================================================================
+     * Purchase orders
+     * ===================================================================== */
+
+    /**
+     * Load the purchase-order classes this page reads.
+     *
+     * Lazily, and only here, for the same reason loadWholesale() is: Settings
+     * is required on EVERY page load, and these fields render on one admin
+     * screen.
+     *
+     * @return void
+     */
+    private function loadPoNumber()
+    {
+        require_once __DIR__ . '/Checkout/PoNumber.php';
+        require_once __DIR__ . '/Checkout/PoSettings.php';
+        require_once __DIR__ . '/Export/OrderExportFlow.php';
+        require_once __DIR__ . '/Export/OrderExportScreen.php';
+    }
+
+    /**
+     * Section intro.
+     */
+    public function renderPoIntro()
+    {
+        $this->loadPoNumber();
+
+        printf(
+            '<p>%s</p>',
+            esc_html__(
+                'Purchasing departments buy against a purchase-order number and need it on the paperwork. Turn this on and the field appears at checkout, is saved with the order, and is printed on the receipt and in every export.',
+                'fluent-cart-bulk-order'
+            )
+        );
+
+        printf(
+            '<p><a href="%1$s">%2$s</a></p>',
+            esc_url(\FluentCartBulkOrder\Export\OrderExportScreen::pageUrl()),
+            esc_html__('Open the order exports screen', 'fluent-cart-bulk-order')
+        );
+    }
+
+    /**
+     * The three states, as radio buttons.
+     *
+     * Radios and not a checkbox pair, because the three states are one value.
+     * @see \FluentCartBulkOrder\Checkout\PoNumber for why a boolean "enabled"
+     * plus a boolean "required" would admit a fourth combination that has no
+     * meaning.
+     */
+    public function renderPoModeField()
+    {
+        $this->loadPoNumber();
+
+        $current = \FluentCartBulkOrder\Checkout\PoSettings::mode();
+        $name    = $this->defaultsName('po_mode');
+
+        $labels = [
+            \FluentCartBulkOrder\Checkout\PoNumber::MODE_OFF      => __('Off — do not ask (default)', 'fluent-cart-bulk-order'),
+            \FluentCartBulkOrder\Checkout\PoNumber::MODE_OPTIONAL => __('Optional — show the field, allow an empty one', 'fluent-cart-bulk-order'),
+            \FluentCartBulkOrder\Checkout\PoNumber::MODE_REQUIRED => __('Required — refuse the order without one', 'fluent-cart-bulk-order'),
+        ];
+
+        echo '<fieldset>';
+
+        foreach (\FluentCartBulkOrder\Checkout\PoNumber::modes() as $mode) {
+            printf(
+                '<label style="display:block;margin-bottom:4px;"><input type="radio" name="%1$s" value="%2$s" %3$s /> %4$s</label>',
+                esc_attr($name),
+                esc_attr($mode),
+                checked($current, $mode, false),
+                esc_html(isset($labels[$mode]) ? $labels[$mode] : $mode)
+            );
+        }
+
+        echo '</fieldset>';
+
+        printf(
+            '<p class="description">%s</p>',
+            esc_html(sprintf(
+                /* translators: %d: the maximum number of characters a PO number may have. */
+                __('"Required" is enforced on the server, so it holds even if the checkout page is edited. Up to %d characters; anything longer is shortened rather than refused.', 'fluent-cart-bulk-order'),
+                \FluentCartBulkOrder\Checkout\PoNumber::MAX_LENGTH
+            ))
+        );
+    }
+
+    /**
+     * Checklist of the roles the field binds.
+     */
+    public function renderPoRolesField()
+    {
+        $selected = (array) StoreDefaults::get('po_roles', []);
+        $roles    = $this->getEditableRoles();
+        $name     = $this->defaultsName('po_roles');
+
+        // Hidden field so an all-unchecked submission still reaches the
+        // sanitizer, which is what lets the owner clear the list back to
+        // "everyone".
+        echo '<input type="hidden" name="' . esc_attr($name) . '[]" value="" />';
+
+        echo '<fieldset>';
+        foreach ($roles as $slug => $details) {
+            printf(
+                '<label style="display:block;margin-bottom:4px;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
+                esc_attr($name),
+                esc_attr($slug),
+                checked(in_array($slug, $selected, true), true, false),
+                esc_html(isset($details['name']) ? $details['name'] : $slug)
+            );
+        }
+        echo '</fieldset>';
+
+        printf(
+            '<p class="description">%s</p>',
+            esc_html__(
+                'Leave all unchecked and every shopper is asked, including logged-out ones. Tick the wholesale roles to ask only your trade buyers.',
+                'fluent-cart-bulk-order'
+            )
+        );
+    }
+
+    /**
+     * Say, in plain words, who the current combination actually binds.
+     *
+     * ---------------------------------------------------------------------------
+     * A PROJECTION, NOT A SECOND SETTING
+     * ---------------------------------------------------------------------------
+     *
+     * Stores nothing. It reads the same two values the fields above write and
+     * states their effect, exactly as renderPricingVisibilityField() does for
+     * the bulk-pricing policy — and for the same reason. The pair of controls
+     * does not answer the question an owner actually has, which is "am I about
+     * to stop retail customers checking out?" On an empty role list with the
+     * mode set to Required, the honest answer is yes, and it should be said
+     * before they press Save rather than discovered afterwards.
+     */
+    public function renderPoAudienceField()
+    {
+        $this->loadPoNumber();
+
+        $mode  = \FluentCartBulkOrder\Checkout\PoSettings::mode();
+        $roles = AccessPolicy::poNumberRoles();
+
+        if (!\FluentCartBulkOrder\Checkout\PoNumber::isOn($mode)) {
+            printf(
+                '<p><strong>%s</strong></p>',
+                esc_html__('Nobody. The field does not appear at checkout.', 'fluent-cart-bulk-order')
+            );
+
+            return;
+        }
+
+        $required = \FluentCartBulkOrder\Checkout\PoNumber::isRequired($mode);
+
+        if (!$roles) {
+            printf(
+                '<p><strong>%s</strong></p>',
+                esc_html(
+                    $required
+                        ? __('EVERY shopper, including logged-out ones, must enter a PO number to complete an order.', 'fluent-cart-bulk-order')
+                        : __('Every shopper, including logged-out ones, is offered the field. Nobody is refused for leaving it blank.', 'fluent-cart-bulk-order')
+                )
+            );
+
+            if ($required) {
+                printf(
+                    '<p class="description">%s</p>',
+                    esc_html__('That includes your retail customers. If you only want it from trade buyers, tick their roles above.', 'fluent-cart-bulk-order')
+                );
+            }
+
+            return;
+        }
+
+        $editable = $this->getEditableRoles();
+        $names    = [];
+        foreach ($roles as $slug) {
+            $names[] = isset($editable[$slug]['name']) ? $editable[$slug]['name'] : $slug;
+        }
+
+        if ($required) {
+            /* translators: %s: comma-separated list of role names. */
+            $format = __('Only these roles are asked, and they must answer: %s.', 'fluent-cart-bulk-order');
+        } else {
+            /* translators: %s: comma-separated list of role names. */
+            $format = __('Only these roles are offered the field: %s.', 'fluent-cart-bulk-order');
+        }
+
+        printf(
+            '<p><strong>%s</strong></p>',
+            esc_html(sprintf($format, implode(', ', $names)))
+        );
+
+        printf(
+            '<p class="description">%s</p>',
+            esc_html__('Everyone else checks out exactly as they do today.', 'fluent-cart-bulk-order')
+        );
     }
 
     /* =====================================================================

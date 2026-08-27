@@ -27,7 +27,9 @@ defined('ABSPATH') || exit;
  * WHY A SEPARATE OPTION FROM THE ROLE GATES
  * ---------------------------------------------------------------------------
  *
- * The three role gates keep their own top-level options (see AccessPolicy).
+ * The role gates that PREDATE this option keep their own top-level ones (see
+ * AccessPolicy; Gate 4 was added after it and lives in here, as everything new
+ * should).
  * Folding them in here would rename live options and silently drop the policy
  * of every store that already saved one. Everything genuinely NEW lives in this
  * single serialized array instead, so later work adds a key and a line to
@@ -95,6 +97,24 @@ class StoreDefaults
         // @see \FluentCartBulkOrder\Quotes\QuoteSettings
         'quotes_enabled'      => false,
         'quotes_notify_admin' => true,
+
+        // The purchase-order field at checkout. OFF by default for the same
+        // reason quotes are: an existing store's checkout must look exactly the
+        // same after an upgrade as it did before it. `po_roles` is Gate 4 and an
+        // empty list there means EVERY shopper — safe only because the mode
+        // above is off until an owner turns it on.
+        // @see \FluentCartBulkOrder\Checkout\PoNumber
+        // @see \FluentCartBulkOrder\AccessPolicy for the Gate 4 note.
+        //
+        // The literal 'off' rather than PoNumber::MODE_OFF, deliberately. This
+        // array is read on EVERY page load (Gate 1 goes through all()), and a
+        // class constant here would make that read pull in a file this one has
+        // no reason to load. Same rule Deactivator follows for the wholesale
+        // meta keys. The two must not drift; PoNumber::sanitizeMode() maps
+        // anything unrecognised back to 'off', so the worst a drift can do is
+        // land on this same value.
+        'po_mode'  => 'off',
+        'po_roles' => [],
     ];
 
     /**
@@ -205,7 +225,40 @@ class StoreDefaults
         $clean['quotes_enabled']      = !empty($value['quotes_enabled']);
         $clean['quotes_notify_admin'] = !empty($value['quotes_notify_admin']);
 
+        $clean = array_merge($clean, self::sanitizePoNumber($value));
+
         return $clean;
+    }
+
+    /**
+     * Validate the purchase-order settings.
+     *
+     * Split out for the same reason sanitizeWholesale() is: the mode is judged
+     * by \FluentCartBulkOrder\Checkout\PoNumber, which owns every rule about
+     * what a legal mode is — including that anything unreadable becomes OFF
+     * rather than REQUIRED, so a corrupted option cannot stop a store selling.
+     *
+     * The file is required lazily. This branch only runs when an admin presses
+     * Save, while StoreDefaults itself is parsed on every page load.
+     *
+     * @param array<string, mixed> $value Raw submitted value.
+     * @return array<string, mixed>
+     */
+    private static function sanitizePoNumber($value)
+    {
+        require_once __DIR__ . '/Checkout/PoNumber.php';
+
+        return [
+            'po_mode'  => \FluentCartBulkOrder\Checkout\PoNumber::sanitizeMode(
+                isset($value['po_mode']) ? $value['po_mode'] : self::FALLBACKS['po_mode']
+            ),
+            // Gate 4. Empty means every shopper, so an all-unchecked submission
+            // has to reach here — which is what the hidden field on the
+            // settings page guarantees.
+            'po_roles' => AccessPolicy::sanitizeRoleList(
+                isset($value['po_roles']) ? $value['po_roles'] : []
+            ),
+        ];
     }
 
     /**

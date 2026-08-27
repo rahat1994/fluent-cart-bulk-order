@@ -13,8 +13,8 @@ defined('ABSPATH') || exit;
  *
  * fluent-cart-bulk-order.php is header, constants, hook wiring, loaders and
  * thin delegates, and it is that way after a deliberate 41% cut. This feature
- * needs four hooks and five classes; wiring them there would put five more
- * loader functions in a file whose whole point is not to grow.
+ * needs eight hooks and seven classes; wiring them there would put a loader
+ * function per class in a file whose whole point is not to grow.
  *
  * So the main file gets two lines — require this, call register() — and this
  * class owns the rest. Same shape as ShortcodeHandler: one registry, read end
@@ -27,6 +27,11 @@ defined('ABSPATH') || exit;
  * register() adds hooks and does nothing else. Every callback below calls
  * load() first, so on an ordinary storefront page load — no form, no admin, no
  * submission — the cost of this whole feature is parsing THIS file.
+ *
+ * That is also why every callback is a method of THIS class rather than of the
+ * class it delegates to. Hooking `Notifier` directly would mean the flow's own
+ * actions could fire before anything had required Notifier.php, and WordPress
+ * answers an uncallable callback with a fatal. @see register().
  *
  * The shortcode is not registered here. It lives in
  * ShortcodeHandler::SHORTCODES with the other tags, so there is still exactly

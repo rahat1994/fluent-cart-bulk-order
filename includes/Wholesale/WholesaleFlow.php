@@ -65,6 +65,15 @@ class WholesaleFlow
     const NONCE_REVIEW = 'fcbo_wholesale_review';
 
     /**
+     * The FluentCRM bridge, named as a STRING rather than with `::class`.
+     *
+     * `ContactTagger::class` is resolved at parse time and would pull the file
+     * into every request just to name it. A string names it without loading it.
+     * @see \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger
+     */
+    const CRM_TAGGER = 'FluentCartBulkOrder\\Integrations\\FluentCrm\\ContactTagger';
+
+    /**
      * Wire the flow into WordPress.
      *
      * Called from the `plugins_loaded` handler in the main plugin file, inside
@@ -98,6 +107,20 @@ class WholesaleFlow
         // string form.
         add_action('fcbo/wholesale/application_submitted', [__NAMESPACE__ . '\\Notifier', 'onSubmitted'], 10, 3);
         add_action('fcbo/wholesale/application_reviewed', [__NAMESPACE__ . '\\Notifier', 'onReviewed'], 10, 3);
+
+        // FluentCRM tagging, on the same two actions.
+        //
+        // Registered UNCONDITIONALLY, even on the overwhelming majority of
+        // stores that have no FluentCRM. Checking here would be checking at the
+        // wrong moment: FLUENTCRM is defined when FluentCRM's main file is
+        // parsed, but its `FluentCrmApi()` helper may not be loaded yet on
+        // `plugins_loaded`, so a check now can be a false negative that
+        // silently disables the integration for the whole request. The guard
+        // belongs at CALL time, and lives on ContactTagger itself, which exits
+        // before loading or querying anything when FluentCRM is absent or when
+        // no tag has been chosen.
+        add_action('fcbo/wholesale/application_submitted', [self::CRM_TAGGER, 'onSubmitted'], 20, 3);
+        add_action('fcbo/wholesale/application_reviewed', [self::CRM_TAGGER, 'onReviewed'], 20, 3);
 
         // The review screen. `is_admin()` keeps its class off every front-end
         // page load; the capability that actually protects it is checked twice
@@ -169,5 +192,11 @@ class WholesaleFlow
         require_once __DIR__ . '/ApplicationController.php';
         require_once __DIR__ . '/ReviewScreen.php';
         require_once __DIR__ . '/Notifier.php';
+
+        // The FluentCRM bridge loads with the rest, because the actions it
+        // listens on fire from ApplicationStore on exactly the paths that call
+        // load(). The file names no FluentCRM class at parse time, so loading
+        // it on a store without FluentCRM is safe and costs one parse.
+        require_once dirname(__DIR__) . '/Integrations/FluentCrm/ContactTagger.php';
     }
 }

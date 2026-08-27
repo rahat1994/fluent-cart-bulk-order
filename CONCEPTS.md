@@ -16,6 +16,13 @@ A customer role granted access to the plugin's bulk-ordering surfaces, distinct 
 
 Along with administrators (and multisite super admins), a Wholesale Customer is permitted to reach the Bulk Order Form, the Product Table, and their backing REST endpoints; other roles are denied. The set of permitted roles is a single, extensible policy shared by both the on-page surfaces and the REST layer, so a change applies to both at once.
 
+### Wholesale Application
+A signed-in shopper's request to be made a Wholesale Customer, together with the answers they gave and the decision an administrator made on it. *Avoid:* wholesale request, signup.
+
+Every applicant is an existing user account, because the outcome of an approval is a role granted to that account — there is no such thing as an application without a user. A user holds at most one application: applying again while one is waiting replaces it rather than queueing a second, and a rejected applicant may apply again on the same record. Only an administrator's decision moves an application, only a waiting one can be decided, and an approved one is final — the role can afterwards be taken away by editing the user, which is not the same act as reversing the decision.
+
+The questions asked are the store's own: a company name and a tax identifier always, plus whatever else the owner has configured. Because the question list can change after an application was sent, an answer is kept under the key of the question that asked it, and an answer whose question has since been removed is still shown to the reviewer rather than hidden.
+
 ### Bulk Order Form
 The access-gated surface where a permitted user assembles a multi-line order — searching products, choosing variants, and setting quantities — then sends the whole order to checkout in one action.
 

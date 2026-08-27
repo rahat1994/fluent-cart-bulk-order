@@ -1,0 +1,45 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "fluent-cart-bulk-order/product-table",
+	"title": "Product Table",
+	"category": "widgets",
+	"icon": "editor-table",
+	"description": "A paged, searchable catalogue table with per-row quantity entry and quick add-to-cart.",
+	"keywords": ["catalogue", "catalog", "products", "table", "fluentcart"],
+	"textdomain": "fluent-cart-bulk-order",
+	"supports": {
+		"html": false,
+		"className": false,
+		"customClassName": false,
+		"multiple": false,
+		"reusable": true
+	},
+	"editorScript": "fcbo-blocks-editor",
+	"attributes": {
+		"per_page": {
+			"type": "string",
+			"default": ""
+		},
+		"columns": {
+			"type": "string",
+			"default": ""
+		},
+		"search": {
+			"type": "string",
+			"default": ""
+		},
+		"category": {
+			"type": "string",
+			"default": ""
+		},
+		"roles": {
+			"type": "string",
+			"default": ""
+		},
+		"expand_variants": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

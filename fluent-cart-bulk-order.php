@@ -74,6 +74,12 @@ add_action('plugins_loaded', function () {
     require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
     (new \FluentCartBulkOrder\Shortcodes\ShortcodeHandler())->register();
 
+    // A block editor wrapper over two of those tags, for owners who never touch
+    // a shortcode. Both render THROUGH the shortcodes above, so they inherit the
+    // gates and the store-wide defaults rather than reimplementing them. `init`
+    // because register_block_type() must not run earlier than that.
+    add_action('init', 'fcbo_register_blocks');
+
     add_action('rest_api_init', 'fcbo_register_routes');
 
     add_action('fluent_cart/init', function () {
@@ -313,6 +319,35 @@ function fcbo_render_shortcode($atts = [])
     require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
 
     return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_bulk_order', $atts);
+}
+
+/**
+ * Load the block editor wrappers.
+ *
+ * Required on demand, like every other loader here: the block layer matters on
+ * `init` and on a page that actually contains a block, and nowhere else.
+ * AttributeSchema comes along because BlockHandler cannot map a single
+ * attribute without it.
+ *
+ * @return void
+ */
+function fcbo_load_blocks()
+{
+    require_once FCBO_DIR . 'includes/Shortcodes/AttributeSchema.php';
+    require_once FCBO_DIR . 'includes/Blocks/BlockHandler.php';
+}
+
+/**
+ * Register the Gutenberg blocks for the bulk order form and the product table.
+ *
+ * @see \FluentCartBulkOrder\Blocks\BlockHandler::register()
+ * @return void
+ */
+function fcbo_register_blocks()
+{
+    fcbo_load_blocks();
+
+    \FluentCartBulkOrder\Blocks\BlockHandler::register();
 }
 
 /**

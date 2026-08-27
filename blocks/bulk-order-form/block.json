@@ -1,0 +1,29 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "fluent-cart-bulk-order/bulk-order-form",
+	"title": "Bulk Order Form",
+	"category": "widgets",
+	"icon": "clipboard",
+	"description": "The bulk order form: search products by name or SKU, paste a SKU list, set quantities and send the whole order to checkout.",
+	"keywords": ["bulk", "wholesale", "order", "fluentcart"],
+	"textdomain": "fluent-cart-bulk-order",
+	"supports": {
+		"html": false,
+		"className": false,
+		"customClassName": false,
+		"multiple": false,
+		"reusable": true
+	},
+	"editorScript": "fcbo-blocks-editor",
+	"attributes": {
+		"roles": {
+			"type": "string",
+			"default": ""
+		},
+		"redirect": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

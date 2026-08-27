@@ -2,6 +2,7 @@
     'use strict';
 
     var CONFIG = window.fcboSoConfig || {};
+    var I18N = CONFIG.i18n || {};
     var tbody = null;
     var ORDERS = []; // last-fetched, resolved saved orders
 
@@ -54,11 +55,11 @@
             var o = ORDERS[i];
             // Only label the groups when both kinds are present.
             if (o.source !== 'past' && hasPast && !savedHeaderShown) {
-                html += dividerRow('Saved orders');
+                html += dividerRow(t('divider_saved'));
                 savedHeaderShown = true;
             }
             if (o.source === 'past' && !pastHeaderShown) {
-                html += dividerRow('Past orders');
+                html += dividerRow(t('divider_past'));
                 pastHeaderShown = true;
             }
             html += summaryRow(o, i);
@@ -174,7 +175,7 @@
         var skipped = (order.items || []).length - available.length;
 
         if (!available.length) {
-            showStatus('None of the items in this order are available anymore.', 'error');
+            showStatus(t('nothing_available'), 'error');
             return;
         }
 
@@ -192,16 +193,18 @@
         }
 
         if (hasSubscription && hasOnetime) {
-            showStatus('This order mixes subscription and one-time products, which cannot be reordered together.', 'error');
+            showStatus(t('mixed_types'), 'error');
             return;
         }
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
-            showStatus('FluentCart cart is not available. Please refresh the page and try again.', 'error');
+            showStatus(t('cart_missing'), 'error');
             return;
         }
 
-        var msg = skipped > 0 ? ('Adding ' + available.length + ' item(s); ' + skipped + ' unavailable skipped...') : 'Adding items to cart...';
+        var msg = skipped > 0
+            ? fill(t('adding_some'), { count: available.length, skipped: skipped })
+            : t('adding');
         showStatus(msg, 'loading');
         e.currentTarget.disabled = true;
 
@@ -210,11 +213,11 @@
 
     function addItemsSequentially(items, index, btn) {
         if (index >= items.length) {
-            showStatus('Redirecting to checkout...', 'loading');
+            showStatus(t('redirecting'), 'loading');
             setTimeout(function () {
                 var checkoutUrl = CONFIG.checkout_url;
                 if (!checkoutUrl) {
-                    showStatus('Checkout page is not configured. Please check FluentCart settings.', 'error');
+                    showStatus(t('checkout_not_configured'), 'error');
                     if (btn) btn.disabled = false;
                     return;
                 }
@@ -235,14 +238,14 @@
                 result.then(function () {
                     addItemsSequentially(items, index + 1, btn);
                 }).catch(function (err) {
-                    showStatus('Failed to add an item: ' + (err.message || 'Unknown error'), 'error');
+                    showStatus(fill(t('add_failed'), { error: err.message || t('unknown_error') }), 'error');
                     if (btn) btn.disabled = false;
                 });
             } else {
                 setTimeout(function () { addItemsSequentially(items, index + 1, btn); }, 200);
             }
         } catch (err) {
-            showStatus('Failed to add an item: ' + (err.message || 'Unknown error'), 'error');
+            showStatus(fill(t('add_failed'), { error: err.message || t('unknown_error') }), 'error');
             if (btn) btn.disabled = false;
         }
     }
@@ -251,7 +254,7 @@
         e.stopPropagation();
         var name = e.currentTarget.getAttribute('data-order-name');
         if (!name) return;
-        if (!window.confirm('Delete saved order "' + name + '"?')) return;
+        if (!window.confirm(fill(t('delete_confirm'), { name: name }))) return;
 
         e.currentTarget.disabled = true;
 
@@ -263,10 +266,10 @@
         .then(function (data) {
             ORDERS = data.lists || [];
             renderOrders();
-            showStatus('Saved order deleted.', 'success');
+            showStatus(t('delete_done'), 'success');
         })
         .catch(function () {
-            showStatus('Could not delete the saved order. Please try again.', 'error');
+            showStatus(t('delete_failed'), 'error');
             e.currentTarget.disabled = false;
         });
     }
@@ -287,6 +290,19 @@
         if (type === 'success') {
             setTimeout(function () { el.style.display = 'none'; }, 4000);
         }
+    }
+
+    // A translated sentence by key, with {placeholders} filled. Both mirror
+    // the helpers in bulk-order.js — I18N comes from wp_localize_script, so a
+    // missing key means the PHP side was not updated.
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
+    }
+
+    function fill(template, values) {
+        return String(template || '').replace(/\{(\w+)\}/g, function (match, key) {
+            return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+        });
     }
 
     function escapeHtml(str) {

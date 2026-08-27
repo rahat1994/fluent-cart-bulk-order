@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Unit tests only. Everything under tests/Unit runs WITHOUT WordPress: the
+    classes it covers are pure functions over arrays, which is exactly why they
+    are the ones worth pinning. Anything needing a database or a live store is
+    out of scope here on purpose - see tests/README.md.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         beStrictAboutTestsThatDoNotTestAnything="true"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <include>
+            <directory suffix=".php">includes/Pricing</directory>
+        </include>
+    </coverage>
+</phpunit>

@@ -2,6 +2,7 @@
     'use strict';
 
     var CONFIG = window.fcboConfig || {};
+    var I18N = CONFIG.i18n || {};
     var tbody = null;
     var rowCounter = 0;
 
@@ -15,8 +16,29 @@
         var saveBtn = document.getElementById('fcbo-save-order');
         if (saveBtn) { saveBtn.addEventListener('click', handleSaveOrder); }
 
+        // ONE listener for every row's dropdown, attached once. addRow() used
+        // to attach its own `document` click handler per row, so a 50-line
+        // order left 50 listeners behind — each holding a closure over a row
+        // that may already have been removed, and each running on every click
+        // anywhere on the page.
+        document.addEventListener('click', closeDropdownsOutsideClickedRow);
+
         initQuickOrder();
         addRow();
+    }
+
+    // Hide every search dropdown except the one in the row that was clicked.
+    // Matches what the old per-row listeners did: a click anywhere inside a row
+    // leaves that row's dropdown alone.
+    function closeDropdownsOutsideClickedRow(e) {
+        var clickedRow = e.target && e.target.closest ? e.target.closest('tr') : null;
+        var dropdowns = tbody.querySelectorAll('.fcbo-dropdown');
+
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].closest('tr') !== clickedRow) {
+                closeDropdown(dropdowns[i]);
+            }
+        }
     }
 
     // --- Row Management ---
@@ -31,12 +53,20 @@
         tr.dataset.bulkTiers = '[]';
         tr.innerHTML =
             '<td class="fcbo-col-remove">' +
-                '<button type="button" class="fcbo-remove-btn" title="Remove">&times;</button>' +
+                '<button type="button" class="fcbo-remove-btn" title="' + escapeAttr(t('remove_row')) + '">&times;</button>' +
             '</td>' +
             '<td class="fcbo-col-product">' +
                 '<div class="fcbo-search-wrap">' +
-                    '<input type="text" class="fcbo-search-input" placeholder="Search products..." autocomplete="off" />' +
-                    '<div class="fcbo-dropdown" style="display:none;"></div>' +
+                    // ARIA combobox: focus stays in the input while the arrow
+                    // keys move a highlight, and aria-activedescendant is what
+                    // tells a screen reader which option is highlighted.
+                    '<input type="text" class="fcbo-search-input"' +
+                        ' placeholder="' + escapeAttr(t('search_placeholder')) + '"' +
+                        ' aria-label="' + escapeAttr(t('search_placeholder')) + '"' +
+                        ' autocomplete="off" role="combobox" aria-autocomplete="list"' +
+                        ' aria-expanded="false" aria-controls="' + rowId + '-listbox" />' +
+                    '<div class="fcbo-dropdown" id="' + rowId + '-listbox" role="listbox"' +
+                        ' aria-label="' + escapeAttr(t('search_results')) + '" style="display:none;"></div>' +
                 '</div>' +
             '</td>' +
             '<td class="fcbo-col-sku"><span class="fcbo-sku-text"></span></td>' +
@@ -45,8 +75,14 @@
             '<td class="fcbo-col-amount"><span class="fcbo-amount-text"></span></td>' +
             '<td class="fcbo-col-qty">' +
                 '<input type="number" class="fcbo-qty-input" value="1" min="1" step="1" disabled />' +
+                // Filled by updateRowTotal(): the nudge sits under the input the
+                // shopper types in, the saving under the total it changes.
+                '<span class="fcbo-nudge"></span>' +
             '</td>' +
-            '<td class="fcbo-col-total"><span class="fcbo-total-text"></span></td>';
+            '<td class="fcbo-col-total">' +
+                '<span class="fcbo-total-text"></span>' +
+                '<span class="fcbo-saving"></span>' +
+            '</td>';
         tbody.appendChild(tr);
 
         var removeBtn = tr.querySelector('.fcbo-remove-btn');
@@ -78,7 +114,7 @@
             clearTimeout(debounceTimer);
             var term = searchInput.value.trim();
             if (term.length < 2) {
-                dropdown.style.display = 'none';
+                closeDropdown(dropdown);
                 return;
             }
             debounceTimer = setTimeout(function () {
@@ -86,14 +122,62 @@
             }, 300);
         });
 
-        // Close dropdown on outside click
-        document.addEventListener('click', function (e) {
-            if (!tr.contains(e.target)) {
-                dropdown.style.display = 'none';
+        searchInput.addEventListener('keydown', function (e) {
+            if (!isDropdownOpen(dropdown)) {
+                return;
+            }
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                // Stop the caret jumping to either end of the typed term.
+                e.preventDefault();
+                moveActiveOption(dropdown, e.key === 'ArrowDown' ? 1 : -1);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                var active = activeOption(dropdown);
+                // With nothing highlighted, Enter is not ours to take.
+                if (!active) return;
+                e.preventDefault();
+                chooseOption(tr, dropdown, active);
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeDropdown(dropdown);
             }
         });
 
         return tr;
+    }
+
+    // The first row no product has been chosen in, or null when every row is
+    // filled. A row counts as free purely by its missing variantId, which is
+    // what selectProduct() sets — so a half-typed search term does not make a
+    // row look taken.
+    function firstEmptyRow() {
+        var rows = tbody.querySelectorAll('tr');
+
+        for (var i = 0; i < rows.length; i++) {
+            if (!rows[i].dataset.variantId) {
+                return rows[i];
+            }
+        }
+
+        return null;
+    }
+
+    // Keep one free row waiting below the last filled one, so picking a product
+    // never costs a trip to "+ Add Row".
+    //
+    // Appends only when nothing is free, which is what keeps the CSV import
+    // sane: each imported line fills the row the previous line left behind, so
+    // a 50-line paste still ends with ONE trailing row rather than fifty.
+    function ensureTrailingRow() {
+        if (!firstEmptyRow()) {
+            addRow();
+        }
     }
 
     // --- Quick Order (paste / CSV) ---
@@ -125,7 +209,7 @@
                     textarea.value = String(reader.result || '');
                 };
                 reader.onerror = function () {
-                    renderQuickReport([], 0, 'Could not read the file. Please try again.');
+                    renderQuickReport([], 0, t('file_read_failed'));
                 };
                 reader.readAsText(file);
             });
@@ -214,7 +298,7 @@
         if (!skus.length) {
             var missing = [];
             for (var m = 0; m < records.length; m++) {
-                missing.push({ lineNo: records[m].lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+                missing.push({ lineNo: records[m].lineNo, sku: '', status: 'invalid', detail: t('sku_missing') });
             }
             renderQuickReport(missing, 0);
             return;
@@ -245,13 +329,7 @@
 
     // Reuse the first empty row, else append a new one.
     function ensureRow() {
-        var rows = tbody.querySelectorAll('tr');
-        for (var i = 0; i < rows.length; i++) {
-            if (!rows[i].dataset.variantId) {
-                return rows[i];
-            }
-        }
-        return addRow();
+        return firstEmptyRow() || addRow();
     }
 
     function populateFromResolved(records, resolved) {
@@ -262,14 +340,14 @@
             var r = records[i];
 
             if (!r.sku) {
-                report.push({ lineNo: r.lineNo, sku: '', status: 'invalid', detail: 'Missing SKU' });
+                report.push({ lineNo: r.lineNo, sku: '', status: 'invalid', detail: t('sku_missing') });
                 continue;
             }
 
             var entry = resolved[r.sku.toLowerCase()];
 
             if (!entry || entry.status === 'unknown') {
-                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'unknown', detail: 'No matching product' });
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'unknown', detail: t('sku_unknown') });
                 continue;
             }
 
@@ -277,14 +355,14 @@
                 var count = (entry.candidates || []).length;
                 report.push({
                     lineNo: r.lineNo, sku: r.sku, status: 'ambiguous',
-                    detail: 'Matches ' + count + ' variants — add it manually'
+                    detail: fill(t('sku_ambiguous'), { count: count })
                 });
                 continue;
             }
 
             var qty = parseQty(r.qtyRaw);
             if (qty === null) {
-                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'invalid', detail: 'Invalid quantity "' + r.qtyRaw + '"' });
+                report.push({ lineNo: r.lineNo, sku: r.sku, status: 'invalid', detail: fill(t('qty_invalid'), { qty: r.qtyRaw }) });
                 continue;
             }
 
@@ -310,9 +388,9 @@
                 label += ' — ' + v.variation_title;
             }
             var shownQty = v.payment_type === 'subscription' ? 1 : settledQty;
-            var detail = label + ' × ' + shownQty;
+            var detail = fill(t('report_item'), { label: label, qty: shownQty });
             if (settledQty !== qty && v.payment_type !== 'subscription') {
-                detail += ' (adjusted from ' + qty + ' to meet order rules)';
+                detail += ' ' + fill(t('report_adjusted'), { qty: qty });
             }
             report.push({ lineNo: r.lineNo, sku: r.sku, status: 'matched', detail: detail });
         }
@@ -336,15 +414,15 @@
             if (report[s].status !== 'matched') skipped++;
         }
 
-        var summary = added + (added === 1 ? ' item added' : ' items added');
-        if (skipped) { summary += ', ' + skipped + ' skipped'; }
+        var summary = fill(t(added === 1 ? 'report_added_one' : 'report_added'), { count: added });
+        if (skipped) { summary += ', ' + fill(t('report_skipped'), { count: skipped }); }
 
         var html = '<div class="fcbo-quick-report-summary">' + escapeHtml(summary) + '</div>';
         html += '<ul class="fcbo-quick-report-list">';
         for (var i = 0; i < report.length; i++) {
             var r = report[i];
             html += '<li class="fcbo-quick-report-' + r.status + '">' +
-                '<span class="fcbo-quick-line">' + escapeHtml('Line ' + r.lineNo) + '</span>' +
+                '<span class="fcbo-quick-line">' + escapeHtml(fill(t('report_line'), { line: r.lineNo })) + '</span>' +
                 '<span>' + escapeHtml((r.sku ? r.sku + ' — ' : '') + r.detail) + '</span>' +
             '</li>';
         }
@@ -352,6 +430,97 @@
 
         el.innerHTML = html;
         el.style.display = 'block';
+    }
+
+    // --- Search Dropdown ---
+    //
+    // The dropdown is an ARIA combobox popup. Focus never leaves the search
+    // input — the arrow keys move a `fcbo-dd-active` highlight instead, and
+    // aria-activedescendant points the screen reader at it. That is what lets
+    // a buyer type a SKU and pick a variant without touching the mouse.
+
+    function isDropdownOpen(dropdown) {
+        return dropdown.style.display !== 'none';
+    }
+
+    function searchInputFor(dropdown) {
+        var wrap = dropdown.parentNode;
+        return wrap ? wrap.querySelector('.fcbo-search-input') : null;
+    }
+
+    function openDropdown(dropdown) {
+        dropdown.style.display = 'block';
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-expanded', 'true'); }
+    }
+
+    function closeDropdown(dropdown) {
+        dropdown.style.display = 'none';
+        clearActiveOption(dropdown);
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-expanded', 'false'); }
+    }
+
+    function selectableOptions(dropdown) {
+        return dropdown.querySelectorAll('.fcbo-dd-item:not(.fcbo-dd-disabled)');
+    }
+
+    function activeOption(dropdown) {
+        return dropdown.querySelector('.fcbo-dd-item.fcbo-dd-active');
+    }
+
+    function clearActiveOption(dropdown) {
+        var current = activeOption(dropdown);
+        if (current) {
+            current.classList.remove('fcbo-dd-active');
+            current.setAttribute('aria-selected', 'false');
+        }
+        var input = searchInputFor(dropdown);
+        if (input) { input.removeAttribute('aria-activedescendant'); }
+    }
+
+    // Move the highlight by `delta` options, wrapping at both ends. Out-of-stock
+    // options are skipped, because they cannot be chosen by mouse either.
+    function moveActiveOption(dropdown, delta) {
+        var options = selectableOptions(dropdown);
+        if (!options.length) return;
+
+        var current = activeOption(dropdown);
+        var index = -1;
+        for (var i = 0; i < options.length; i++) {
+            if (options[i] === current) { index = i; break; }
+        }
+
+        // From no highlight, ArrowDown starts at the top and ArrowUp at the bottom.
+        var next = index === -1
+            ? (delta > 0 ? 0 : options.length - 1)
+            : (index + delta + options.length) % options.length;
+
+        setActiveOption(dropdown, options[next]);
+
+        // The panel scrolls at 250px, so the highlight can otherwise move out of view.
+        if (options[next].scrollIntoView) {
+            options[next].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // Make one option the highlighted one, dropping any previous highlight.
+    function setActiveOption(dropdown, option) {
+        if (activeOption(dropdown) === option) return;
+
+        clearActiveOption(dropdown);
+        option.classList.add('fcbo-dd-active');
+        option.setAttribute('aria-selected', 'true');
+
+        var input = searchInputFor(dropdown);
+        if (input) { input.setAttribute('aria-activedescendant', option.id); }
+    }
+
+    // Commit one option into its row. Shared by mouse click and Enter, so the
+    // two paths cannot drift apart.
+    function chooseOption(row, dropdown, item) {
+        selectProduct(row, JSON.parse(item.dataset.product));
+        closeDropdown(dropdown);
     }
 
     // --- Product Search ---
@@ -366,19 +535,23 @@
             renderDropdown(data.products || [], dropdown, row);
         })
         .catch(function () {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">Search failed</div>';
-            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('search_failed')) + '</div>';
+            clearActiveOption(dropdown);
+            openDropdown(dropdown);
         });
     }
 
     function renderDropdown(products, dropdown, row) {
         if (!products.length) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">No products found</div>';
-            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('no_products')) + '</div>';
+            clearActiveOption(dropdown);
+            openDropdown(dropdown);
             return;
         }
 
         var html = '';
+        var optionIndex = 0;
+
         for (var i = 0; i < products.length; i++) {
             var p = products[i];
             if (!p.variants || !p.variants.length) continue;
@@ -391,10 +564,13 @@
                     label += ' — ' + v.variation_title;
                 }
                 var price = formatPrice(v.item_price);
-                var skuLabel = v.sku ? '  ·  SKU ' + v.sku : '';
-                var stockLabel = outOfStock ? ' (Out of stock)' : '';
+                var skuLabel = v.sku ? '  ·  ' + fill(t('sku_label'), { sku: v.sku }) : '';
+                var stockLabel = outOfStock ? ' ' + t('out_of_stock') : '';
 
                 html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') + '"' +
+                    ' id="' + dropdown.id + '-opt-' + (optionIndex++) + '"' +
+                    ' role="option" aria-selected="false"' +
+                    (outOfStock ? ' aria-disabled="true"' : '') +
                     ' data-product=\'' + escapeAttr(JSON.stringify({
                         productId: p.id,
                         title: p.title,
@@ -409,19 +585,23 @@
         }
 
         if (!html) {
-            dropdown.innerHTML = '<div class="fcbo-dd-empty">No available variants</div>';
+            dropdown.innerHTML = '<div class="fcbo-dd-empty" role="option" aria-disabled="true">' + escapeHtml(t('no_variants')) + '</div>';
         } else {
             dropdown.innerHTML = html;
         }
-        dropdown.style.display = 'block';
+        // The old options are gone, so any highlight pointing at them is too.
+        clearActiveOption(dropdown);
+        openDropdown(dropdown);
 
-        // Attach click handlers
-        var items = dropdown.querySelectorAll('.fcbo-dd-item:not(.fcbo-dd-disabled)');
+        var items = selectableOptions(dropdown);
         for (var k = 0; k < items.length; k++) {
             items[k].addEventListener('click', function () {
-                var data = JSON.parse(this.dataset.product);
-                selectProduct(row, data);
-                dropdown.style.display = 'none';
+                chooseOption(row, dropdown, this);
+            });
+            // Keep mouse and keyboard on one highlight, so moving the mouse and
+            // then pressing Enter picks what the shopper is looking at.
+            items[k].addEventListener('mouseenter', function () {
+                setActiveOption(dropdown, this);
             });
         }
     }
@@ -481,6 +661,11 @@
 
         updateRowTotal(row);
         updateGrandTotal();
+
+        // Last, so the new row is appended below a row that is already fully
+        // rendered. Both entry paths land here — the search dropdown and the
+        // CSV import — so neither needs its own copy of this rule.
+        ensureTrailingRow();
     }
 
     // --- Save order ---
@@ -511,21 +696,21 @@
         var items = order.map(function (k) { return consolidated[k]; });
 
         if (!items.length) {
-            showStatus('Add at least one product before saving.', 'error');
+            showStatus(t('save_need_product'), 'error');
             return;
         }
 
-        var name = window.prompt('Name this saved order:');
+        var name = window.prompt(t('save_name_prompt'));
         if (name === null) return; // cancelled
         name = name.trim();
         if (!name) {
-            showStatus('Please enter a name for the saved order.', 'error');
+            showStatus(t('save_need_name'), 'error');
             return;
         }
 
         var btn = document.getElementById('fcbo-save-order');
         if (btn) { btn.disabled = true; }
-        showStatus('Saving order...', 'loading');
+        showStatus(t('saving'), 'loading');
 
         fetch(CONFIG.rest_url + 'saved-lists', {
             method: 'POST',
@@ -537,13 +722,13 @@
         })
         .then(function (r) {
             if (!r.ok) {
-                showStatus((r.body && r.body.message) ? r.body.message : 'Could not save the order.', 'error');
+                showStatus((r.body && r.body.message) ? r.body.message : t('save_failed'), 'error');
             } else {
-                showStatus('Saved order "' + name + '".', 'success');
+                showStatus(fill(t('save_succeeded'), { name: name }), 'success');
             }
         })
         .catch(function () {
-            showStatus('Could not save the order. Please try again.', 'error');
+            showStatus(t('save_failed_retry'), 'error');
         })
         .then(function () {
             if (btn) { btn.disabled = false; }
@@ -584,12 +769,12 @@
         }
 
         if (!items.length) {
-            showStatus('Please select at least one product.', 'error');
+            showStatus(t('checkout_need_product'), 'error');
             return;
         }
 
         if (hasSubscription && hasOnetime) {
-            showStatus('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'error');
+            showStatus(t('checkout_mixed_types'), 'error');
             return;
         }
 
@@ -601,8 +786,10 @@
             var grandTotal = computeGrandTotal();
             if (grandTotal < minOrderTotal) {
                 showStatus(
-                    'Add ' + formatPrice(minOrderTotal - grandTotal) + ' more to reach the ' +
-                    formatPrice(minOrderTotal) + ' minimum order total.',
+                    fill(t('checkout_below_minimum'), {
+                        amount: formatPrice(minOrderTotal - grandTotal),
+                        minimum: formatPrice(minOrderTotal)
+                    }),
                     'error'
                 );
                 return;
@@ -625,11 +812,11 @@
         var finalItems = Object.values(consolidated);
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
-            showStatus('FluentCart cart is not available. Please refresh the page and try again.', 'error');
+            showStatus(t('checkout_cart_missing'), 'error');
             return;
         }
 
-        showStatus('Adding items to cart...', 'loading');
+        showStatus(t('checkout_adding'), 'loading');
         disableCheckout(true);
 
         addItemsSequentially(finalItems, 0);
@@ -637,12 +824,12 @@
 
     function addItemsSequentially(items, index) {
         if (index >= items.length) {
-            showStatus('Redirecting to checkout...', 'loading');
+            showStatus(t('checkout_redirecting'), 'loading');
             // Small delay to ensure cart cookie is fully set before redirect
             setTimeout(function () {
                 var checkoutUrl = CONFIG.checkout_url;
                 if (!checkoutUrl) {
-                    showStatus('Checkout page is not configured. Please check FluentCart settings.', 'error');
+                    showStatus(t('checkout_not_configured'), 'error');
                     disableCheckout(false);
                     return;
                 }
@@ -658,7 +845,7 @@
         }
 
         var item = items[index];
-        showStatus('Adding item ' + (index + 1) + ' of ' + items.length + '...', 'loading');
+        showStatus(fill(t('checkout_adding_item'), { index: index + 1, total: items.length }), 'loading');
 
         try {
             var result = window.fluentCartCart.addProduct(item.variantId, item.qty, true);
@@ -668,7 +855,7 @@
                 result.then(function () {
                     addItemsSequentially(items, index + 1);
                 }).catch(function (err) {
-                    showStatus('Failed to add item: ' + (err.message || 'Unknown error'), 'error');
+                    showStatus(fill(t('checkout_add_failed'), { error: err.message || t('unknown_error') }), 'error');
                     disableCheckout(false);
                 });
             } else {
@@ -678,7 +865,7 @@
                 }, 200);
             }
         } catch (err) {
-            showStatus('Failed to add item: ' + (err.message || 'Unknown error'), 'error');
+            showStatus(fill(t('checkout_add_failed'), { error: err.message || t('unknown_error') }), 'error');
             disableCheckout(false);
         }
     }
@@ -704,22 +891,101 @@
         return result < 0 ? 0 : result;
     }
 
-    function getEffectivePrice(unitPriceCents, qty, tiers) {
-        if (!tiers || !tiers.length || qty < 1) {
-            return unitPriceCents;
-        }
+    // Mirrors PHP fcbo_match_tier(): several tiers can match one quantity (an
+    // open-ended "30+" still matches at 70 when a "60+" exists), so the most
+    // specific match wins — the highest min_qty, not the first one found.
+    function matchTier(tiers, qty) {
+        var best = null;
+        var bestMin = -1;
 
         for (var i = 0; i < tiers.length; i++) {
             var tier = tiers[i];
             var minQty = tier.min_qty || 0;
             var maxQty = tier.max_qty || 0;
 
-            if (qty >= minQty && (maxQty === 0 || qty <= maxQty)) {
-                return applyTierToPrice(unitPriceCents, tier);
+            if (qty < minQty || (maxQty > 0 && qty > maxQty)) {
+                continue;
+            }
+
+            if (minQty >= bestMin) {
+                best = tier;
+                bestMin = minQty;
             }
         }
 
-        return unitPriceCents;
+        return best;
+    }
+
+    function getEffectivePrice(unitPriceCents, qty, tiers) {
+        if (!tiers || !tiers.length || qty < 1) {
+            return unitPriceCents;
+        }
+
+        var best = matchTier(tiers, qty);
+
+        return best ? applyTierToPrice(unitPriceCents, best) : unitPriceCents;
+    }
+
+    // The next unlock still ahead of the shopper, or null when there is none.
+    //
+    // Only a tier boundary can change the price, so the candidate quantities are
+    // exactly the min_qty values above the current one. Two rules keep the
+    // promise honest:
+    //
+    //   1. Each candidate is priced through matchTier(), not read off the tier
+    //      that named it. With overlapping ranges the tier that WINS at that
+    //      quantity may be a different one, and quoting the loser would promise
+    //      a discount the shopper will not get.
+    //   2. A candidate that does not actually beat today's price is skipped, so
+    //      a flat or worse tier is never advertised as an upgrade.
+    //
+    // Order rules are applied to the target quantity first: with a case-pack of
+    // 12, "add 5 more" would name a quantity the shopper is not allowed to
+    // order. Rounding up can overshoot a tier's max_qty, which is why the tier
+    // is re-resolved at the rounded quantity rather than the raw boundary.
+    //
+    // Mirrors findNextUnlock() in bulk-pricing-display.js.
+    function findNextUnlock(unitPriceCents, qty, tiers, rules) {
+        if (!tiers || !tiers.length || unitPriceCents <= 0) {
+            return null;
+        }
+
+        var current = getEffectivePrice(unitPriceCents, Math.max(1, qty), tiers);
+
+        var steps = [];
+        for (var i = 0; i < tiers.length; i++) {
+            var minQty = parseInt(tiers[i].min_qty, 10) || 0;
+            if (minQty > qty) {
+                steps.push(minQty);
+            }
+        }
+        steps.sort(function (a, b) { return a - b; });
+
+        for (var j = 0; j < steps.length; j++) {
+            var target = rules ? normalizeQty(steps[j], rules) : steps[j];
+            var tier = matchTier(tiers, target);
+
+            if (target > qty && tier && applyTierToPrice(unitPriceCents, tier) < current) {
+                return { qty: target, tier: tier };
+            }
+        }
+
+        return null;
+    }
+
+    // Percent tiers can name their discount; the money types cannot without
+    // mislabeling the unit, so those degrade to a generic promise.
+    // Mirrors unlockText() in bulk-pricing-display.js.
+    function unlockText(need, tier) {
+        var type = (tier && tier.discount_type) || 'percent';
+        var value = parseFloat(tier && tier.discount_value) || 0;
+
+        if (type === 'percent' && value > 0) {
+            // 10 not 10.00 — matching PHP fcbo_format_tier_discount_label().
+            return fill(I18N.unlock_percent, { qty: need, percent: String(parseFloat(value.toFixed(2))) });
+        }
+
+        return fill(I18N.unlock_generic, { qty: need });
     }
 
     function parseTiers(row) {
@@ -782,13 +1048,12 @@
 
     function describeQtyAdjustment(entered, settled, rules) {
         if (rules.step > 1 && rules.min_qty > 0 && entered < rules.min_qty) {
-            return 'Minimum order is ' + rules.min_qty + ', in multiples of ' +
-                rules.step + '. Quantity set to ' + settled + '.';
+            return fill(t('qty_min_and_step'), { min: rules.min_qty, step: rules.step, qty: settled });
         }
         if (rules.step > 1) {
-            return 'Sold in multiples of ' + rules.step + '. Quantity rounded up to ' + settled + '.';
+            return fill(t('qty_step'), { step: rules.step, qty: settled });
         }
-        return 'Minimum order quantity is ' + rules.min_qty + '. Quantity set to ' + settled + '.';
+        return fill(t('qty_min'), { min: rules.min_qty, qty: settled });
     }
 
     // Normalize every populated row — used before checkout and after a bulk
@@ -806,7 +1071,7 @@
         if (changed) {
             updateGrandTotal();
             if (announce) {
-                showStatus('Some quantities were adjusted to meet this store\'s order rules.', 'error');
+                showStatus(t('qty_adjusted_many'), 'error');
             }
         }
         return changed;
@@ -821,6 +1086,10 @@
         if (!unitPrice) {
             row.querySelector('.fcbo-amount-text').innerHTML = '';
             row.querySelector('.fcbo-total-text').textContent = '';
+            // An emptied row must drop its messaging too, or a stale saving from
+            // the previous product survives underneath a blank total.
+            setText(row, '.fcbo-saving', '');
+            setText(row, '.fcbo-nudge', '');
             return;
         }
 
@@ -838,27 +1107,53 @@
 
         var total = effectivePrice * qty;
         row.querySelector('.fcbo-total-text').textContent = formatPrice(total);
+
+        // Nothing saved renders nothing — never "You saved $0.00".
+        var saving = (unitPrice - effectivePrice) * qty;
+        setText(row, '.fcbo-saving', saving > 0 ? fill(I18N.saved, { amount: formatPrice(saving) }) : '');
+
+        var unlock = findNextUnlock(unitPrice, qty, tiers, orderRulesFor(row));
+        setText(row, '.fcbo-nudge', unlock ? unlockText(unlock.qty - qty, unlock.tier) : '');
     }
 
-    // Sum of discounted line totals, in cents. Split out from updateGrandTotal()
-    // so the checkout gate can compare against the same number the shopper sees.
-    // This basis matches the server's Cart::getItemsSubtotal() — bulk-discounted
-    // line prices, before coupons, shipping, and tax — so the two gates agree.
-    function computeGrandTotal() {
+    // What the shopper pays and what the tiers took off, both in cents, from one
+    // pass over the rows. Split out from updateGrandTotal() so the checkout gate
+    // can compare against the same number the shopper sees. That basis matches
+    // the server's Cart::getItemsSubtotal() — bulk-discounted line prices,
+    // before coupons, shipping, and tax — so the two gates agree.
+    function computeTotals() {
         var rows = tbody.querySelectorAll('tr');
-        var grandTotal = 0;
+        var total = 0;
+        var saving = 0;
+
         for (var i = 0; i < rows.length; i++) {
             var unitPrice = parseInt(rows[i].dataset.unitPrice, 10) || 0;
             var qty = parseInt(rows[i].querySelector('.fcbo-qty-input').value, 10) || 0;
             var tiers = parseTiers(rows[i]);
             var effectivePrice = getEffectivePrice(unitPrice, qty, tiers);
-            grandTotal += effectivePrice * qty;
+
+            total += effectivePrice * qty;
+            saving += (unitPrice - effectivePrice) * qty;
         }
-        return grandTotal;
+
+        return { total: total, saving: saving };
+    }
+
+    function computeGrandTotal() {
+        return computeTotals().total;
     }
 
     function updateGrandTotal() {
-        document.getElementById('fcbo-grand-total').textContent = formatPrice(computeGrandTotal());
+        var totals = computeTotals();
+
+        document.getElementById('fcbo-grand-total').textContent = formatPrice(totals.total);
+
+        var savingEl = document.getElementById('fcbo-grand-saving');
+        if (savingEl) {
+            savingEl.textContent = totals.saving > 0
+                ? fill(I18N.saved, { amount: formatPrice(totals.saving) })
+                : '';
+        }
     }
 
     // --- Helpers ---
@@ -866,6 +1161,31 @@
     function formatPrice(cents) {
         var amount = (cents / 100).toFixed(2);
         return (CONFIG.currency_sign || '$') + amount;
+    }
+
+    // Fill {named} placeholders in a template from fcbo_savings_strings().
+    // An unknown key is left alone rather than blanked, so a mistranslated
+    // placeholder shows up as itself instead of silently vanishing.
+    // Mirrors fill() in bulk-pricing-display.js.
+    // A translated sentence by key. I18N comes from wp_localize_script, so a
+    // missing key means the PHP side was not updated — fall back to the key
+    // rather than rendering "undefined" at a shopper.
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
+    }
+
+    function fill(template, values) {
+        return String(template || '').replace(/\{(\w+)\}/g, function (match, key) {
+            return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+        });
+    }
+
+    // Write text into an optional element inside a row, if it is there.
+    function setText(row, selector, text) {
+        var el = row.querySelector(selector);
+        if (el) {
+            el.textContent = text;
+        }
     }
 
     function showStatus(msg, type) {

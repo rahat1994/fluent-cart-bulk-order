@@ -3,6 +3,7 @@
 namespace FluentCartBulkOrder;
 
 use FluentCart\App\Modules\Integrations\BaseIntegrationManager;
+use FluentCartBulkOrder\AccessPolicy;
 
 defined('ABSPATH') || exit;
 
@@ -287,19 +288,11 @@ class BulkPricingIntegration extends BaseIntegrationManager
     /**
      * Editable role slugs, with the admin include guaranteed.
      *
-     * get_editable_roles() lives in wp-admin/includes/user.php, which is NOT
-     * loaded on REST/AJAX requests — and feed saves run through one. Without this
-     * guard the save path can fatal on an undefined function.
-     *
      * @return array<string, array> Role slug => role details.
      */
     private function getEditableRoles()
     {
-        if (!function_exists('get_editable_roles')) {
-            require_once ABSPATH . 'wp-admin/includes/user.php';
-        }
-
-        return (array) get_editable_roles();
+        return AccessPolicy::editableRoles();
     }
 
     private function getTierRepeaterTemplate()
@@ -405,7 +398,8 @@ class BulkPricingIntegration extends BaseIntegrationManager
                             . esc_html__('Remove', 'fluent-cart-bulk-order') . '</el-button>
                     </div>
                     <div v-if="' . $has . '" class="fcbo-role-group-body">
-                        ' . $this->getTierRowsMarkup($col, 'role-' . $slug) . '
+                        ' . $this->getPolicyWarningMarkup($slug, $name)
+                        . $this->getTierRowsMarkup($col, 'role-' . $slug) . '
                     </div>
                 </div>';
         }
@@ -413,8 +407,108 @@ class BulkPricingIntegration extends BaseIntegrationManager
         return '
             <div class="fcbo-tier-repeater fcbo-role-tiers">
                 <p class="fcbo-tier-hint">' . esc_html__('Optional. Give specific roles their own price list. A shopper falls back to the default Discount Tiers above when their role has no list.', 'fluent-cart-bulk-order') . '</p>'
+                . $this->getPolicySummaryMarkup()
                 . $groups
                 . '</div>';
+    }
+
+    /**
+     * Warning shown inside a role group whose role gets no bulk pricing at all.
+     *
+     * Why this exists: `role_tiers` only SELECTS which tier list a shopper gets;
+     * the bulk-pricing policy (Gate 2, Settings > Bulk Pricing) decides whether
+     * that shopper gets bulk pricing in the first place. Targeting a role the
+     * policy excludes therefore writes tiers that can never apply, and nothing
+     * in FluentCart's feed UI hints at it — the two role lists live on different
+     * screens. This is the warning for exactly that mismatch.
+     *
+     * Rendered server-side because the policy is a stored option, not part of the
+     * feed's Vue model. Consequence: if the owner edits the policy in another
+     * browser tab, this warning is stale until the feed screen is reloaded. That
+     * is acceptable — the warning is a nudge, and the frontend gates always read
+     * the live option.
+     *
+     * @param string $slug Role slug.
+     * @param string $name Human-readable role name.
+     * @return string Markup, or '' when the role is fine.
+     */
+    private function getPolicyWarningMarkup($slug, $name)
+    {
+        // Open policy (no roles checked) means everyone qualifies — nothing to warn about.
+        if (AccessPolicy::roleReceivesBulkPricing($slug)) {
+            return '';
+        }
+
+        $link = sprintf(
+            '<a href="%s" target="_blank" rel="noopener">%s</a>',
+            esc_url(AccessPolicy::settingsPageUrl()),
+            esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
+        );
+
+        // Administrators are a softer, more confusing case: the policy lets them
+        // PREVIEW tier tables on product pages but never charges them tier prices
+        // (the deliberate 'display' vs 'cart' split in AccessPolicy). Saying
+        // "these tiers never apply" would be wrong, and "it works" is what the
+        // owner would wrongly conclude from seeing the table on the frontend.
+        if (AccessPolicy::adminPreviewOnly($slug)) {
+            return '<div class="fcbo-role-notice fcbo-role-notice--info">'
+                . esc_html__('Administrators can preview these tiers on product pages, but are not charged them at checkout, because this role is not in the bulk pricing policy.', 'fluent-cart-bulk-order')
+                . ' ' . sprintf(
+                    /* translators: %s: link to the Bulk Pricing settings page. */
+                    esc_html__('Add it under %s to apply the discount for real.', 'fluent-cart-bulk-order'),
+                    $link
+                )
+                . '</div>';
+        }
+
+        return '<div class="fcbo-role-notice fcbo-role-notice--warn">'
+            . sprintf(
+                /* translators: %s: role name, e.g. "Contributor". */
+                esc_html__('%s does not receive bulk pricing, so these tiers will never apply.', 'fluent-cart-bulk-order'),
+                '<strong>' . esc_html($name) . '</strong>'
+            )
+            . ' ' . sprintf(
+                /* translators: %s: link to the Bulk Pricing settings page. */
+                esc_html__('Add the role under %s to activate them.', 'fluent-cart-bulk-order'),
+                $link
+            )
+            . '</div>';
+    }
+
+    /**
+     * One-line statement of the current bulk-pricing policy.
+     *
+     * Gives the per-role warnings their context, and quietly answers the
+     * question the feed screen otherwise cannot: who is eligible at all? Hidden
+     * when the policy is open, because then the answer is "everyone" and the
+     * line would be noise.
+     *
+     * @return string Markup, or '' when the policy is open to everyone.
+     */
+    private function getPolicySummaryMarkup()
+    {
+        $label = AccessPolicy::pricingPolicyLabel();
+
+        if ($label === '') {
+            return '';
+        }
+
+        return '<p class="fcbo-tier-hint fcbo-policy-summary">'
+            . sprintf(
+                /* translators: %s: comma-separated role names. */
+                esc_html__('Bulk pricing currently reaches these roles only: %s.', 'fluent-cart-bulk-order'),
+                '<strong>' . esc_html($label) . '</strong>'
+            )
+            . ' ' . sprintf(
+                /* translators: %s: link to the Bulk Pricing settings page. */
+                esc_html__('Changed under %s.', 'fluent-cart-bulk-order'),
+                sprintf(
+                    '<a href="%s" target="_blank" rel="noopener">%s</a>',
+                    esc_url(AccessPolicy::settingsPageUrl()),
+                    esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
+                )
+            )
+            . '</p>';
     }
 
     /**

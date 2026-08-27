@@ -14,7 +14,9 @@ The plugin already covers a solid core:
 - A **Bulk Pricing integration** with admin-configurable quantity tiers, both global and per-product
   (with per-variant targeting).
 - **Single-product tier display** rendered after the quantity block.
-- **Server-side discount application** in the cart via the `fluent_cart/cart/item_modify` filter.
+- **Server-side discount application** in the cart via the `fluent_cart/cart/item_price` filter.
+  (Was `item_modify` until 2026-07-26; that hook sees the requested quantity, not the settled
+  one, so an "add 5 more" got priced as a 5-unit order.)
 - A dedicated **`wholesale-customer` role**, registered on activation.
 
 The gaps below are ordered by leverage: protect what exists, then add the features wholesale

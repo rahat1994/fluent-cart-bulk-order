@@ -2,6 +2,7 @@
     'use strict';
 
     var CONFIG = window.fcboPtConfig || {};
+    var I18N = CONFIG.i18n || {};
     var ALL_COLUMNS = ['id', 'title', 'price', 'qty', 'action'];
     var COLUMNS = (CONFIG.columns && CONFIG.columns.length) ? CONFIG.columns : ALL_COLUMNS;
     var COLSPAN = COLUMNS.length;
@@ -50,7 +51,7 @@
     }
 
     function loadProducts() {
-        tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">Loading products...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">' + escapeHtml(t('loading')) + '</td></tr>';
         updatePaginationUI();
 
         var url = CONFIG.rest_url + 'catalog?page=' + currentPage + '&per_page=' + (CONFIG.per_page || 5);
@@ -71,7 +72,7 @@
             updatePaginationUI();
         })
         .catch(function () {
-            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">Failed to load products.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">' + escapeHtml(t('load_failed')) + '</td></tr>';
         });
     }
 
@@ -132,13 +133,13 @@
 
     function describeRule(rules) {
         if (rules.min_qty > 0 && rules.step > 1) {
-            return 'Min ' + rules.min_qty + ', in ' + rules.step + 's';
+            return fill(t('rule_min_and_step'), { min: rules.min_qty, step: rules.step });
         }
         if (rules.step > 1) {
-            return 'Sold in ' + rules.step + 's';
+            return fill(t('rule_step'), { step: rules.step });
         }
         if (rules.min_qty > 0) {
-            return 'Min ' + rules.min_qty;
+            return fill(t('rule_min'), { min: rules.min_qty });
         }
         return '';
     }
@@ -157,7 +158,7 @@
 
     function addBtnHtml(outOfStock) {
         return '<button type="button" class="fcbo-pt-add-btn"' + (outOfStock ? ' disabled' : '') + '>' +
-            (outOfStock ? 'Out of Stock' : 'Add to Cart') + '</button>';
+            escapeHtml(outOfStock ? t('out_of_stock') : t('add_to_cart')) + '</button>';
     }
 
     // A simple product (single variant): one directly-addable row, no accordion.
@@ -215,7 +216,7 @@
 
     function renderProducts(products) {
         if (!products.length) {
-            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">No products found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + COLSPAN + '" class="fcbo-pt-loading">' + escapeHtml(t('no_products')) + '</td></tr>';
             return;
         }
 
@@ -264,7 +265,7 @@
 
         if (settled !== requested) {
             this.value = settled;
-            showStatus('Quantity adjusted to ' + settled + ' to meet this product\'s order rules.', 'error');
+            showStatus(fill(t('qty_adjusted'), { qty: settled }), 'error');
         }
     }
 
@@ -307,44 +308,44 @@
         // than the one on screen.
         if (qty !== requested) {
             if (qtyInput) { qtyInput.value = qty; }
-            showStatus('Quantity adjusted to ' + qty + ' to meet this product\'s order rules.', 'error');
+            showStatus(fill(t('qty_adjusted'), { qty: qty }), 'error');
         }
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
-            showStatus('FluentCart cart is not available. Please refresh the page.', 'error');
+            showStatus(t('cart_missing'), 'error');
             return;
         }
 
         btn.disabled = true;
-        btn.textContent = 'Adding...';
+        btn.textContent = t('adding');
 
         try {
             var result = window.fluentCartCart.addProduct(variantId, qty, true);
 
             if (result && typeof result.then === 'function') {
                 result.then(function () {
-                    btn.textContent = 'Added!';
+                    btn.textContent = t('added');
                     setTimeout(function () {
-                        btn.textContent = 'Add to Cart';
+                        btn.textContent = t('add_to_cart');
                         btn.disabled = false;
                     }, 1500);
                 }).catch(function (err) {
-                    showStatus('Failed: ' + (err.message || 'Unknown error'), 'error');
-                    btn.textContent = 'Add to Cart';
+                    showStatus(fill(t('add_failed'), { error: err.message || t('unknown_error') }), 'error');
+                    btn.textContent = t('add_to_cart');
                     btn.disabled = false;
                 });
             } else {
                 setTimeout(function () {
-                    btn.textContent = 'Added!';
+                    btn.textContent = t('added');
                     setTimeout(function () {
-                        btn.textContent = 'Add to Cart';
+                        btn.textContent = t('add_to_cart');
                         btn.disabled = false;
                     }, 1500);
                 }, 300);
             }
         } catch (err) {
-            showStatus('Failed: ' + (err.message || 'Unknown error'), 'error');
-            btn.textContent = 'Add to Cart';
+            showStatus(fill(t('add_failed'), { error: err.message || t('unknown_error') }), 'error');
+            btn.textContent = t('add_to_cart');
             btn.disabled = false;
         }
     }
@@ -356,7 +357,7 @@
 
         prevBtn.disabled = currentPage <= 1;
         nextBtn.disabled = currentPage >= totalPages;
-        pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+        pageInfo.textContent = fill(t('page_of'), { current: currentPage, total: totalPages });
     }
 
     function formatPrice(cents) {
@@ -371,6 +372,19 @@
         el.className = 'fcbo-pt-status fcbo-pt-status-' + type;
         el.style.display = 'block';
         setTimeout(function () { el.style.display = 'none'; }, 4000);
+    }
+
+    // A translated sentence by key, with {placeholders} filled. Both mirror
+    // the helpers in bulk-order.js — I18N comes from wp_localize_script, so a
+    // missing key means the PHP side was not updated.
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
+    }
+
+    function fill(template, values) {
+        return String(template || '').replace(/\{(\w+)\}/g, function (match, key) {
+            return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+        });
     }
 
     function escapeHtml(str) {

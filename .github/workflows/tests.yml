@@ -1,0 +1,40 @@
+name: tests
+
+# Feature branches are covered by the pull_request trigger, since every change
+# here reaches development through a PR.
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Report every failing version in one run, rather than stopping at the
+      # first. Knowing it breaks on 7.4 only, or everywhere, is the useful part.
+      fail-fast: false
+      matrix:
+        # The full range the plugin header claims: "Requires PHP: 7.4".
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Run unit tests
+        run: composer test

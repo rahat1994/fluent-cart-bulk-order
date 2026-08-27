@@ -1,20 +1,44 @@
 (function() {
     var currencySign = (window.fcboBpConfig && window.fcboBpConfig.currency_sign) || '$';
+    var I18N = (window.fcboBpConfig && window.fcboBpConfig.i18n) || {};
 
     function formatPrice(cents) {
         return currencySign + (cents / 100).toFixed(2);
     }
 
+    // Fill {named} placeholders in a template from fcbo_savings_strings().
+    // An unknown key is left alone rather than blanked, so a mistranslated
+    // placeholder shows up as itself instead of silently vanishing.
+    // Mirrors fill() in bulk-order.js.
+    function fill(template, values) {
+        return String(template || '').replace(/\{(\w+)\}/g, function(match, key) {
+            return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+        });
+    }
+
+    // Mirrors PHP fcbo_match_tier(): several tiers can match one quantity (an
+    // open-ended "30+" still matches at 70 when a "60+" exists), so the most
+    // specific match wins — the highest min_qty, not the first one found.
     function resolveTier(tiers, qty) {
+        var best = null;
+        var bestMin = -1;
+
         for (var i = 0; i < tiers.length; i++) {
             var t = tiers[i];
             var min = parseInt(t.min_qty, 10) || 0;
             var max = parseInt(t.max_qty, 10) || 0;
-            if (qty >= min && (max === 0 || qty <= max)) {
-                return t;
+
+            if (qty < min || (max > 0 && qty > max)) {
+                continue;
+            }
+
+            if (min >= bestMin) {
+                best = t;
+                bestMin = min;
             }
         }
-        return null;
+
+        return best;
     }
 
     // Mirrors PHP fcbo_apply_tier_to_price(): the ONE effective-price formula for
@@ -36,6 +60,55 @@
         }
 
         return result < 0 ? 0 : result;
+    }
+
+    // The next unlock still ahead of the shopper, or null when there is none.
+    //
+    // Only a tier boundary can change the price, so the candidate quantities are
+    // exactly the min_qty values above the current one. Each candidate is priced
+    // through resolveTier(), not read off the tier that named it — with
+    // overlapping ranges the tier that WINS at that quantity may be a different
+    // one, and quoting the loser would promise a discount the shopper will not
+    // get. A candidate that does not actually beat today's price is skipped, so
+    // a flat or worse tier is never advertised as an upgrade.
+    //
+    // Mirrors findNextUnlock() in bulk-order.js, minus the order-rule rounding
+    // (this widget carries no order rules).
+    function findNextUnlock(priceCents, qty, tiers) {
+        if (!tiers || !tiers.length || priceCents <= 0) return null;
+
+        var current = applyTierToPrice(priceCents, resolveTier(tiers, Math.max(1, qty)));
+
+        var steps = [];
+        for (var i = 0; i < tiers.length; i++) {
+            var min = parseInt(tiers[i].min_qty, 10) || 0;
+            if (min > qty) steps.push(min);
+        }
+        steps.sort(function(a, b) { return a - b; });
+
+        for (var j = 0; j < steps.length; j++) {
+            var tier = resolveTier(tiers, steps[j]);
+            if (tier && applyTierToPrice(priceCents, tier) < current) {
+                return { qty: steps[j], tier: tier };
+            }
+        }
+
+        return null;
+    }
+
+    // Percent tiers can name their discount; the money types cannot without
+    // mislabeling the unit, so those degrade to a generic promise.
+    // Mirrors unlockText() in bulk-order.js.
+    function unlockText(need, tier) {
+        var type = (tier && tier.discount_type) || 'percent';
+        var value = parseFloat(tier && tier.discount_value) || 0;
+
+        if (type === 'percent' && value > 0) {
+            // 10 not 10.00 — matching PHP fcbo_format_tier_discount_label().
+            return fill(I18N.unlock_percent, { qty: need, percent: String(parseFloat(value.toFixed(2))) });
+        }
+
+        return fill(I18N.unlock_generic, { qty: need });
     }
 
     function recalcTable(table) {
@@ -60,13 +133,22 @@
             grandOriginal += originalTotal;
             grandDiscounted += discountedTotal;
 
+            // The saving goes into the same innerHTML as the price it explains,
+            // so the two are written in one assignment and cannot drift apart.
+            // Reached only on the discounted branch, which is exactly when the
+            // saving is above zero — no "You saved $0.00" is possible.
+            var saving = originalTotal - discountedTotal;
+
             if (qty === 0) {
                 priceCell.innerHTML = '<span class="fcbo-bp-muted">&mdash;</span>';
             } else if (discountedTotal < originalTotal) {
-                priceCell.innerHTML = '<del class="fcbo-bp-original">' + formatPrice(originalTotal) + '</del> <span class="fcbo-bp-discount">' + formatPrice(discountedTotal) + '</span>';
+                priceCell.innerHTML = '<del class="fcbo-bp-original">' + formatPrice(originalTotal) + '</del> <span class="fcbo-bp-discount">' + formatPrice(discountedTotal) + '</span>' +
+                    ' <span class="fcbo-bp-saving">' + escapeHtml(fill(I18N.saved, { amount: formatPrice(saving) })) + '</span>';
             } else {
                 priceCell.innerHTML = formatPrice(originalTotal);
             }
+
+            renderNudge(row, data.price, qty, data.tiers);
         });
 
         var totalCell = table.querySelector('.fcbo-bp-grand-total');
@@ -79,6 +161,32 @@
                 totalCell.innerHTML = formatPrice(grandOriginal);
             }
         }
+
+        var grandSavingCell = table.querySelector('.fcbo-bp-grand-saving');
+        if (grandSavingCell) {
+            var grandSaving = grandOriginal - grandDiscounted;
+            // textContent, not innerHTML: nothing here is markup, and the
+            // template is translator-supplied.
+            grandSavingCell.textContent = grandSaving > 0
+                ? fill(I18N.saved, { amount: formatPrice(grandSaving) })
+                : '';
+        }
+    }
+
+    // Write (or clear) the "add N more" line under one row's quantity input.
+    function renderNudge(row, priceCents, qty, tiers) {
+        var el = row.querySelector('.fcbo-bp-nudge');
+        if (!el) return;
+
+        var unlock = findNextUnlock(priceCents, qty, tiers);
+
+        el.textContent = unlock ? unlockText(unlock.qty - qty, unlock.tier) : '';
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
     }
 
     document.addEventListener('input', function(e) {

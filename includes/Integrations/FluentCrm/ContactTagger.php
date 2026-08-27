@@ -92,14 +92,29 @@ class ContactTagger
             return [];
         }
 
+        // NOT `(array) $tags`. FluentCRM returns a Collection object, and
+        // casting one to an array yields its INTERNAL properties (`items` and
+        // friends), not the tags inside it — so the loop below silently found
+        // nothing and the settings page said "FluentCRM has no tags yet" on a
+        // site with tags. A Collection is Traversable, so iterate it as one and
+        // accept a plain array too, in case a future version returns one.
+        if (!is_array($tags) && !($tags instanceof \Traversable)) {
+            return [];
+        }
+
         $options = [];
 
-        foreach ((array) $tags as $tag) {
-            if (empty($tag->id)) {
+        foreach ($tags as $tag) {
+            // Models are objects; a plain array is accepted for the same
+            // future-proofing reason.
+            $id    = is_object($tag) && isset($tag->id) ? $tag->id : (is_array($tag) && isset($tag['id']) ? $tag['id'] : 0);
+            $title = is_object($tag) && isset($tag->title) ? $tag->title : (is_array($tag) && isset($tag['title']) ? $tag['title'] : '');
+
+            if ((int) $id <= 0) {
                 continue;
             }
 
-            $options[(int) $tag->id] = isset($tag->title) ? (string) $tag->title : (string) $tag->id;
+            $options[(int) $id] = $title !== '' ? (string) $title : (string) (int) $id;
         }
 
         return $options;

@@ -9,8 +9,14 @@ composer install
 composer test
 ```
 
-Runs in milliseconds. Covers `includes/Pricing/` — the tier math, order-rule
-rounding, and feed precedence.
+Runs in milliseconds. Covers:
+
+- `includes/Pricing/` — the tier math, order-rule rounding, and feed precedence.
+- `includes/Shortcodes/AttributeSchema.php` — how a Gutenberg or Elementor
+  control value becomes a shortcode attribute. It is here because getting it
+  wrong is invisible: a wrapper that passes an attribute the store owner never
+  set overrides the store-wide defaults, and the only symptom is a table quietly
+  ignoring the settings page.
 
 These classes are pure functions over arrays, which is exactly why they are the
 ones worth pinning. `tests/bootstrap.php` does **not** load WordPress; it defines

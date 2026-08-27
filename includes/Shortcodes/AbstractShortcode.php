@@ -27,6 +27,11 @@ defined('ABSPATH') || exit;
  * allowed to use the surface. render() below fixes that order so a new
  * shortcode cannot get it wrong by accident.
  *
+ * Step 3 is skippable, step 2 is not. requiresSurfaceAccess() exists for the
+ * wholesale application form, whose whole audience is the users Gate 1 keeps
+ * out; nothing may skip the logged-in check, because every surface here is
+ * about a specific user.
+ *
  * ---------------------------------------------------------------------------
  * WHAT `roles` MEANS
  * ---------------------------------------------------------------------------
@@ -107,14 +112,53 @@ abstract class AbstractShortcode
         $atts = shortcode_atts($this->defaults(), $atts, $this->tag);
 
         if (!is_user_logged_in()) {
-            return $this->notice($this->loginNotice());
+            return $this->loginNoticeHtml();
         }
 
-        if (!AccessPolicy::currentUserCanAccess($this->extraRoles($atts))) {
+        if ($this->requiresSurfaceAccess() && !AccessPolicy::currentUserCanAccess($this->extraRoles($atts))) {
             return $this->notice($this->accessDeniedNotice());
         }
 
         return $this->output($atts);
+    }
+
+    /**
+     * Whether this surface is behind Gate 1.
+     *
+     * True for every ordering surface, and it must stay that way — those show
+     * wholesale prices, so a shortcode that opted out would leak trade pricing
+     * onto a public page.
+     *
+     * The ONE exception is the wholesale application form, whose audience is by
+     * definition the users Gate 1 excludes: someone asking to BECOME a wholesale
+     * customer does not hold the role yet. Gating it would mean only people who
+     * already have wholesale access could apply for wholesale access.
+     *
+     * Overriding this is a deliberate act, not a convenience. A surface that
+     * returns false here must have no wholesale data on it at all.
+     *
+     * @return bool
+     * @see \FluentCartBulkOrder\Shortcodes\WholesaleApplication
+     */
+    protected function requiresSurfaceAccess()
+    {
+        return true;
+    }
+
+    /**
+     * The full markup shown to a logged-out visitor.
+     *
+     * Defaults to loginNotice() wrapped in a paragraph, which is what every
+     * ordering surface wants. Override when the notice needs more than a
+     * sentence — the application form points at the login and registration
+     * pages, because "log in to apply" without a link is a dead end for someone
+     * who has never had an account on the store.
+     *
+     * @return string
+     */
+    protected function loginNoticeHtml()
+    {
+        return $this->notice($this->loginNotice());
     }
 
     /**

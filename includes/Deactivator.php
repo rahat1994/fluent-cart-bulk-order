@@ -44,10 +44,17 @@ class Deactivator
      *     would NOT give those users their role back.
      *   - Product tier meta and users' saved lists are store content, not
      *     plugin scaffolding.
-     *   - No rewrite rules, cron events, custom tables or transients are
-     *     registered, so there is nothing to flush or unschedule either. (If a
-     *     future change adds any of those, unscheduling belongs HERE, not in
-     *     uninstall — a deactivated plugin must not leave cron jobs behind.)
+     *   - No rewrite rules, cron events or custom tables are registered, so
+     *     there is nothing to flush or unschedule either. (If a future change
+     *     adds any of those, unscheduling belongs HERE, not in uninstall — a
+     *     deactivated plugin must not leave cron jobs behind.)
+     *   - The two transients the plugin sets both expire on their own and need
+     *     no teardown: `fcbo_wholesale_feedback_{user_id}` lives 60 seconds and
+     *     is read-and-deleted on the next page view, and
+     *     `fcbo_wholesale_notified_{user_id}` lives 15 minutes. Core's
+     *     `delete_expired_transients()` sweep collects anything left by a
+     *     visitor who never came back. A LONGER-LIVED transient added later
+     *     would need deleting, and that too belongs HERE.
      *
      * The hook is still wired in the main plugin file so this reasoning has a
      * home, and so the next person adding cron or rewrite rules has an obvious
@@ -67,27 +74,48 @@ class Deactivator
      * nothing else:
      *
      *   REMOVED  the three `fcbo_*` options (Gate 2 + Gate 3 policy)
+     *   REMOVED  `fcbo_store_defaults` (every other setting, including the
+     *            wholesale application's questions and its FluentCRM tag ids)
      *   REMOVED  the `wholesale-customer` role definition
+     *   REMOVED  the two wholesale application user meta keys, for every user.
+     *            @see removeWholesaleApplications() for why these are
+     *            scaffolding rather than customer content.
      *   KEPT     `fcbo_bulk_pricing` post meta — the per-product tier tables a
      *            store owner may have spent hours entering. Reinstalling the
      *            plugin picks them straight back up.
      *   KEPT     `fcbo_saved_lists` user meta — customers' own saved order
      *            lists. Deleting another person's data on an admin's uninstall
      *            click is not ours to do.
+     *   KEPT     Anything inside FluentCRM. The tags an owner pointed us at are
+     *            their tags, in their CRM, and the contacts we tagged are
+     *            contacts they already had. This plugin never created a tag
+     *            precisely so that uninstall has nothing to argue about.
      *
      * Users who hold `wholesale-customer` keep the assignment in their user
      * meta. WordPress treats an unknown role as no capabilities, so they lose
      * wholesale access (correct — the plugin is gone) without being edited, and
      * reinstalling restores them exactly.
      *
-     * On multisite the same cleanup runs once per site in the network — see
+     * That is also why deleting the APPLICATION records below does not touch
+     * the role: the record is our paperwork, the role assignment is the user's.
+     *
+     * On multisite the per-site cleanup runs once per site in the network — see
      * removeSiteData() and eachSiteId() below for why that loop is necessary and
-     * what it assumes.
+     * what it assumes. The user meta is network-wide, so it is removed once,
+     * before the loop rather than inside it.
      *
      * @return void
      */
     public static function uninstall()
     {
+        // ONCE, and outside the loop. `wp_usermeta` is one table for the whole
+        // network and these keys are not site-prefixed, so the first pass
+        // already removes them everywhere. Calling it per site would re-scan
+        // the biggest table on the install for every site in the network and
+        // delete nothing after the first — and eachSiteId() already warns that
+        // a large network's real risk here is max_execution_time.
+        self::removeWholesaleApplications();
+
         if (!is_multisite()) {
             self::removeSiteData();
 
@@ -104,11 +132,15 @@ class Deactivator
     /**
      * Delete this plugin's data for ONE site — whichever site is current.
      *
-     * Both calls are per-site by nature, which is the whole reason uninstall()
+     * Every call is per-site by nature, which is the whole reason uninstall()
      * has to loop on a network:
      *
      *   - `delete_option()` writes to the current site's options table.
      *   - `remove_role()` edits the current site's `{prefix}user_roles` option.
+     *
+     * The wholesale application meta is deliberately NOT here. It is
+     * network-wide by nature, so uninstall() removes it once, before the loop.
+     * @see removeWholesaleApplications()
      *
      * Safe to call on a site that never activated the plugin, and safe to call
      * twice: delete_option() on a missing option and remove_role() on a missing
@@ -123,7 +155,55 @@ class Deactivator
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL);
         delete_option(AccessPolicy::OPTION_MIN_ORDER_TOTAL_ROLES);
 
+        // Every setting that is not one of the three role gates, including the
+        // wholesale application's questions and its FluentCRM tag ids. It was
+        // missing from this list before the wholesale flow existed, which left
+        // a `fcbo_store_defaults` row behind on every uninstall.
+        delete_option(StoreDefaults::OPTION);
+
         remove_role(AccessPolicy::WHOLESALE_ROLE);
+    }
+
+    /**
+     * Delete every wholesale application record.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THIS GOES AND `fcbo_saved_lists` STAYS
+     * ---------------------------------------------------------------------------
+     *
+     * A saved order is something a CUSTOMER made for themselves — a basket they
+     * assembled and named, useful to them and to nobody else. Deleting it on an
+     * admin's uninstall click is not ours to do.
+     *
+     * An application record is the opposite: it is this plugin's paperwork
+     * about a decision an ADMIN made, and it has no meaning without the plugin
+     * that reads it. Leaving it behind would put two orphan meta rows on every
+     * applicant, invisible in wp-admin (both keys are underscore-prefixed and
+     * therefore protected), that nothing will ever clean up.
+     *
+     * What does NOT go is the role assignment. A user who was approved keeps
+     * `wholesale-customer` in their capabilities, exactly like every other user
+     * who holds it — see the docblock on uninstall(). Deleting the record does
+     * not revoke anything; it deletes the note about when it was granted.
+     *
+     * `delete_metadata()` with `$delete_all = true` is the one call that
+     * removes a meta key for every user in one query, rather than paging
+     * through the user table. The `$object_id` and `$meta_value` arguments are
+     * ignored when that flag is set, which is why they are 0 and ''.
+     *
+     * The key names are hardcoded rather than read from ApplicationStore. That
+     * class pulls in AccessPolicy and the whole Wholesale namespace, and
+     * uninstall.php deliberately loads as little as it can get away with —
+     * @see uninstall.php. The trade is two strings that must not drift; the
+     * constants on ApplicationStore name this method so the next person
+     * renaming one finds it.
+     *
+     * @return void
+     */
+    private static function removeWholesaleApplications()
+    {
+        delete_metadata('user', 0, '_fcbo_wholesale_application', '', true);
+        delete_metadata('user', 0, '_fcbo_wholesale_status', '', true);
     }
 
     /**

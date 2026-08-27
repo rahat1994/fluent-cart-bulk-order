@@ -19,8 +19,15 @@
 // it, this file was reached some other way and must not delete anything.
 defined('WP_UNINSTALL_PLUGIN') || exit;
 
-// AccessPolicy holds the option names and the role slug; Deactivator reads them.
-// Neither file touches FluentCart at include time.
+// AccessPolicy holds the three gate option names and the role slug; StoreDefaults
+// holds the name of the option every other setting lives in. Deactivator reads
+// both. None of the three touches FluentCart at include time, and none of them
+// pulls in the Wholesale classes — the two application meta keys are named as
+// literals in Deactivator for exactly that reason.
+//
+// StoreDefaults FIRST: AccessPolicy's Gate 1 reads it, so it must be defined
+// before that file is parsed.
+require_once __DIR__ . '/includes/StoreDefaults.php';
 require_once __DIR__ . '/includes/AccessPolicy.php';
 require_once __DIR__ . '/includes/Deactivator.php';
 

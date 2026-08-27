@@ -45,6 +45,13 @@ class ShortcodeHandler
         'fluent_cart_bulk_order'    => 'BulkOrderForm',
         'fluent_cart_product_table' => 'ProductTable',
         'fluent_cart_saved_orders'  => 'SavedOrders',
+
+        // The odd one out: this is the only tag whose audience is users WITHOUT
+        // wholesale access, so it opts out of Gate 1. It is still registered
+        // here, and still renders through AbstractShortcode, so it cannot skip
+        // the logged-in check by accident.
+        // @see \FluentCartBulkOrder\Shortcodes\WholesaleApplication
+        'fluent_cart_wholesale_application' => 'WholesaleApplication',
     ];
 
     /**

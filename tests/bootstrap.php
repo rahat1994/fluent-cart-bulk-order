@@ -39,6 +39,16 @@ if (!function_exists('esc_html')) {
 // broken without anything visibly failing.
 require_once dirname(__DIR__) . '/includes/Shortcodes/AttributeSchema.php';
 
+// The three pure classes behind the wholesale application flow. They are here
+// for the same reason: each is a map from array to array, and each guards
+// something whose failure is silent. The status machine decides whether a
+// request may hand out the `wholesale-customer` role; the schema decides what
+// the form asks; the input validator decides which posted keys are allowed to
+// reach a stored record at all.
+require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationStatus.php';
+require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationSchema.php';
+require_once dirname(__DIR__) . '/includes/Wholesale/ApplicationInput.php';
+
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';

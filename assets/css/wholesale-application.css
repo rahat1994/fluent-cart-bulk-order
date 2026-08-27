@@ -1,0 +1,178 @@
+/*
+ * Wholesale application form — [fluent_cart_wholesale_application].
+ *
+ * Plain CSS, no build step, matching the rest of assets/css. Every rule is
+ * scoped under .fcbo-wa-wrap so nothing here can reach a theme's own forms.
+ *
+ * Colours are stated once as custom properties on the wrapper, so a theme can
+ * override the palette with a single rule rather than fighting selector by
+ * selector. Fonts and text sizes are deliberately NOT set: this form sits in
+ * the middle of somebody's page and should read as part of it.
+ */
+
+.fcbo-wa-wrap {
+    --fcbo-wa-border: #d5d8dc;
+    --fcbo-wa-muted: #6b7280;
+    --fcbo-wa-accent: #2271b1;
+    --fcbo-wa-success-bg: #edfaef;
+    --fcbo-wa-success-border: #7ad03a;
+    --fcbo-wa-pending-bg: #fdf6e3;
+    --fcbo-wa-pending-border: #dba617;
+    --fcbo-wa-error: #b32d2e;
+    --fcbo-wa-error-bg: #fcf0f1;
+
+    max-width: 640px;
+}
+
+/* ---- Notices (the outcome of the submission that just redirected here) ---- */
+
+.fcbo-wa-notice {
+    border-left: 4px solid var(--fcbo-wa-accent);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    background: #f6f7f7;
+}
+
+.fcbo-wa-notice-success {
+    border-left-color: var(--fcbo-wa-success-border);
+    background: var(--fcbo-wa-success-bg);
+}
+
+.fcbo-wa-notice-error {
+    border-left-color: var(--fcbo-wa-error);
+    background: var(--fcbo-wa-error-bg);
+}
+
+/* ---- Status panels ---- */
+
+.fcbo-wa-panel {
+    border: 1px solid var(--fcbo-wa-border);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 0 0 24px;
+}
+
+.fcbo-wa-panel h3 {
+    margin: 0 0 8px;
+}
+
+.fcbo-wa-panel p:last-child {
+    margin-bottom: 0;
+}
+
+/* The logged-out "please sign in" panel. Neutral on purpose — nothing has
+   gone wrong, the visitor simply is not signed in yet. */
+.fcbo-wa-panel-info {
+    background: #f6f7f7;
+}
+
+.fcbo-wa-panel-approved {
+    background: var(--fcbo-wa-success-bg);
+    border-color: var(--fcbo-wa-success-border);
+}
+
+.fcbo-wa-panel-pending {
+    background: var(--fcbo-wa-pending-bg);
+    border-color: var(--fcbo-wa-pending-border);
+}
+
+.fcbo-wa-panel-rejected {
+    background: var(--fcbo-wa-error-bg);
+    border-color: var(--fcbo-wa-error);
+}
+
+.fcbo-wa-note {
+    background: rgba(255, 255, 255, 0.7);
+    border-left: 3px solid var(--fcbo-wa-muted);
+    padding: 10px 14px;
+    margin: 12px 0;
+}
+
+.fcbo-wa-note strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.fcbo-wa-note p {
+    margin: 0;
+}
+
+/* ---- The form ---- */
+
+.fcbo-wa-field {
+    margin: 0 0 18px;
+}
+
+.fcbo-wa-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.fcbo-wa-field input[type="text"],
+.fcbo-wa-field textarea,
+.fcbo-wa-field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--fcbo-wa-border);
+    border-radius: 3px;
+    background: #fff;
+}
+
+.fcbo-wa-field textarea {
+    resize: vertical;
+}
+
+/* A tick box reads as one line, so its label must not be a block above it. */
+.fcbo-wa-field label.fcbo-wa-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: 400;
+}
+
+.fcbo-wa-field label.fcbo-wa-checkbox input {
+    margin-top: 3px;
+}
+
+.fcbo-wa-required {
+    color: var(--fcbo-wa-error);
+}
+
+.fcbo-wa-field-error input[type="text"],
+.fcbo-wa-field-error textarea,
+.fcbo-wa-field-error select {
+    border-color: var(--fcbo-wa-error);
+}
+
+.fcbo-wa-error {
+    display: block;
+    margin-top: 4px;
+    color: var(--fcbo-wa-error);
+}
+
+.fcbo-wa-submit {
+    margin: 24px 0 0;
+}
+
+.fcbo-wa-button {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--fcbo-wa-accent);
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.fcbo-wa-button:hover,
+.fcbo-wa-button:focus {
+    opacity: 0.9;
+    color: #fff;
+}
+
+.fcbo-wa-link {
+    margin-left: 12px;
+}

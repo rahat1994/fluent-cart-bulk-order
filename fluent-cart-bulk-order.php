@@ -86,6 +86,16 @@ add_action('plugins_loaded', function () {
 
     add_action('rest_api_init', 'fcbo_register_routes');
 
+    // The wholesale application flow: the shopper's form POST, the admin review
+    // screen, the notification emails and the FluentCRM tagging. Two lines here
+    // because WholesaleFlow owns its own hook list and loads its classes only
+    // when one of them fires. @see \FluentCartBulkOrder\Wholesale\WholesaleFlow
+    //
+    // The FORM is not registered here — it is a shortcode, and it lives in
+    // ShortcodeHandler::SHORTCODES with the others.
+    require_once FCBO_DIR . 'includes/Wholesale/WholesaleFlow.php';
+    \FluentCartBulkOrder\Wholesale\WholesaleFlow::register();
+
     add_action('fluent_cart/init', function () {
         require_once FCBO_DIR . 'includes/BulkPricingIntegration.php';
         (new \FluentCartBulkOrder\BulkPricingIntegration())->register();

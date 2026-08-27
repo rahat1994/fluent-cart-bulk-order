@@ -88,6 +88,17 @@ class WholesaleFlow
         // rather than reaching any code of ours.
         add_action('admin_post_' . self::ACTION_REVIEW, [self::class, 'handleReview']);
 
+        // Notifications, on the flow's own two actions.
+        //
+        // Written as [class-name STRING, method] rather than [Notifier::class,
+        // ...]: the `::class` form is resolved at parse time and would drag
+        // Notifier into every page load just to name it. A string names the
+        // class without loading it, and by the time either action can fire,
+        // load() has run. A site unhooking one of these must use the same
+        // string form.
+        add_action('fcbo/wholesale/application_submitted', [__NAMESPACE__ . '\\Notifier', 'onSubmitted'], 10, 3);
+        add_action('fcbo/wholesale/application_reviewed', [__NAMESPACE__ . '\\Notifier', 'onReviewed'], 10, 3);
+
         // The review screen. `is_admin()` keeps its class off every front-end
         // page load; the capability that actually protects it is checked twice
         // inside the class. @see ReviewScreen
@@ -157,5 +168,6 @@ class WholesaleFlow
         require_once __DIR__ . '/ApplicationStore.php';
         require_once __DIR__ . '/ApplicationController.php';
         require_once __DIR__ . '/ReviewScreen.php';
+        require_once __DIR__ . '/Notifier.php';
     }
 }

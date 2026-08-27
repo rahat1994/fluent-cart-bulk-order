@@ -37,11 +37,20 @@ defined('ABSPATH') || exit;
  * status pending" without a LIKE over the whole meta table, which is both slow
  * and wrong (it would match a company named "pending").
  *
- * META_STATUS therefore duplicates the one field the admin screen queries on,
- * as a plain string, so the review screen is an ordinary indexed `meta_query`.
- * The duplication is deliberate and one-directional: every write goes through
- * this class and updates both, and every read of the status prefers META_STATUS
- * with the record as the fallback. @see statusFor().
+ * META_STATUS therefore holds the one field the admin screen queries on, as a
+ * plain string, so the review screen is an ordinary indexed `meta_query`.
+ *
+ * THE STATUS IS NOT DUPLICATED INTO THE RECORD. That is the important half.
+ * An earlier draft stored a copy in META_RECORD as well, and every hard problem
+ * in this class came from it: two rows that could disagree, a write order that
+ * decided which disagreement you got, and a claim on one row that the other
+ * row's write could then quietly undo. There is now exactly ONE place a status
+ * lives, so there is nothing to keep in step. get() fills the `status` key from
+ * META_STATUS on the way out, which is why callers still see one.
+ *
+ * The practical consequence: a decision is made by writing META_STATUS, and
+ * that write is a single conditional UPDATE (@see claim()). Everything else —
+ * the answers, the reviewer, the note — is data that cannot contradict it.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS MEANS ON MULTISITE — a known, accepted limitation
@@ -105,7 +114,8 @@ class ApplicationStore
      * @var array<string, mixed>
      */
     const RECORD_DEFAULTS = [
-        'status'       => ApplicationStatus::NONE,
+        // No `status` here on purpose — @see the class docblock. get() adds one
+        // to what it returns, read from META_STATUS, but nothing stores it.
         'fields'       => [],
         'submitted_at' => 0,
         'updated_at'   => 0,
@@ -125,34 +135,31 @@ class ApplicationStore
         $userId = (int) $userId;
 
         if ($userId <= 0) {
-            return self::RECORD_DEFAULTS;
+            return array_merge(self::RECORD_DEFAULTS, ['status' => ApplicationStatus::NONE]);
         }
 
         $stored = get_user_meta($userId, self::META_RECORD, true);
+        $record = array_merge(self::RECORD_DEFAULTS, is_array($stored) ? $stored : []);
 
-        if (!is_array($stored)) {
-            return self::RECORD_DEFAULTS;
-        }
-
-        $record = array_merge(self::RECORD_DEFAULTS, $stored);
-
-        // The stored status is normalised on read as well as on write. A record
-        // whose status cannot be read is treated as "never applied", which lets
-        // the user apply again — better than showing an admin a decision they
-        // cannot act on. @see ApplicationStatus::normalize()
-        $record['status'] = ApplicationStatus::normalize($record['status']);
+        // The status is READ FROM META_STATUS, never from the stored array —
+        // even if an older row happens to carry one. There is one authority and
+        // this is it, so the record a caller receives and the row the review
+        // screen queries can never describe different things.
+        $record['status'] = self::statusFor($userId);
         $record['fields'] = is_array($record['fields']) ? $record['fields'] : [];
 
         return $record;
     }
 
     /**
-     * One user's status, without unserializing the whole record.
+     * One user's status. The single authority, and the only place it is read.
      *
-     * Reads the indexed key first because that is the one the admin screen
-     * queries on — if the two ever disagreed, the screen and the detail view
-     * would show different things, so the query key is the authority and the
-     * record is the fallback for a row written before it existed.
+     * No fallback to the record, deliberately: a fallback would be a second
+     * source of truth, which is the thing this design exists to avoid. An
+     * absent or unreadable row means NONE — "has not applied" — which lets the
+     * user apply again and rewrites both keys. That is self-healing; guessing
+     * PENDING would put a record the plugin cannot read in front of an admin
+     * asking for a decision.
      *
      * @param int $userId
      * @return string An ApplicationStatus constant.
@@ -165,13 +172,7 @@ class ApplicationStore
             return ApplicationStatus::NONE;
         }
 
-        $status = ApplicationStatus::normalize(get_user_meta($userId, self::META_STATUS, true));
-
-        if ($status !== ApplicationStatus::NONE) {
-            return $status;
-        }
-
-        return self::get($userId)['status'];
+        return ApplicationStatus::normalize(get_user_meta($userId, self::META_STATUS, true));
     }
 
     /**
@@ -234,7 +235,15 @@ class ApplicationStore
             return null;
         }
 
-        self::write($userId, $record);
+        // The claim already set the status. Passing it again here is what used
+        // to reopen the very race the claim closes, so the record is written
+        // ALONE — except on the first-ever submission, where there was no row
+        // to claim and therefore none to overwrite.
+        self::write(
+            $userId,
+            $record,
+            $current === ApplicationStatus::NONE ? ApplicationStatus::statusAfterApply() : null
+        );
 
         /**
          * Fires after an application is stored, before the applicant is
@@ -249,7 +258,7 @@ class ApplicationStore
             'fcbo/wholesale/application_submitted',
             $userId,
             $record,
-            ApplicationStatus::applyOutcome($existing['status'])
+            ApplicationStatus::applyOutcome($current)
         );
 
         return $record;
@@ -338,6 +347,7 @@ class ApplicationStore
             return null;
         }
 
+        // The claim owns the status row, so only the record is written here.
         self::write($userId, $record);
 
         /**
@@ -393,26 +403,15 @@ class ApplicationStore
     /**
      * Keep answers to questions the owner has since removed.
      *
-     * ---------------------------------------------------------------------------
-     * WHY A MERGE AND NOT A REPLACE
-     * ---------------------------------------------------------------------------
+     * The rule and the cap both live in the pure layer, where the unit suite
+     * can pin them. @see \FluentCartBulkOrder\Wholesale\ApplicationInput::retainOrphans()
      *
-     * ApplicationInput::validate() walks the CURRENT schema, so a key whose
-     * question the owner deleted never appears in the new values. A plain
-     * replace would therefore delete that answer — and both places that show an
-     * application (the review screen and the admin's email) go out of their way
-     * to keep showing such an answer under its raw key, on the stated grounds
-     * that dropping it "would change the record in front of them without saying
-     * so".
-     *
-     * The write path has to honour the same promise, because the applicant is
-     * actively invited back: a pending application says "you can correct your
-     * answers below". An applicant fixing a typo in their tax ID must not
-     * silently erase the trade reference an admin read yesterday and is
-     * part-way through judging.
-     *
-     * A question the owner still asks is always overwritten by the new answer;
-     * only keys the schema no longer knows about survive.
+     * Retention note for a store owner reading this: an answer to a question
+     * you delete is NOT erased from applications that already gave one. It is
+     * kept so a reviewer mid-decision does not watch it vanish, and it is
+     * capped so the record cannot grow without bound — but if a question was
+     * removed because the answer must not be held, the records themselves have
+     * to be cleared as well. delete() is the tool for that.
      *
      * @param array<string, mixed> $existing Answers already stored.
      * @param mixed                $values   New, schema-validated answers.
@@ -420,16 +419,7 @@ class ApplicationStore
      */
     private static function mergeFields($existing, $values)
     {
-        $values   = is_array($values) ? $values : [];
-        $existing = is_array($existing) ? $existing : [];
-
-        foreach ($existing as $key => $old) {
-            if (!array_key_exists($key, $values)) {
-                $values[$key] = $old;
-            }
-        }
-
-        return $values;
+        return ApplicationInput::retainOrphans($existing, $values);
     }
 
     /**
@@ -482,6 +472,17 @@ class ApplicationStore
         wp_cache_delete($userId, 'user_meta');
         // phpcs:enable
 
+        // No row to claim: a record whose status write was lost, leaving the
+        // answers behind with nothing describing them. statusFor() reads that
+        // as NONE and the form invites the user to apply, so refusing here
+        // would leave them applying into a wall with no way to say why.
+        // Establishing the row is both the claim and the repair.
+        if (get_user_meta($userId, self::META_STATUS, true) === '') {
+            update_user_meta($userId, self::META_STATUS, ApplicationStatus::PENDING);
+
+            return true;
+        }
+
         return self::statusFor($userId) === ApplicationStatus::PENDING;
     }
 
@@ -530,8 +531,10 @@ class ApplicationStore
         );
 
         // 0 means another request already moved the row; false means the query
-        // failed. Neither is a claim.
-        if ($claimed !== 1) {
+        // failed. Neither is a claim. A count ABOVE one means duplicate status
+        // rows for the user, which is still an exclusive win — refusing it
+        // would make that application permanently undecidable.
+        if (!$claimed) {
             return false;
         }
 
@@ -553,6 +556,28 @@ class ApplicationStore
     private static function releaseClaim($userId)
     {
         update_user_meta($userId, self::META_STATUS, ApplicationStatus::PENDING);
+    }
+
+    /**
+     * Whether the role this plugin grants still exists on the site.
+     *
+     * A site can remove it — a role manager plugin, a migration, a
+     * half-finished uninstall — and nothing puts it back, because Activator
+     * only runs on activation. Without this, every approval on that site fails
+     * identically and the review screen says "already decided", which is both
+     * wrong and undiagnosable.
+     *
+     * NOT repaired automatically, on purpose. Re-creating a role from a POST
+     * handler is a change to site configuration that the admin did not ask for,
+     * and a store that removed the role deliberately would find the plugin
+     * putting it back on every approval. Naming the problem lets the admin
+     * decide. @see \FluentCartBulkOrder\Wholesale\ReviewScreen::handleDecision()
+     *
+     * @return bool
+     */
+    public static function wholesaleRoleExists()
+    {
+        return (bool) get_role(AccessPolicy::WHOLESALE_ROLE);
     }
 
     /**
@@ -687,20 +712,32 @@ class ApplicationStore
     }
 
     /**
-     * Write both meta keys. The ONLY place either is written.
+     * Write the record, and optionally the status. The ONLY place either key is
+     * written outside the two claims.
      *
-     * Both writes together, in one method, because the whole design depends on
-     * them agreeing — see the class docblock. A second write site is how they
-     * would start to drift.
+     * @see the class docblock for why the status is not stored in the record.
      *
      * @param int                  $userId
      * @param array<string, mixed> $record
+     * @param string|null          $status Status to write, or null when the
+     *                                     caller already owns the status row
+     *                                     through a claim.
      * @return void
      */
-    private static function write($userId, array $record)
+    private static function write($userId, array $record, $status = null)
     {
+        // The status never travels inside the record. @see the class docblock:
+        // one authority, so there is nothing to keep in step.
+        unset($record['status']);
+
         update_user_meta($userId, self::META_RECORD, $record);
-        update_user_meta($userId, self::META_STATUS, $record['status']);
+
+        // Only the path that has NOT already claimed the row passes a status —
+        // a claimed path would be overwriting the very row it just won, which
+        // is how an applicant's write used to undo an admin's decision.
+        if ($status !== null) {
+            update_user_meta($userId, self::META_STATUS, $status);
+        }
     }
 
     /**

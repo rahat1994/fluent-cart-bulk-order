@@ -276,6 +276,103 @@ class ApplicationInputTest extends TestCase
     }
 
     /**
+     * An answer to a question the owner has since deleted survives a
+     * re-submission.
+     *
+     * validate() walks the current schema, so the deleted question's key is
+     * absent from the new values. Both surfaces that show an application
+     * promise to keep showing such an answer under its raw key; the write path
+     * has to honour that, or an applicant fixing a typo silently erases
+     * something an admin read yesterday.
+     */
+    public function testAnswersToRemovedQuestionsAreCarriedForward()
+    {
+        $this->assertSame(
+            ['company_name' => 'New', 'trade_reference' => 'Old answer'],
+            ApplicationInput::retainOrphans(
+                ['company_name' => 'Old', 'trade_reference' => 'Old answer'],
+                ['company_name' => 'New']
+            )
+        );
+    }
+
+    /**
+     * A question the owner STILL asks is always overwritten — including when
+     * the applicant cleared it on purpose.
+     *
+     * This is the axis that would be a real bug: resurrecting a value somebody
+     * deliberately deleted. validate() always emits a key for every live field,
+     * so the new value wins even when it is '' or false.
+     */
+    public function testALiveQuestionsAnswerIsNeverResurrected()
+    {
+        $result = ApplicationInput::retainOrphans(
+            ['company_name' => 'Acme', 'terms' => true, 'notes' => 'old'],
+            ['company_name' => '', 'terms' => false, 'notes' => 'new']
+        );
+
+        $this->assertSame('', $result['company_name']);
+        $this->assertFalse($result['terms']);
+        $this->assertSame('new', $result['notes']);
+    }
+
+    /**
+     * The carry-forward is capped.
+     *
+     * MAX_EXTRA_FIELDS bounds the LIVE question list, not the stored record. An
+     * owner who reworks the form repeatedly would otherwise leave dozens of
+     * orphan keys, each up to MAX_VALUE_LENGTH, in one serialized meta row that
+     * the review screen unserializes twenty at a time.
+     */
+    public function testRetainedOrphansAreCapped()
+    {
+        $existing = [];
+        for ($i = 0; $i < ApplicationInput::MAX_RETAINED_ORPHANS + 25; $i++) {
+            $existing['orphan_' . $i] = 'x';
+        }
+
+        $result = ApplicationInput::retainOrphans($existing, ['company_name' => 'Acme']);
+
+        $this->assertCount(
+            ApplicationInput::MAX_RETAINED_ORPHANS + 1,
+            $result,
+            'the live answer plus at most MAX_RETAINED_ORPHANS carried keys'
+        );
+        $this->assertSame('Acme', $result['company_name']);
+    }
+
+    /**
+     * What survives is stable across saves — the keys already in the record
+     * win, rather than the set reshuffling on every submission.
+     */
+    public function testRetentionIsStableAcrossSaves()
+    {
+        $existing = [];
+        for ($i = 0; $i < ApplicationInput::MAX_RETAINED_ORPHANS + 5; $i++) {
+            $existing['orphan_' . $i] = 'x';
+        }
+
+        $first  = ApplicationInput::retainOrphans($existing, []);
+        $second = ApplicationInput::retainOrphans($first, []);
+
+        $this->assertSame(array_keys($first), array_keys($second));
+    }
+
+    /**
+     * A zero cap keeps nothing, and junk arguments do not fatal.
+     */
+    public function testRetainOrphansEdgeCases()
+    {
+        $this->assertSame(
+            ['a' => 1],
+            ApplicationInput::retainOrphans(['b' => 2], ['a' => 1], 0)
+        );
+
+        $this->assertSame([], ApplicationInput::retainOrphans(null, null));
+        $this->assertSame(['a' => 1], ApplicationInput::retainOrphans('junk', ['a' => 1]));
+    }
+
+    /**
      * Junk arguments produce an empty result rather than a fatal — this runs on
      * a public POST handler.
      */

@@ -163,6 +163,71 @@ class ApplicationInput
     }
 
     /**
+     * How many answers to removed questions a record may carry.
+     *
+     * @see retainOrphans() for why there has to be a number at all.
+     */
+    const MAX_RETAINED_ORPHANS = 20;
+
+    /**
+     * Carry forward answers whose questions the owner has since removed.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THEY ARE KEPT
+     * ---------------------------------------------------------------------------
+     *
+     * validate() walks the CURRENT schema, so an answer to a deleted question
+     * never appears in the new values. Replacing outright would delete it — and
+     * both surfaces that show an application go out of their way to keep
+     * showing such an answer under its raw key, on the grounds that dropping it
+     * changes the record in front of a reviewer without saying so. A pending
+     * applicant is actively invited back to correct a typo; that edit must not
+     * quietly erase an answer an admin read yesterday.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THEY ARE ALSO CAPPED
+     * ---------------------------------------------------------------------------
+     *
+     * "Keep forever" is unbounded. An owner who rotates a full set of twenty
+     * questions ten times leaves two hundred orphan keys on every applicant who
+     * answered them, each up to MAX_VALUE_LENGTH — a single user meta row in the
+     * hundreds of kilobytes, and the review screen reads twenty of those per
+     * page. The cap is a ceiling, not a judgement about which answers matter:
+     * the ones already in the record win, so what survives is stable across
+     * saves rather than reshuffling each time.
+     *
+     * @param mixed $existing Answers already stored.
+     * @param mixed $values   New, schema-validated answers.
+     * @param int   $limit    Maximum orphans to carry. 0 keeps none.
+     * @return array<string, mixed>
+     */
+    public static function retainOrphans($existing, $values, $limit = self::MAX_RETAINED_ORPHANS)
+    {
+        $values   = is_array($values) ? $values : [];
+        $existing = is_array($existing) ? $existing : [];
+        $limit    = max(0, (int) $limit);
+
+        $kept = 0;
+
+        foreach ($existing as $key => $old) {
+            // A question the owner still asks is always overwritten by the new
+            // answer, blank or not — a field left empty on purpose is an answer.
+            if (array_key_exists($key, $values)) {
+                continue;
+            }
+
+            if ($kept >= $limit) {
+                break;
+            }
+
+            $values[$key] = $old;
+            $kept++;
+        }
+
+        return $values;
+    }
+
+    /**
      * Whether a raw checkbox value means "ticked".
      *
      * An unticked box posts NOTHING — it is absent from $_POST entirely — so

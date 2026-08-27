@@ -65,9 +65,11 @@ class Notifier
      * quota and can get the sending domain blocked, which takes the order
      * confirmations down with it.
      *
-     * The suppressed notice costs the owner nothing real. The review screen
-     * always shows the latest answers, and a resubmission inside the window is
-     * by definition an edit to an application they have already been told about.
+     * The suppressed notice costs the owner nothing real, because the CALLER
+     * only consults this for an EDIT — an application the owner has already
+     * been told about — and the review screen always shows the latest answers.
+     * A genuinely new application, including a re-application after a
+     * rejection, is never suppressed. @see onSubmitted().
      *
      * A transient rather than user meta so it expires on its own and leaves
      * nothing to clean up on uninstall.
@@ -77,7 +79,7 @@ class Notifier
      */
     private static function claimAdminNotice($userId)
     {
-        $key = 'fcbo_wholesale_notified_' . (int) $userId;
+        $key = self::throttleKey($userId);
 
         if (get_transient($key)) {
             return false;
@@ -86,6 +88,17 @@ class Notifier
         set_transient($key, 1, self::ADMIN_NOTICE_INTERVAL);
 
         return true;
+    }
+
+    /**
+     * Transient name for one applicant's notice throttle.
+     *
+     * @param int $userId
+     * @return string
+     */
+    private static function throttleKey($userId)
+    {
+        return 'fcbo_wholesale_notified_' . (int) $userId;
     }
 
     /**
@@ -108,7 +121,12 @@ class Notifier
             return;
         }
 
-        if (!self::claimAdminNotice($userId)) {
+        // Throttle EDITS only. A re-application after a rejection is a new
+        // application the owner has not been told about, and suppressing that
+        // would lose information rather than repeat it. This is still airtight
+        // against the flood, because the first submission moves the applicant
+        // to pending and every further one is therefore an update.
+        if ($outcome === ApplicationStatus::OUTCOME_UPDATED && !self::claimAdminNotice($userId)) {
             return;
         }
 
@@ -163,6 +181,15 @@ class Notifier
      */
     public static function onReviewed($userId, $record, $status)
     {
+        // A decision closes the loop, so whatever the applicant sends next is
+        // news again. Without this, a rejected applicant who re-applies within
+        // the throttle window is silently not reported — and that is a genuinely
+        // NEW application, not a repeat of one the owner already saw.
+        //
+        // Safe against the flood it defends: a loop of submissions never
+        // reaches a decision, so nothing ever clears the claim.
+        delete_transient(self::throttleKey($userId));
+
         $user = get_userdata((int) $userId);
 
         if (!$user || !is_email($user->user_email)) {

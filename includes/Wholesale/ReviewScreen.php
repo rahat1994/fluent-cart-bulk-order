@@ -191,6 +191,15 @@ class ReviewScreen
             self::finish('error');
         }
 
+        // Checked HERE rather than left to fail inside the store, because the
+        // store can only answer "no" and the admin needs to know which "no"
+        // this is. Without the role there is nothing to grant, every approval
+        // on the site fails the same way, and "already decided" would be a
+        // misleading answer to a question about a pending application.
+        if ($status === ApplicationStatus::APPROVED && !ApplicationStore::wholesaleRoleExists()) {
+            self::finish('role_missing');
+        }
+
         // Capped so a reviewer's note cannot make the applicant's user meta row
         // arbitrarily large. The note is also emailed, and shown on a public
         // page, so a bounded length is the friendlier answer anyway.
@@ -272,6 +281,7 @@ class ReviewScreen
             'approved' => __('Application approved. The wholesale role has been granted and the applicant has been emailed.', 'fluent-cart-bulk-order'),
             'rejected' => __('Application rejected. The applicant has been emailed.', 'fluent-cart-bulk-order'),
             'refused'  => __('Nothing changed — that application had already been decided, or the user no longer exists.', 'fluent-cart-bulk-order'),
+            'role_missing' => __('Nothing changed. The Wholesale Customer role no longer exists on this site, so there is nothing to grant. Deactivating and reactivating this plugin recreates it.', 'fluent-cart-bulk-order'),
             'error'    => __('That decision could not be recorded. Please try again.', 'fluent-cart-bulk-order'),
         ];
 
@@ -281,7 +291,7 @@ class ReviewScreen
 
         printf(
             '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-            esc_attr($code === 'approved' || $code === 'rejected' ? 'success' : 'warning'),
+            esc_attr($code === 'approved' || $code === 'rejected' ? 'success' : ($code === 'refused' ? 'warning' : 'error')),
             esc_html($messages[$code])
         );
     }

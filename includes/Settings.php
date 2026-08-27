@@ -973,7 +973,15 @@ class Settings
         $available = \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::isAvailable();
         $tags      = $available ? \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::tagOptions() : [];
 
-        if (!$available || !$tags) {
+        // An empty tag list still deserves a picker when an id is stored: that
+        // is the one state where the id is guaranteed dead, and the picker is
+        // the only place the owner can clear it. Hiding it there would pin the
+        // dead id forever, which is the silent failure the "no longer in
+        // FluentCRM" option exists to expose.
+        $stored = (int) StoreDefaults::get('wholesale_crm_tag_applied', 0)
+            + (int) StoreDefaults::get('wholesale_crm_tag_approved', 0);
+
+        if (!$available || (!$tags && !$stored)) {
             $this->preserveTagChoices();
 
             printf(

@@ -76,6 +76,17 @@ class StoreDefaults
         'table_columns'         => [],
         'table_search'          => true,
         'table_expand_variants' => false,
+
+        // Wholesale application flow. `wholesale_fields` holds the owner's
+        // EXTRA questions only — company name and tax ID are built into
+        // \FluentCartBulkOrder\Wholesale\ApplicationSchema and are not stored,
+        // so an owner cannot delete the two questions the review screen exists
+        // to show. The two tag ids are FluentCRM tag ids; 0 means "do not tag",
+        // which is also what a store without FluentCRM always reads.
+        'wholesale_fields'           => [],
+        'wholesale_notify_admin'     => true,
+        'wholesale_crm_tag_applied'  => 0,
+        'wholesale_crm_tag_approved' => 0,
     ];
 
     /**
@@ -178,7 +189,46 @@ class StoreDefaults
         $clean['table_search'] = !empty($value['table_search']);
         $clean['table_expand_variants'] = !empty($value['table_expand_variants']);
 
+        $clean = array_merge($clean, self::sanitizeWholesale($value));
+
         return $clean;
+    }
+
+    /**
+     * Validate the wholesale application settings.
+     *
+     * Split out because it is the one part of this sanitiser that needs another
+     * class: the field list is judged by
+     * \FluentCartBulkOrder\Wholesale\ApplicationSchema, which owns every rule
+     * about what a valid field is. Duplicating any of that here would give the
+     * settings page a second, drifting definition of "valid field".
+     *
+     * The Wholesale files are required lazily rather than at the top of this
+     * one. StoreDefaults is loaded on EVERY page load (Gate 1 reads it), and
+     * this branch only runs when an admin presses Save on the settings page.
+     *
+     * The two FluentCRM tag ids are stored as plain integers with no check that
+     * the tag exists. Deliberate: FluentCRM may be inactive at save time, and a
+     * tag can be deleted at any point afterwards, so a tag id is validated
+     * where it is USED and never where it is stored. @see
+     * \FluentCartBulkOrder\Integrations\FluentCrm\ContactTagger::tagUser()
+     *
+     * @param array<string, mixed> $value Raw submitted value.
+     * @return array<string, mixed>
+     */
+    private static function sanitizeWholesale($value)
+    {
+        require_once __DIR__ . '/Wholesale/ApplicationSchema.php';
+        require_once __DIR__ . '/Wholesale/ApplicationSettings.php';
+
+        return [
+            'wholesale_fields' => \FluentCartBulkOrder\Wholesale\ApplicationSettings::sanitizeFields(
+                isset($value['wholesale_fields']) ? $value['wholesale_fields'] : []
+            ),
+            'wholesale_notify_admin'     => !empty($value['wholesale_notify_admin']),
+            'wholesale_crm_tag_applied'  => isset($value['wholesale_crm_tag_applied']) ? absint($value['wholesale_crm_tag_applied']) : 0,
+            'wholesale_crm_tag_approved' => isset($value['wholesale_crm_tag_approved']) ? absint($value['wholesale_crm_tag_approved']) : 0,
+        ];
     }
 
     /**

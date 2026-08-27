@@ -36,6 +36,11 @@ A stored configuration record that enables and configures one integration for a 
 
 A feed carries an enabled flag, a name, whatever settings its integration defines, and an optional restriction to specific product variants. A single store-wide feed applies as the default, while one product may hold several feeds for the same integration, each restricted to different variants; for a given variant the first feed whose restriction matches applies, and any matching product-scoped feed takes precedence over the store-wide one. A feed persists only the settings its integration has formally declared — any other value submitted alongside them is discarded when the feed is saved, with no error, so an undeclared setting appears to save and then silently disappears.
 
+### Store Default
+A display or behaviour option for the ordering surfaces that the owner sets once for the whole store, instead of repeating it wherever a surface is placed. *Avoid:* global setting, site default.
+
+A Store Default sits in the middle of a three-layer precedence: an option set explicitly where a surface is placed wins, the Store Default applies when it is not, and a built-in fallback applies when neither is configured. The ordering is one-directional and is expressed by *supplying* the default rather than by a check, which makes it invisible at the point a surface is placed — so anything that places a surface must pass along only the options that were genuinely set. Passing an option nobody chose, as an empty value, reads as a deliberate choice: it overrides the Store Default and drops through to the built-in fallback, with no error and no symptom beyond the setting appearing not to work.
+
 ## Pricing
 
 ### Bulk Pricing Tier

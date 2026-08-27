@@ -60,6 +60,22 @@ A Saved Order holds product variants and quantities, not prices. It is re-priced
 ### Reorder
 The one-action process of putting a Saved Order's — or a past purchase's — still-available line items back into the cart. Items that no longer resolve to an available variant are skipped with notice rather than blocking the rest.
 
+### PO Number
+The buyer's own purchase-order reference, given at checkout and kept with the order. *Avoid:* purchase order, order reference, PO.
+
+It is the buyer's number, not the store's: a store already has an order id and an invoice number, and neither is what a purchasing department pays against. So it is asked for rather than generated, stored verbatim on the order, and printed back on everything the buyer files — the receipt, the order in their account, and both export formats.
+
+A store is in one of three states about it, and they are one setting rather than two: off, optional, or required. Off is the default and must stay so, because turning the field on changes a checkout every shopper sees. "Required" is enforced by refusing the checkout on the server, not by the browser — a field that only the page validates is not required. Which shoppers the state binds is a separate question with its own role list; unlike the minimum order total, an empty list there means *everyone*, which is safe only because the state above it starts off.
+
+A PO number is one line of text with a length cap, and it is stored raw and escaped at each render site. That matters more than it sounds: the value is a buyer's free text that later lands in a spreadsheet cell, so the two places that print it — the printable receipt and the CSV — each defend themselves rather than trusting what was stored.
+
+### Order Export
+A single order rendered as a file the buyer files and the owner sends — a CSV for their accounts system, or a receipt for their records. *Avoid:* invoice, download, report.
+
+The CSV is one flat table with one row per line item and the order's own facts repeated on each, because a two-section file reads better and cannot be sorted, filtered or imported. The receipt is a real PDF where the store already has FluentCart's PDF stack and a print-ready page everywhere else — this plugin does not carry a PDF engine, and the link says which one the buyer is about to get.
+
+Either file is one customer's order, so an export URL is not a secret: it is refused unless the requester either holds the owner capability or *is* the customer the order belongs to, checked against the order's own customer record rather than against anything in the URL.
+
 ### Quote Request
 A buyer's submitted bulk order sent to the store to be priced instead of bought, together with the prices the owner set on it and the decision they made. *Avoid:* RFQ, quotation, estimate.
 

@@ -34,6 +34,14 @@ Runs in milliseconds. Covers:
   browser instead of the catalogue lets a buyer name their own price, and an
   empty price box read as `0` turns "leave this line alone" into "give it away".
 
+- `includes/Checkout/PoNumber.php` and `includes/Export/OrderCsv.php` — the two
+  pure classes behind the B2B checkout extras. `PoNumber` decides whether a
+  checkout is refused for a missing purchase-order number; `OrderCsv` decides
+  what ends up in a file the store hands to a buyer's accounts department. Both
+  fail quietly when they are wrong — an unreadable mode that defaulted to
+  "required" would stop a store selling until somebody noticed, and a cell a
+  spreadsheet runs as a formula downloads exactly like one that does not.
+
 These classes are pure functions over arrays, which is exactly why they are the
 ones worth pinning. `tests/bootstrap.php` does **not** load WordPress; it defines
 `ABSPATH` and a passthrough `__()`, and nothing else. If a class ever needs more

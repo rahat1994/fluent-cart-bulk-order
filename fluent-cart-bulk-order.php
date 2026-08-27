@@ -107,6 +107,22 @@ add_action('plugins_loaded', function () {
     require_once FCBO_DIR . 'includes/Quotes/QuoteFlow.php';
     \FluentCartBulkOrder\Quotes\QuoteFlow::register();
 
+    // The PO number field at checkout: the field itself, the server-side
+    // refusal when it is required, and every place a stored value is shown
+    // back. Two lines here for the same reason as above — and PoNumberFlow
+    // skips the checkout half when the owner has not turned the field on,
+    // which is the default. @see \FluentCartBulkOrder\Checkout\PoNumberFlow
+    require_once FCBO_DIR . 'includes/Checkout/PoNumberFlow.php';
+    \FluentCartBulkOrder\Checkout\PoNumberFlow::register();
+
+    // Exporting a single order as a CSV or a printable receipt: the download
+    // endpoint, the buyer's links on their own receipt and dashboard, and the
+    // owner's order screen. @see \FluentCartBulkOrder\Export\OrderExportFlow
+    // for the three checks on an export URL, and OrderReceiptView for what the
+    // PDF half does and does not promise.
+    require_once FCBO_DIR . 'includes/Export/OrderExportFlow.php';
+    \FluentCartBulkOrder\Export\OrderExportFlow::register();
+
     add_action('fluent_cart/init', function () {
         require_once FCBO_DIR . 'includes/BulkPricingIntegration.php';
         (new \FluentCartBulkOrder\BulkPricingIntegration())->register();

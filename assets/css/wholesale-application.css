@@ -60,6 +60,12 @@
     margin-bottom: 0;
 }
 
+/* The logged-out "please sign in" panel. Neutral on purpose — nothing has
+   gone wrong, the visitor simply is not signed in yet. */
+.fcbo-wa-panel-info {
+    background: #f6f7f7;
+}
+
 .fcbo-wa-panel-approved {
     background: var(--fcbo-wa-success-bg);
     border-color: var(--fcbo-wa-success-border);

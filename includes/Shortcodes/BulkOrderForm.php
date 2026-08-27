@@ -3,6 +3,7 @@
 namespace FluentCartBulkOrder\Shortcodes;
 
 use FluentCartBulkOrder\AccessPolicy;
+use FluentCartBulkOrder\Analytics\Surface;
 use FluentCartBulkOrder\Quotes\QuoteSettings;
 use FluentCartBulkOrder\StoreDefaults;
 
@@ -67,6 +68,9 @@ class BulkOrderForm extends AbstractShortcode
      */
     protected function output(array $atts)
     {
+        // No autoloader — every dependency is required where it is used.
+        require_once FCBO_DIR . 'includes/Analytics/Surface.php';
+
         // FluentCart's cart bundle first — the checkout button hands off to
         // window.fluentCartCart, which it provides.
         $this->loadFluentCartCartAssets();
@@ -90,7 +94,16 @@ class BulkOrderForm extends AbstractShortcode
         $quotesOn      = $this->quotesEnabled($atts);
 
         wp_localize_script('fcbo-bulk-order', 'fcboConfig', array_merge($this->restConfig(), [
-            'checkout_url'  => esc_url_raw($this->resolveCheckoutUrl($atts['redirect'])),
+            // Marked with this surface, so an order that reaches checkout from
+            // here can be told apart from one that did not. The marker is added
+            // in PHP rather than in the script for the plain reason that no new
+            // JavaScript is better than some. @see
+            // \FluentCartBulkOrder\Analytics\Surface for what it can and
+            // cannot know.
+            'checkout_url'  => esc_url_raw(Surface::mark(
+                $this->resolveCheckoutUrl($atts['redirect']),
+                Surface::BULK_ORDER_FORM
+            )),
             'currency_sign' => $currency_sign,
             // Order-total floor for this shopper. Sent as 0 when they are not
             // subject, so the client never has to reason about role policy.

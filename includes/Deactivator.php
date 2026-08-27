@@ -44,14 +44,22 @@ class Deactivator
      *     would NOT give those users their role back.
      *   - Product tier meta and users' saved lists are store content, not
      *     plugin scaffolding.
-     *   - No rewrite rules, cron events or custom tables are registered, so
-     *     there is nothing to flush or unschedule either. (If a future change
-     *     adds any of those, unscheduling belongs HERE, not in uninstall — a
-     *     deactivated plugin must not leave cron jobs behind.)
-     *   - The two transients the plugin sets both expire on their own and need
-     *     no teardown: `fcbo_wholesale_feedback_{user_id}` lives 60 seconds and
+     *   - The analytics attribution table must survive, for exactly the same
+     *     reason the settings do. It is a record of orders the store has
+     *     already taken, it cannot be rebuilt once dropped — nothing else
+     *     anywhere knows which tier priced a line — and a debugging
+     *     deactivate-and-reactivate must not silently erase a store's whole
+     *     reporting history. Dropping it belongs in uninstall(), and it is
+     *     there. @see \FluentCartBulkOrder\Analytics\AttributionStore
+     *   - No rewrite rules or cron events are registered, so there is nothing
+     *     to flush or unschedule either. (If a future change adds either,
+     *     unscheduling belongs HERE, not in uninstall — a deactivated plugin
+     *     must not leave cron jobs behind.)
+     *   - The transients the plugin sets all expire on their own and need no
+     *     teardown: `fcbo_wholesale_feedback_{user_id}` lives 60 seconds and
      *     is read-and-deleted on the next page view, and
-     *     `fcbo_wholesale_notified_{user_id}` lives 15 minutes. Core's
+     *     `fcbo_wholesale_notified_{user_id}` and the four
+     *     `fcbo_analytics_{period}` report caches live 15 minutes. Core's
      *     `delete_expired_transients()` sweep collects anything left by a
      *     visitor who never came back. A LONGER-LIVED transient added later
      *     would need deleting, and that too belongs HERE.
@@ -82,6 +90,9 @@ class Deactivator
      *            @see removeWholesaleApplications() for why these are
      *            scaffolding rather than customer content.
      *   REMOVED  every `fcbo_quote` post and its meta. @see removeQuotes().
+     *   REMOVED  the analytics attribution table and its schema-version
+     *            option. @see removeAnalytics() for why this one goes while
+     *            the PO numbers below stay.
      *   KEPT     `fcbo_bulk_pricing` post meta — the per-product tier tables a
      *            store owner may have spent hours entering. Reinstalling the
      *            plugin picks them straight back up.
@@ -176,6 +187,53 @@ class Deactivator
         // Quotes are posts, and posts are per-site, so this belongs INSIDE the
         // per-site loop rather than beside the network-wide user meta above.
         self::removeQuotes();
+
+        // The attribution table is named with `$wpdb->prefix`, which is the
+        // CURRENT site's prefix — so this too is per-site and belongs in here.
+        self::removeAnalytics();
+    }
+
+    /**
+     * Drop the analytics attribution table for the current site.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY THIS GOES AND THE PO NUMBERS STAY
+     * ---------------------------------------------------------------------------
+     *
+     * A PO number lives in FluentCart's OWN table, beside the order, and it is
+     * part of a completed sale — the reference the buyer's accounts department
+     * paid against. Deleting it would edit the store's accounting record.
+     *
+     * An attribution is the opposite on both counts. It lives in a table this
+     * plugin created, in a shape only this plugin can read, and it is not a
+     * fact about the sale — it is this plugin's note about its own part in the
+     * sale. With the plugin gone, nothing will ever read it and nothing will
+     * ever offer to clean it up, so leaving it behind means an orphan table on
+     * the store's database forever.
+     *
+     * The orders themselves are untouched, which means nothing about the sale
+     * is lost. Only the note about which tier priced it, which had no meaning
+     * without the tier.
+     *
+     * The report transients are deleted alongside, so a reinstall does not read
+     * a cached figure computed from a table that no longer exists. They would
+     * expire on their own within fifteen minutes; deleting them here costs four
+     * calls and removes the window entirely.
+     *
+     * The class is required lazily, from inside the method. uninstall.php
+     * deliberately loads as little as it can, and neither of these two classes
+     * touches FluentCart at include time.
+     *
+     * @return void
+     */
+    private static function removeAnalytics()
+    {
+        require_once __DIR__ . '/Analytics/Period.php';
+        require_once __DIR__ . '/Analytics/AttributionStore.php';
+        require_once __DIR__ . '/Analytics/Reports.php';
+
+        \FluentCartBulkOrder\Analytics\Reports::flushCache();
+        \FluentCartBulkOrder\Analytics\AttributionStore::drop();
     }
 
     /**

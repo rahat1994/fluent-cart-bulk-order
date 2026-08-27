@@ -42,11 +42,24 @@ Runs in milliseconds. Covers:
   "required" would stop a store selling until somebody noticed, and a cell a
   spreadsheet runs as a formula downloads exactly like one that does not.
 
+- `includes/Analytics/` — the five pure classes behind owner analytics.
+  `Period` turns a named reporting window into a date boundary; `Surface` maps
+  a marker a shopper can edit in their own URL onto a closed list; `TierSignature`
+  decides when two Bulk Pricing Tiers are the same tier; `TierUsage` joins the
+  tiers a store has configured against the tiers buyers actually reached; and
+  `RevenueSplit` divides the store's revenue into bulk and normal. Every one of
+  them fails quietly — a window boundary computed in the wrong timezone reports
+  a different quarter with complete confidence, an unstable tier signature
+  splits one tier's usage across several rows and makes a busy tier look dead,
+  a usage merge that drops a key hides the unused tier the whole panel exists
+  to surface, and a split that does not clamp prints negative revenue.
+
 These classes are pure functions over arrays, which is exactly why they are the
 ones worth pinning. `tests/bootstrap.php` does **not** load WordPress; it defines
-`ABSPATH` and a passthrough `__()`, and nothing else. If a class ever needs more
-than those two stubs, that is a signal it has stopped being pure — push the
-impure part outward rather than widening the bootstrap.
+`ABSPATH`, `DAY_IN_SECONDS`, and passthrough `__()`, `esc_html()` and
+`number_format_i18n()` — nothing else. If a class ever needs more than those,
+that is a signal it has stopped being pure — push the impure part outward rather
+than widening the bootstrap.
 
 Why this code first: two of the plugin's three most recent bug fixes were pricing
 bugs where the price quoted to a shopper and the price the cart charged

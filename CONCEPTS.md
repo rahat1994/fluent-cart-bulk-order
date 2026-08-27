@@ -45,6 +45,24 @@ Tiers are configured on an Integration Feed and resolve per product variant: the
 
 The same discount is resolved twice over — once by the ordering surfaces to quote a total before purchase, and once by the host store to price the cart line actually charged. These are separate computations that can silently disagree, so a quote holds only while two things do: both sides apply the same eligibility policy, and both resolve against the same quantity — the one the shopper will be billed for, not the one a particular request happened to carry. Where a surface cannot satisfy both, it shows undiscounted prices rather than a discount that will not be honoured.
 
+## Reporting
+
+### Bulk Order Attribution
+The record, written once as an order is created, of what this plugin had to do with it: which Bulk Pricing Tier priced each line, and which surface the buyer came from. *Avoid:* tracking, order source, analytics data.
+
+An attribution exists only for an order the plugin can account for — one whose price a tier changed, one that reached checkout from a marked surface, or one converted from a Quote Request. An order with no attribution is not an error; it is the definition of a normal checkout, and the reporting screen measures normal checkout as the store's total minus what is attributed. That is why an attribution stores no money the order itself owns: it is written on a draft order, before payment, so the total, the payment status and the date are read from the store's own order at report time and a refund issued later is reflected without the record being touched.
+
+Attribution is forward-only and cannot be back-filled. A past order's charged price says what was charged, not which of several overlapping tiers produced it, and the feed that produced it may since have been edited or deleted — so a store installing the plugin today can report on the orders it takes from today, and any screen showing otherwise would be showing a guess dressed as history.
+
+Knowing the *surface* is weaker than knowing the *tier*, and deliberately so. Both ordering surfaces add to the cart through the host store's own browser API, on a request that carries no server-side knowledge of the page the shopper was on, so only a surface that hands the shopper to checkout itself can mark the handoff — the Product Table does not, and its orders are recorded with no entry point rather than with a guessed one.
+
+### Tier Utilization
+How much each Bulk Pricing Tier is actually used, measured against every tier the store has configured. *Avoid:* tier stats, discount usage.
+
+The answer an owner is looking for is a zero: the tier nobody has ever reached. So utilization is never a ranking of tiers that were used — it is a join of the configured set against the used set, which puts every tier into exactly one of three groups: reached, never reached, or no longer configured. Dropping the third group would lose real revenue from the report; dropping the second would lose the entire point of it.
+
+A tier carries no id of its own — it is a row in an array on an Integration Feed — so its definition *is* its identity: where the feed lives, whose price list it belongs to, its quantity range and its discount. Editing a tier therefore creates a second one here rather than changing the first, and that is the honest answer: the orders under the old definition were charged the old price. The same property is what lets a deleted tier still be named, because its name is rebuilt from what was recorded and not looked up in a feed that no longer contains it.
+
 ## Orders
 
 ### Order Rule

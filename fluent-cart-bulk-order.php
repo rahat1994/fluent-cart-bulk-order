@@ -96,6 +96,17 @@ add_action('plugins_loaded', function () {
     require_once FCBO_DIR . 'includes/Wholesale/WholesaleFlow.php';
     \FluentCartBulkOrder\Wholesale\WholesaleFlow::register();
 
+    // The request-a-quote flow: the quote post type, the owner's review screen
+    // and the notification emails. Two lines here for the same reason as above
+    // — QuoteFlow owns its own hook list and loads its classes only when one of
+    // them fires. @see \FluentCartBulkOrder\Quotes\QuoteFlow
+    //
+    // The BUTTON is not registered here — it is part of the bulk order form
+    // shortcode. The endpoint it posts to is a REST route and lives with the
+    // others in \FluentCartBulkOrder\Rest\Routes.
+    require_once FCBO_DIR . 'includes/Quotes/QuoteFlow.php';
+    \FluentCartBulkOrder\Quotes\QuoteFlow::register();
+
     add_action('fluent_cart/init', function () {
         require_once FCBO_DIR . 'includes/BulkPricingIntegration.php';
         (new \FluentCartBulkOrder\BulkPricingIntegration())->register();
@@ -399,6 +410,7 @@ function fcbo_load_rest()
     require_once FCBO_DIR . 'includes/Rest/Routes.php';
     require_once FCBO_DIR . 'includes/Rest/ProductsController.php';
     require_once FCBO_DIR . 'includes/Rest/SavedOrdersController.php';
+    require_once FCBO_DIR . 'includes/Rest/QuotesController.php';
 }
 
 /**

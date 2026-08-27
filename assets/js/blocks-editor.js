@@ -218,6 +218,13 @@
 				type: 'url',
 				label: __( 'Redirect URL', TEXT_DOMAIN ),
 				help: __( 'Send the shopper here instead of the store checkout page. Same site only.', TEXT_DOMAIN )
+			} ) ),
+			el( SelectControl, extend( { key: 'quotes' }, bind( props, 'quotes' ), {
+				__nextHasNoMarginBottom: true,
+				__next40pxDefaultSize: true,
+				label: __( 'Request a quote', TEXT_DOMAIN ),
+				options: ternaryOptions( __( 'Offer', TEXT_DOMAIN ), __( 'Do not offer', TEXT_DOMAIN ) ),
+				help: __( 'Lets the buyer send this order to the store for a price instead of checking out.', TEXT_DOMAIN )
 			} ) )
 		];
 	}

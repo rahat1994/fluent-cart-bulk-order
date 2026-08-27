@@ -26,6 +26,13 @@ Runs in milliseconds. Covers:
   with no options makes the form unsubmittable, and a validator that trusted the
   submission's keys instead of the schema's would let a crafted POST write
   fields nobody configured.
+- `includes/Quotes/` — the two pure classes behind the request-a-quote flow.
+  `QuoteStatus` is the state machine that decides whether a request may create a
+  real FluentCart order at a hand-typed price; `QuoteInput` decides which of a
+  submission's values are allowed near a stored quote and does the totals
+  arithmetic. Both fail quietly when they are wrong — a price read from the
+  browser instead of the catalogue lets a buyer name their own price, and an
+  empty price box read as `0` turns "leave this line alone" into "give it away".
 
 These classes are pure functions over arrays, which is exactly why they are the
 ones worth pinning. `tests/bootstrap.php` does **not** load WordPress; it defines

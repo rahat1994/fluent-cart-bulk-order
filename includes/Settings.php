@@ -110,6 +110,7 @@ class Settings
         $this->registerMinOrderSection();
         $this->registerProductTableSection();
         $this->registerCheckoutSection();
+        $this->registerQuotesSection();
         $this->registerWholesaleSection();
     }
 
@@ -296,6 +297,39 @@ class Settings
             [$this, 'renderCheckoutRedirectField'],
             self::PAGE_SLUG,
             'fcbo_checkout_section'
+        );
+    }
+
+    /**
+     * Request a quote: whether the bulk order form offers it at all.
+     *
+     * No register_setting() call of its own — every value lives in the single
+     * `fcbo_store_defaults` option that registerStoreDefaults() already
+     * registered, and is validated by StoreDefaults::sanitize().
+     */
+    private function registerQuotesSection()
+    {
+        add_settings_section(
+            'fcbo_quotes_section',
+            __('Quote Requests', 'fluent-cart-bulk-order'),
+            [$this, 'renderQuotesIntro'],
+            self::PAGE_SLUG
+        );
+
+        add_settings_field(
+            'fcbo_quotes_enabled_field',
+            __('Request a quote', 'fluent-cart-bulk-order'),
+            [$this, 'renderQuotesEnabledField'],
+            self::PAGE_SLUG,
+            'fcbo_quotes_section'
+        );
+
+        add_settings_field(
+            'fcbo_quotes_notify_field',
+            __('Notifications', 'fluent-cart-bulk-order'),
+            [$this, 'renderQuotesNotifyField'],
+            self::PAGE_SLUG,
+            'fcbo_quotes_section'
         );
     }
 
@@ -730,6 +764,68 @@ class Settings
 
         echo '<p class="description">' . esc_html__(
             'Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A "redirect" attribute on the shortcode still wins for that placement.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /* =====================================================================
+     * Request a quote
+     * ===================================================================== */
+
+    /**
+     * Section intro for the quote-request settings.
+     */
+    public function renderQuotesIntro()
+    {
+        // Lazily, and only here — Settings.php is required on EVERY page load
+        // (the main plugin file pulls it in for AccessPolicy::settingsPageUrl()),
+        // while this field renders on one admin screen. Same rule as
+        // loadWholesale() below.
+        require_once __DIR__ . '/Quotes/QuoteReviewScreen.php';
+
+        printf(
+            '<p>%1$s</p><p><a href="%2$s">%3$s</a></p>',
+            esc_html__(
+                'Lets a buyer send you their filled bulk order table and ask for a price instead of checking out. You review it, set the prices, and turn it into a FluentCart order — which also lets a buyer ask for a subscription product and a one-time product together, something the cart cannot do.',
+                'fluent-cart-bulk-order'
+            ),
+            esc_url(\FluentCartBulkOrder\Quotes\QuoteReviewScreen::pageUrl()),
+            esc_html__('Open the quote requests screen', 'fluent-cart-bulk-order')
+        );
+    }
+
+    /**
+     * Whether the bulk order form offers a "Request a quote" button.
+     */
+    public function renderQuotesEnabledField()
+    {
+        printf(
+            '<label><input type="checkbox" name="%1$s" value="1" %2$s /> %3$s</label>',
+            esc_attr($this->defaultsName('quotes_enabled')),
+            checked((bool) StoreDefaults::get('quotes_enabled', false), true, false),
+            esc_html__('Show a "Request a quote" button on the bulk order form', 'fluent-cart-bulk-order')
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'A "quotes" attribute on the shortcode still wins for that placement, so you can offer quotes on one page and not another.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
+     * Whether to email the site admin when a quote request arrives.
+     */
+    public function renderQuotesNotifyField()
+    {
+        printf(
+            '<label><input type="checkbox" name="%1$s" value="1" %2$s /> %3$s</label>',
+            esc_attr($this->defaultsName('quotes_notify_admin')),
+            checked((bool) StoreDefaults::get('quotes_notify_admin', true), true, false),
+            esc_html__('Email me when a buyer asks for a quote', 'fluent-cart-bulk-order')
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'Sent to the site admin email. Repeat requests from the same buyer within fifteen minutes are not emailed again, but every one of them still appears on the quote requests screen.',
             'fluent-cart-bulk-order'
         ) . '</p>';
     }

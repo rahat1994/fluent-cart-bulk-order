@@ -59,3 +59,14 @@ A Saved Order holds product variants and quantities, not prices. It is re-priced
 
 ### Reorder
 The one-action process of putting a Saved Order's — or a past purchase's — still-available line items back into the cart. Items that no longer resolve to an available variant are skipped with notice rather than blocking the rest.
+
+### Quote Request
+A buyer's submitted bulk order sent to the store to be priced instead of bought, together with the prices the owner set on it and the decision they made. *Avoid:* RFQ, quotation, estimate.
+
+Every quote belongs to exactly one buyer, and one buyer may hold many — unlike a Wholesale Application, of which a user holds at most one. A quote is therefore never re-opened: a declined or converted quote stays as it is and the buyer sends a new request, which is its own record with its own reference.
+
+Where a Saved Order deliberately stores no prices and is re-priced against the live catalog every time it is read, a quote stores them and that is the point of it. Each line keeps two: the catalog price at the moment the buyer asked, and the price the owner decided. Both come from the store — a price the browser sends is never read — and an empty price box means "leave this line alone", which is a different instruction from a typed zero.
+
+A quote moves in one direction only: *requested* → *quoted* → *accepted*, with *declined* reachable from either open state. Prices are editable only while it is requested, because once the buyer has been emailed a price the order they accept has to be the one they were quoted. Converting an accepted quote creates an ordinary FluentCart manual order, unpaid, at the quoted prices; the order is FluentCart's from that moment, and its own lifecycle is no longer this plugin's business.
+
+A quote is also the one route around the cart's refusal to hold a subscription product and a one-time product together — a buyer can ask for both in a single request. The refusal is not gone, only moved: FluentCart will not put a subscription line into a manually created order either, so a mixed quote is priced and sent like any other and the subscription part is placed through FluentCart.

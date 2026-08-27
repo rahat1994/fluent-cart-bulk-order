@@ -87,6 +87,14 @@ class StoreDefaults
         'wholesale_notify_admin'     => true,
         'wholesale_crm_tag_applied'  => 0,
         'wholesale_crm_tag_approved' => 0,
+
+        // Request-a-quote. OFF by default, and deliberately: a store that has
+        // never opened the settings page behaves exactly as it did before this
+        // feature existed, and an owner who is not watching for quote requests
+        // must not be quietly given a button that collects them.
+        // @see \FluentCartBulkOrder\Quotes\QuoteSettings
+        'quotes_enabled'      => false,
+        'quotes_notify_admin' => true,
     ];
 
     /**
@@ -190,6 +198,12 @@ class StoreDefaults
         $clean['table_expand_variants'] = !empty($value['table_expand_variants']);
 
         $clean = array_merge($clean, self::sanitizeWholesale($value));
+
+        // Two plain checkboxes, so `!empty()` is the whole rule — an unticked
+        // box posts nothing at all, which is why this cannot be written as
+        // isset() with a fallback to the stored value.
+        $clean['quotes_enabled']      = !empty($value['quotes_enabled']);
+        $clean['quotes_notify_admin'] = !empty($value['quotes_notify_admin']);
 
         return $clean;
     }

@@ -119,5 +119,32 @@ class Routes
             'callback'            => [SavedOrdersController::class, 'getPastOrders'],
             'permission_callback' => 'fcbo_rest_permission_check',
         ]);
+
+        // Request a quote instead of checking out. Write-only from the buyer's
+        // side: there is deliberately no GET here, because a quote is read on
+        // the capability-checked admin screen and delivered to the buyer by
+        // email — an endpoint that returned one would be a second place a
+        // buyer's negotiated prices could leak from.
+        //
+        // `items` takes the same {variantId, qty} array the /saved-lists route
+        // does, so the form sends one shape for both. Any price the browser
+        // includes is ignored; the server prices the lines itself.
+        // @see \FluentCartBulkOrder\Quotes\QuoteInput
+        register_rest_route('fcbo/v1', '/quotes', [
+            'methods'             => 'POST',
+            'callback'            => [QuotesController::class, 'requestQuote'],
+            'permission_callback' => 'fcbo_rest_permission_check',
+            'args'                => [
+                'items' => [
+                    'required' => true,
+                    'type'     => 'array',
+                ],
+                'note'  => [
+                    'default'           => '',
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_textarea_field',
+                ],
+            ],
+        ]);
     }
 }

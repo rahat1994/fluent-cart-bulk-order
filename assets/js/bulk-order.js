@@ -24,6 +24,7 @@
         document.addEventListener('click', closeDropdownsOutsideClickedRow);
 
         initQuickOrder();
+        initQuoteRequest();
         addRow();
     }
 
@@ -668,23 +669,23 @@
         ensureTrailingRow();
     }
 
-    // --- Save order ---
-
-    function handleSaveOrder() {
-        // Store rule-valid quantities so a later reorder is not rejected by the
-        // server gate for a violation introduced at save time. Silent: saving is
-        // not the moment to interrupt with a rounding notice.
-        normalizeAllRows(false);
-
+    // Every filled row as {variantId, qty}, with duplicate variants merged.
+    //
+    // Shared by "Save order" and "Request a quote" because both send the same
+    // array to the same shape of endpoint. Checkout keeps its own version: it
+    // has to treat a subscription row differently (quantity pinned to 1, never
+    // merged), which is a cart rule rather than a collection rule.
+    function collectItems() {
         var rows = tbody.querySelectorAll('tr');
-
-        // Collect non-empty rows, consolidating duplicate variants (as checkout does).
         var consolidated = {};
         var order = [];
+
         for (var i = 0; i < rows.length; i++) {
             var variantId = rows[i].dataset.variantId;
             if (!variantId) continue;
+
             var qty = parseInt(rows[i].querySelector('.fcbo-qty-input').value, 10) || 1;
+
             if (consolidated[variantId]) {
                 consolidated[variantId].qty += qty;
             } else {
@@ -693,7 +694,18 @@
             }
         }
 
-        var items = order.map(function (k) { return consolidated[k]; });
+        return order.map(function (k) { return consolidated[k]; });
+    }
+
+    // --- Save order ---
+
+    function handleSaveOrder() {
+        // Store rule-valid quantities so a later reorder is not rejected by the
+        // server gate for a violation introduced at save time. Silent: saving is
+        // not the moment to interrupt with a rounding notice.
+        normalizeAllRows(false);
+
+        var items = collectItems();
 
         if (!items.length) {
             showStatus(t('save_need_product'), 'error');
@@ -729,6 +741,104 @@
         })
         .catch(function () {
             showStatus(t('save_failed_retry'), 'error');
+        })
+        .then(function () {
+            if (btn) { btn.disabled = false; }
+        });
+    }
+
+    // --- Request a quote ---
+    //
+    // The panel and its button exist in the page only when the placement offers
+    // quotes, so everything here starts by finding them and gives up quietly if
+    // they are absent. The server checks the store-wide setting again on the
+    // way in — a page cached from before the owner turned quotes off cannot
+    // talk it into taking one.
+    //
+    // What is deliberately NOT sent: any price. The browser knows what it
+    // displayed, but the store prices the quote from its own catalogue, so
+    // sending a price would only create something to disagree about.
+
+    function initQuoteRequest() {
+        var toggle = document.getElementById('fcbo-quote-toggle');
+        var panel = document.getElementById('fcbo-quote-panel');
+        var sendBtn = document.getElementById('fcbo-quote-send');
+        if (!toggle || !panel || !sendBtn) return;
+
+        toggle.addEventListener('click', function () {
+            var opening = panel.hasAttribute('hidden');
+            if (opening) {
+                panel.removeAttribute('hidden');
+                var note = document.getElementById('fcbo-quote-note');
+                if (note) { note.focus(); }
+            } else {
+                panel.setAttribute('hidden', '');
+            }
+            toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        });
+
+        sendBtn.addEventListener('click', handleQuoteRequest);
+    }
+
+    function handleQuoteRequest() {
+        // Bring every row into rule first, silently. A quote the store answers
+        // has to be one the buyer could actually be sold, and rounding a case
+        // pack up at quote time is kinder than at checkout time. Silent because
+        // the totals shown are only a starting point here — the store sets the
+        // real price.
+        normalizeAllRows(false);
+
+        var items = collectItems();
+
+        if (!items.length) {
+            showStatus(t('quote_need_product'), 'error');
+            return;
+        }
+
+        var noteEl = document.getElementById('fcbo-quote-note');
+        var note = noteEl ? noteEl.value : '';
+
+        var btn = document.getElementById('fcbo-quote-send');
+        if (btn) { btn.disabled = true; }
+        showStatus(t('quote_sending'), 'loading');
+
+        fetch(CONFIG.rest_url + 'quotes', {
+            method: 'POST',
+            headers: { 'X-WP-Nonce': CONFIG.nonce, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: items, note: note })
+        })
+        .then(function (res) {
+            return res.json().then(function (body) { return { ok: res.ok, body: body }; });
+        })
+        .then(function (r) {
+            if (!r.ok) {
+                // The server's own sentence when it has one — "you already have
+                // several waiting" is more use than a generic failure.
+                showStatus((r.body && r.body.message) ? r.body.message : t('quote_failed'), 'error');
+                return;
+            }
+
+            var reference = (r.body && r.body.reference) ? r.body.reference : '';
+            var skipped = (r.body && r.body.skipped) ? parseInt(r.body.skipped, 10) : 0;
+
+            showStatus(
+                skipped > 0
+                    ? fill(t('quote_sent_partial'), { reference: reference, skipped: skipped })
+                    : fill(t('quote_sent'), { reference: reference }),
+                skipped > 0 ? 'error' : 'success'
+            );
+
+            // Close the panel and clear the note: the request is gone, and a
+            // note left in the box invites the shopper to send the same thing
+            // twice.
+            var panel = document.getElementById('fcbo-quote-panel');
+            var toggle = document.getElementById('fcbo-quote-toggle');
+            if (panel) { panel.setAttribute('hidden', ''); }
+            if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
+            if (noteEl) { noteEl.value = ''; }
+        })
+        .catch(function () {
+            showStatus(t('quote_failed_retry'), 'error');
         })
         .then(function () {
             if (btn) { btn.disabled = false; }

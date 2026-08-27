@@ -160,6 +160,14 @@ class Settings
             self::PAGE_SLUG,
             'fcbo_policy_section'
         );
+
+        add_settings_field(
+            'fcbo_pricing_visibility_field',
+            __('Who sees tier prices', 'fluent-cart-bulk-order'),
+            [$this, 'renderPricingVisibilityField'],
+            self::PAGE_SLUG,
+            'fcbo_policy_section'
+        );
     }
 
     /**
@@ -330,7 +338,7 @@ class Settings
     public function renderSectionIntro()
     {
         echo '<p>' . esc_html__(
-            'Choose which user roles receive quantity-based bulk pricing — both the discounted cart price and the tier display on product pages. Leave every role unchecked to apply bulk pricing to everyone.',
+            'Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages.',
             'fluent-cart-bulk-order'
         ) . '</p>';
     }
@@ -383,8 +391,66 @@ class Settings
     {
         $this->renderRoleChecklist(
             self::OPTION_NAME,
-            __('Leave all unchecked = bulk pricing applies to everyone (default).', 'fluent-cart-bulk-order')
+            __('Leave all unchecked and bulk pricing applies to everyone — including logged-out visitors. See the summary below for what that means today.', 'fluent-cart-bulk-order')
         );
+    }
+
+    /**
+     * Say, in plain words, who can currently see tier prices on product pages.
+     *
+     * ---------------------------------------------------------------------------
+     * A PROJECTION, NOT A SECOND SETTING
+     * ---------------------------------------------------------------------------
+     *
+     * This field stores nothing. It reads the SAME `fcbo_apply_to_roles` option
+     * the checklist above writes, and states its effect. A separate
+     * "show tiers to guests" option would be a second source of truth for one
+     * behaviour, and the two would eventually disagree.
+     *
+     * It exists because the checklist alone does not answer the question a
+     * wholesale owner actually has — "can the public see my trade prices?" — and
+     * the honest answer on a fresh install is yes. An empty list means everyone,
+     * which is the backward-compatible default and also the most surprising one.
+     *
+     * @return void
+     */
+    public function renderPricingVisibilityField()
+    {
+        $roles = AccessPolicy::bulkPricingRoles();
+
+        if (!$roles) {
+            echo '<p><strong>' . esc_html__(
+                'Everyone, including logged-out visitors, can see tier prices on your product pages.',
+                'fluent-cart-bulk-order'
+            ) . '</strong></p>';
+
+            echo '<p class="description">' . esc_html__(
+                'This is the default. To keep trade prices off the public storefront, tick the roles above that should see them — anyone else, signed in or not, then sees only your normal price.',
+                'fluent-cart-bulk-order'
+            ) . '</p>';
+
+            return;
+        }
+
+        $editable = $this->getEditableRoles();
+        $names    = [];
+        foreach ($roles as $slug) {
+            $names[] = isset($editable[$slug]['name']) ? $editable[$slug]['name'] : $slug;
+        }
+
+        printf(
+            '<p><strong>%s</strong></p>',
+            esc_html(sprintf(
+                /* translators: %s: comma-separated list of role names. */
+                __('Only these roles see tier prices: %s.', 'fluent-cart-bulk-order'),
+                implode(', ', $names)
+            ))
+        );
+
+        echo '<p class="description">' . esc_html__(
+            'Logged-out visitors do not. Administrators can always see the tier table so they can check it, but they are not given the discount at checkout — an administrator\'s own order is charged the same as any other shopper the policy excludes.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
     }
 
     /**

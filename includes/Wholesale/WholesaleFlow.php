@@ -97,30 +97,39 @@ class WholesaleFlow
         // rather than reaching any code of ours.
         add_action('admin_post_' . self::ACTION_REVIEW, [self::class, 'handleReview']);
 
-        // Notifications, on the flow's own two actions.
+        // Notifications and FluentCRM tagging, on the flow's own two actions.
         //
-        // Written as [class-name STRING, method] rather than [Notifier::class,
-        // ...]: the `::class` form is resolved at parse time and would drag
-        // Notifier into every page load just to name it. A string names the
-        // class without loading it, and by the time either action can fire,
-        // load() has run. A site unhooking one of these must use the same
-        // string form.
-        add_action('fcbo/wholesale/application_submitted', [__NAMESPACE__ . '\\Notifier', 'onSubmitted'], 10, 3);
-        add_action('fcbo/wholesale/application_reviewed', [__NAMESPACE__ . '\\Notifier', 'onReviewed'], 10, 3);
+        // ---------------------------------------------------------------
+        // EVERY CALLBACK IS A METHOD OF *THIS* CLASS, AND THAT IS THE POINT
+        // ---------------------------------------------------------------
+        //
+        // The obvious version hooks Notifier and ContactTagger directly. It
+        // fatals. `fcbo/wholesale/application_submitted` fires from inside
+        // ApplicationStore, and a caller that loaded ApplicationStore without
+        // going through load() — a site snippet, a WP-CLI script, a future
+        // entry point — makes WordPress try to call a class that was never
+        // required. "Undefined class" during an application submission is a
+        // white screen, not a missing email.
+        //
+        // Routing through this class removes the assumption entirely: every
+        // callback below loads first and delegates second, exactly like the
+        // request handlers do. That is also why the callbacks are separate
+        // rather than one per action — a site can still remove_action() the
+        // email without losing the CRM tag, or the other way round.
+        add_action('fcbo/wholesale/application_submitted', [self::class, 'notifySubmitted'], 10, 3);
+        add_action('fcbo/wholesale/application_reviewed', [self::class, 'notifyReviewed'], 10, 3);
 
-        // FluentCRM tagging, on the same two actions.
-        //
-        // Registered UNCONDITIONALLY, even on the overwhelming majority of
-        // stores that have no FluentCRM. Checking here would be checking at the
-        // wrong moment: FLUENTCRM is defined when FluentCRM's main file is
-        // parsed, but its `FluentCrmApi()` helper may not be loaded yet on
-        // `plugins_loaded`, so a check now can be a false negative that
-        // silently disables the integration for the whole request. The guard
-        // belongs at CALL time, and lives on ContactTagger itself, which exits
-        // before loading or querying anything when FluentCRM is absent or when
-        // no tag has been chosen.
-        add_action('fcbo/wholesale/application_submitted', [self::CRM_TAGGER, 'onSubmitted'], 20, 3);
-        add_action('fcbo/wholesale/application_reviewed', [self::CRM_TAGGER, 'onReviewed'], 20, 3);
+        // FluentCRM tagging runs AFTER the emails, and is registered
+        // UNCONDITIONALLY even on the overwhelming majority of stores that have
+        // no FluentCRM. Checking here would be checking at the wrong moment:
+        // FLUENTCRM is defined when FluentCRM's main file is parsed, but its
+        // `FluentCrmApi()` helper may not be loaded yet on `plugins_loaded`, so
+        // a check now can be a false negative that silently disables the
+        // integration for the whole request. The guard belongs at CALL time and
+        // lives on ContactTagger, which exits before loading or querying
+        // anything when FluentCRM is absent or no tag has been chosen.
+        add_action('fcbo/wholesale/application_submitted', [self::class, 'tagSubmitted'], 20, 3);
+        add_action('fcbo/wholesale/application_reviewed', [self::class, 'tagReviewed'], 20, 3);
 
         // The review screen. `is_admin()` keeps its class off every front-end
         // page load; the capability that actually protects it is checked twice
@@ -128,6 +137,67 @@ class WholesaleFlow
         if (is_admin()) {
             add_action('admin_menu', [self::class, 'registerReviewScreen']);
         }
+    }
+
+    /**
+     * Email the site admin about a new application.
+     *
+     * @param int                  $userId
+     * @param array<string, mixed> $record
+     * @param string               $outcome
+     * @return void
+     */
+    public static function notifySubmitted($userId, $record, $outcome)
+    {
+        self::load();
+        Notifier::onSubmitted($userId, $record, $outcome);
+    }
+
+    /**
+     * Email the applicant about a decision.
+     *
+     * @param int                  $userId
+     * @param array<string, mixed> $record
+     * @param string               $status
+     * @return void
+     */
+    public static function notifyReviewed($userId, $record, $status)
+    {
+        self::load();
+        Notifier::onReviewed($userId, $record, $status);
+    }
+
+    /**
+     * Tag the applicant's FluentCRM contact on submission.
+     *
+     * The class name is a STRING constant rather than a `::class` reference,
+     * so naming it here does not drag the file into a page load that will
+     * never reach this method. load() has required it by the time the call is
+     * made. @see self::CRM_TAGGER
+     *
+     * @param int                  $userId
+     * @param array<string, mixed> $record
+     * @param string               $outcome
+     * @return void
+     */
+    public static function tagSubmitted($userId, $record, $outcome)
+    {
+        self::load();
+        call_user_func([self::CRM_TAGGER, 'onSubmitted'], $userId, $record, $outcome);
+    }
+
+    /**
+     * Tag the applicant's FluentCRM contact on approval.
+     *
+     * @param int                  $userId
+     * @param array<string, mixed> $record
+     * @param string               $status
+     * @return void
+     */
+    public static function tagReviewed($userId, $record, $status)
+    {
+        self::load();
+        call_user_func([self::CRM_TAGGER, 'onReviewed'], $userId, $record, $status);
     }
 
     /**

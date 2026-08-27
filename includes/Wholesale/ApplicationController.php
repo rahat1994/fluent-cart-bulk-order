@@ -106,10 +106,17 @@ class ApplicationController
         $fields     = ApplicationSettings::fields();
         $sanitizers = ApplicationStore::sanitizers();
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above.
+        // Unslashed but NOT sanitised here, on purpose: this is an array of
+        // answers whose sanitiser depends on the TYPE the owner configured for
+        // each field, which only the schema knows. ApplicationInput::validate()
+        // applies sanitize_text_field()/sanitize_textarea_field() per field —
+        // @see ApplicationStore::sanitizers() — and drops every key the schema
+        // does not declare, so nothing unsanitised can reach storage.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified above; sanitised per field by ApplicationInput::validate().
         $submitted = isset($_POST['fcbo_field']) && is_array($_POST['fcbo_field'])
             ? wp_unslash($_POST['fcbo_field'])
             : [];
+        // phpcs:enable
 
         $result = ApplicationInput::validate($fields, $submitted, $sanitizers[0], $sanitizers[1]);
 

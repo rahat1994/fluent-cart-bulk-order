@@ -462,6 +462,7 @@ class ApplicationStore
 
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.SlowDBQuery -- update_user_meta() cannot express "only if it still says pending", which is the whole point; the object cache is cleared by hand below.
         $updated = $wpdb->update(
             $wpdb->usermeta,
             ['meta_value' => ApplicationStatus::PENDING],
@@ -479,6 +480,7 @@ class ApplicationStore
         }
 
         wp_cache_delete($userId, 'user_meta');
+        // phpcs:enable
 
         return self::statusFor($userId) === ApplicationStatus::PENDING;
     }
@@ -514,6 +516,7 @@ class ApplicationStore
     {
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.SlowDBQuery -- see the docblock: a conditional UPDATE is the atomic claim, and no meta API expresses one.
         $claimed = $wpdb->update(
             $wpdb->usermeta,
             ['meta_value' => $status],
@@ -536,6 +539,7 @@ class ApplicationStore
         // now stale. Without this, statusFor() in the same request would still
         // read `pending`.
         wp_cache_delete($userId, 'user_meta');
+        // phpcs:enable
 
         return true;
     }
@@ -601,6 +605,7 @@ class ApplicationStore
             return 0;
         }
 
+        // phpcs:disable WordPress.DB.SlowDBQuery -- META_STATUS exists precisely so this is an indexed lookup rather than a LIKE over the serialized record. @see the class docblock.
         $query = new \WP_User_Query([
             'meta_key'    => self::META_STATUS,
             'meta_value'  => $status,
@@ -608,6 +613,8 @@ class ApplicationStore
             'number'      => 1,
             'count_total' => true,
         ]);
+
+        // phpcs:enable
 
         return (int) $query->get_total();
     }
@@ -640,6 +647,7 @@ class ApplicationStore
             'count_total' => true,
         ];
 
+        // phpcs:disable WordPress.DB.SlowDBQuery -- as in countByStatus(): the indexed status key is the reason this is not a serialized scan.
         if (ApplicationStatus::isStorable($status)) {
             $args['meta_key']   = self::META_STATUS;
             $args['meta_value'] = $status;
@@ -653,6 +661,8 @@ class ApplicationStore
                 ],
             ];
         }
+
+        // phpcs:enable
 
         $query = new \WP_User_Query($args);
 

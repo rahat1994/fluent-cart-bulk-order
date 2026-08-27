@@ -1064,7 +1064,7 @@ class Settings
         if ($selected > 0 && !isset($tags[$selected])) {
             printf(
                 '<option value="%1$d" selected>%2$s</option>',
-                $selected,
+                absint($selected),
                 esc_html(sprintf(
                     /* translators: %d: a FluentCRM tag id that no longer exists. */
                     __('Tag #%d — no longer in FluentCRM', 'fluent-cart-bulk-order'),

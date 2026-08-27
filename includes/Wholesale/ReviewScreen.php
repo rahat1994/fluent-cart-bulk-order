@@ -427,6 +427,7 @@ class ReviewScreen
             printf(
                 '<dt style="float:left;clear:left;margin:0 6px 0 0;font-weight:600;">%s:</dt><dd style="margin:0 0 4px;">%s</dd>',
                 esc_html($label),
+                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- formatAnswer() returns escaped HTML; it has to, because it adds <br> and <em> of its own after escaping.
                 self::formatAnswer($value)
             );
         }

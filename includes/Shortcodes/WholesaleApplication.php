@@ -428,7 +428,10 @@ class WholesaleApplication extends AbstractShortcode
                     '<textarea id="%1$s" name="%2$s" rows="4" maxlength="%3$d"%4$s>%5$s</textarea>',
                     esc_attr($id),
                     esc_attr($name),
-                    ApplicationInput::MAX_VALUE_LENGTH,
+                    // Cast, not escaped: it is a class constant integer landing
+                    // on a %d. absint() states that for a static analyser that
+                    // cannot see the format string.
+                    absint(ApplicationInput::MAX_VALUE_LENGTH),
                     $required ? ' required' : '',
                     esc_textarea(is_scalar($value) ? (string) $value : '')
                 );
@@ -465,7 +468,7 @@ class WholesaleApplication extends AbstractShortcode
                     esc_attr($id),
                     esc_attr($name),
                     esc_attr(is_scalar($value) ? (string) $value : ''),
-                    ApplicationInput::MAX_VALUE_LENGTH,
+                    absint(ApplicationInput::MAX_VALUE_LENGTH),
                     $required ? ' required' : ''
                 );
         }

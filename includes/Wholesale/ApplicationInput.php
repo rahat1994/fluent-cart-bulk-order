@@ -269,6 +269,7 @@ class ApplicationInput
      */
     private static function fallbackSanitize($value)
     {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- this file is deliberately WordPress-free so the unit suite can pin it without a database; wp_strip_all_tags() is what the INJECTED sanitiser brings, and this is only the floor for a caller that supplies none.
         $value = strip_tags($value);
 
         return (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value);

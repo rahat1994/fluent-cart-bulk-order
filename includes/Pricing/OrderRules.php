@@ -93,4 +93,52 @@ class OrderRules
     {
         return (int) $qty === self::normalizeQty($qty, $rules);
     }
+
+    /**
+     * The one-line summary printed next to a quantity input ("Min 5, in 5s").
+     *
+     * The templates are passed in rather than translated here so this class stays
+     * free of WordPress — see the class docblock. Callers hand it
+     * \FluentCartBulkOrder\Strings::orderRuleHints(), which is the single wording
+     * of these three sentences for every surface.
+     *
+     * The three-way branch is not cosmetic. "Min 10" on a product sold in 10s
+     * hides the case-pack rule, and "Sold in 10s" on a product with a minimum of
+     * 30 hides the minimum — either omission sends a shopper to a quantity the
+     * server will refuse. So both-set gets its own sentence rather than two
+     * concatenated ones, which is also what makes it translatable (@see
+     * \FluentCartBulkOrder\Strings).
+     *
+     * assets/js/single-product-qty.js and assets/js/product-table.js each carry a
+     * mirror of this branch. All three must change together.
+     *
+     * @param array                 $rules     Raw or normalized rules.
+     * @param array<string,string>  $templates Keyed rule_min_and_step / rule_step / rule_min.
+     * @return string Empty string when nothing constrains — callers render nothing.
+     */
+    public static function describe($rules, $templates)
+    {
+        $rules     = self::normalize($rules);
+        $templates = is_array($templates) ? $templates : [];
+
+        if ($rules['min_qty'] > 0 && $rules['step'] > 1) {
+            $key = 'rule_min_and_step';
+        } elseif ($rules['step'] > 1) {
+            $key = 'rule_step';
+        } elseif ($rules['min_qty'] > 0) {
+            $key = 'rule_min';
+        } else {
+            return '';
+        }
+
+        // A missing key renders as the key itself, matching what the JS `t()`
+        // helpers do: an obvious placeholder in review beats "" shipped silently.
+        $template = isset($templates[$key]) ? (string) $templates[$key] : $key;
+
+        return str_replace(
+            ['{min}', '{step}'],
+            [(string) $rules['min_qty'], (string) $rules['step']],
+            $template
+        );
+    }
 }

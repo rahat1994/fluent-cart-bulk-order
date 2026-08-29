@@ -168,6 +168,15 @@ add_action('plugins_loaded', function () {
         );
     });
 
+    // Make FluentCart's own quantity box and Buy Now link honour this store's
+    // Order Rules. Priority 9 — ahead of the Bulk Pricing block below — so the
+    // "Min 5, in 5s" hint sits under the quantity box it explains.
+    //
+    // Deliberately a separate registration from the tier table even though both
+    // ride the same hook: Order Rules bind every shopper, while the tier table is
+    // a role-gated preview. @see \FluentCartBulkOrder\Display\QuantityRules
+    add_action('fluent_cart/product/single/after_quantity_block', 'fcbo_render_single_product_qty_rules', 9, 1);
+
     // Display bulk pricing tiers on single product page
     add_action('fluent_cart/product/single/after_quantity_block', 'fcbo_render_single_product_tiers', 10, 1);
 
@@ -822,8 +831,13 @@ function fcbo_load_strings()
 function fcbo_load_display()
 {
     fcbo_load_strings();
+    // Both display classes format Order Rules — the tier table stamps them onto
+    // its quantity inputs, and QuantityRules turns them into a sentence through
+    // OrderRules::describe(). Neither can be rendered without the pricing engine.
+    fcbo_load_pricing();
 
     require_once FCBO_DIR . 'includes/Display/SingleProductTiers.php';
+    require_once FCBO_DIR . 'includes/Display/QuantityRules.php';
 }
 
 /**
@@ -920,6 +934,25 @@ function fcbo_render_single_product_tiers($args)
     fcbo_load_display();
 
     \FluentCartBulkOrder\Display\SingleProductTiers::render($args);
+}
+
+/**
+ * Correct FluentCart's own quantity box and Buy Now link for Order Rules.
+ *
+ * Hooked to `fluent_cart/product/single/after_quantity_block` at priority 9, so
+ * the rule hint sits directly under the quantity box rather than under the
+ * Bulk Pricing table that renders at 10.
+ *
+ * @see \FluentCartBulkOrder\Display\QuantityRules::render() for why the actual
+ *      correction has to happen in JavaScript.
+ * @param mixed $args Product context from FluentCart.
+ * @return void
+ */
+function fcbo_render_single_product_qty_rules($args)
+{
+    fcbo_load_display();
+
+    \FluentCartBulkOrder\Display\QuantityRules::render($args);
 }
 
 /**

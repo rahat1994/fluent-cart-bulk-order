@@ -99,4 +99,72 @@ class OrderRulesTest extends TestCase
             $this->assertSame($once, $twice, "normalising $qty twice must not move it again");
         }
     }
+
+    /**
+     * The sentence printed next to a quantity input.
+     *
+     * The case that matters is both-rules-set. Describing it with only the
+     * minimum, or only the case pack, points a shopper at a quantity the server
+     * will refuse — which is the whole failure this hint exists to prevent.
+     *
+     * @dataProvider ruleDescriptions
+     */
+    public function testDescribeNamesEveryRuleThatApplies($rules, $expected, $why)
+    {
+        $this->assertSame($expected, OrderRules::describe($rules, self::TEMPLATES), $why);
+    }
+
+    /**
+     * Stand-ins for \FluentCartBulkOrder\Strings::orderRuleHints(). Deliberately
+     * not the real ones: this asserts that describe() picks the right template
+     * and fills the right placeholders, not what the English happens to say.
+     */
+    const TEMPLATES = [
+        'rule_min_and_step' => 'MIN {min} STEP {step}',
+        'rule_step'         => 'STEP {step}',
+        'rule_min'          => 'MIN {min}',
+    ];
+
+    public function ruleDescriptions()
+    {
+        return [
+            'nothing set' => [
+                ['min_qty' => 0, 'step' => 1],
+                '',
+                'no constraint means no sentence, so callers render no element',
+            ],
+            'minimum only' => [
+                ['min_qty' => 5, 'step' => 1],
+                'MIN 5',
+                'a step of 1 constrains nothing and must not be mentioned',
+            ],
+            'case pack only' => [
+                ['min_qty' => 0, 'step' => 12],
+                'STEP 12',
+                'a minimum of 0 constrains nothing and must not be mentioned',
+            ],
+            'both set' => [
+                ['min_qty' => 24, 'step' => 12],
+                'MIN 24 STEP 12',
+                'naming only one of two rules sends the shopper to a refused quantity',
+            ],
+            'malformed input' => [
+                'nonsense',
+                '',
+                'a corrupt feed must render nothing, not fatal',
+            ],
+        ];
+    }
+
+    public function testDescribeShowsTheKeyWhenATemplateIsMissing()
+    {
+        // Same contract as the JS `t()` helpers: a key the PHP side forgot to
+        // supply renders as itself, so the omission is obvious in review rather
+        // than shipping a blank hint to a shopper.
+        $this->assertSame(
+            'rule_min',
+            OrderRules::describe(['min_qty' => 5], []),
+            'a missing template must be visible, not silent'
+        );
+    }
 }

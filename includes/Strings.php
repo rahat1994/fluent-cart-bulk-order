@@ -147,6 +147,34 @@ class Strings
     }
 
     /**
+     * The three ways an Order Rule is summarised next to a quantity input.
+     *
+     * Their own table because THREE surfaces print them and none of them owns
+     * the sentences: the product table (assets/js/product-table.js), the single
+     * product page's rewrite of FluentCart's own quantity box
+     * (assets/js/single-product-qty.js), and the Bulk Pricing block, which
+     * renders its copy in PHP through OrderRules::describe().
+     *
+     * A shopper can meet all three on one page, so a second English wording of
+     * the same rule would read as two different rules. One table, one wording.
+     *
+     * @see \FluentCartBulkOrder\Pricing\OrderRules::describe() the PHP formatter
+     *      these templates are fed to; the JS surfaces mirror it.
+     * @return array<string,string>
+     */
+    public static function orderRuleHints()
+    {
+        return [
+            /* translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is. */
+            'rule_min_and_step' => __('Min {min}, in {step}s', 'fluent-cart-bulk-order'),
+            /* translators: {step}: case-pack multiple. Keep {step} as-is. */
+            'rule_step'         => __('Sold in {step}s', 'fluent-cart-bulk-order'),
+            /* translators: {min}: minimum quantity. Keep {min} as-is. */
+            'rule_min'          => __('Min {min}', 'fluent-cart-bulk-order'),
+        ];
+    }
+
+    /**
      * Every shopper-facing sentence in assets/js/product-table.js.
      *
      * @see self::bulkOrder() for why whole sentences are translated
@@ -156,7 +184,10 @@ class Strings
      */
     public static function productTable()
     {
-        return [
+        // The rule hints are merged rather than repeated: product-table.js reads
+        // them by the same keys the other two surfaces do, and one wording of a
+        // rule is the whole point of self::orderRuleHints().
+        return self::orderRuleHints() + [
             'loading'      => __('Loading products...', 'fluent-cart-bulk-order'),
             'load_failed'  => __('Failed to load products.', 'fluent-cart-bulk-order'),
             'no_products'  => __('No products found.', 'fluent-cart-bulk-order'),
@@ -167,13 +198,9 @@ class Strings
             'adding'       => __('Adding...', 'fluent-cart-bulk-order'),
             'added'        => __('Added!', 'fluent-cart-bulk-order'),
 
-            // Order rules, shown next to the quantity input
-            /* translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is. */
-            'rule_min_and_step' => __('Min {min}, in {step}s', 'fluent-cart-bulk-order'),
-            /* translators: {step}: case-pack multiple. Keep {step} as-is. */
-            'rule_step'         => __('Sold in {step}s', 'fluent-cart-bulk-order'),
-            /* translators: {min}: minimum quantity. Keep {min} as-is. */
-            'rule_min'          => __('Min {min}', 'fluent-cart-bulk-order'),
+            // Order rules, shown next to the quantity input.
+            // rule_min / rule_step / rule_min_and_step arrive from
+            // self::orderRuleHints() above.
             /* translators: {qty}: the quantity now set. Keep {qty} as-is. */
             'qty_adjusted'      => __('Quantity adjusted to {qty} to meet this product\'s order rules.', 'fluent-cart-bulk-order'),
 

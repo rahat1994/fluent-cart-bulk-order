@@ -1,0 +1,21 @@
+/* Order-rule hint under FluentCart's quantity box on the single product page
+   ("Min 5, in 5s").
+
+   Colour is derived from currentColor rather than fixed, for the same reason as
+   bulk-pricing-display.css: this sits inside whatever theme the store runs, and
+   a theme can be dark by design while the visitor's OS is in light mode. Nothing
+   here sets a background, so the text simply follows the surrounding one. */
+.fcbo-spq-hint {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* The element ships empty whenever the rules differ between variants — see
+   QuantityRules::render() — and single-product-qty.js fills it in. Collapse the
+   margin it would otherwise leave until then, and again on any variant that
+   turns out to be unconstrained. */
+.fcbo-spq-hint:empty {
+    display: none;
+}

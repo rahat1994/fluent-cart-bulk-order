@@ -23,6 +23,8 @@ related_components:
   - FluentCart\App\Models\ProductVariation
   - FluentCart\App\Models\Cart
   - FluentCart\Api\Checkout\CheckoutApi
+  - FluentCart\App\Http\Routes\WebRoutes
+  - FluentCartBulkOrder\Display\QuantityRules
   - fcbo_validate_cart_item_rules
   - fcbo_validate_checkout_minimum
 ---
@@ -107,10 +109,43 @@ Verified against the FluentCart source present alongside this repo on 2026-07-19
 Because the filter lives inside `ProductVariation::canPurchase()`, its reach is the set of callers of that method. The audited callers:
 
 - **Normal add-to-cart** — `Cart::addByVariation()` calls `$variation->canPurchase($quantity)` at `fluent-cart/app/Models/Cart.php:428`, immediately before applying `fluent_cart/cart/can_purchase` at `:429`. This is why `can_purchase_bundle` **subsumes** `cart/can_purchase` for per-line rules: on this path anything the latter would catch, the former already saw one line earlier. Note carefully that on *this* path both hooks are equally gated — line `:428` sits inside the `if ($validate) {` block opened at `:427`, so `can_purchase_bundle` is behind `will_validate` here too. Its wider reach comes entirely from its **other two callers**, which `cart/can_purchase` does not have, not from being ungated on this one.
-- **Instant checkout** — `CartResource::generateCartForInstantCheckout()` (`fluent-cart/api/Resource/FrontendResource/CartResource.php:28`) calls `canPurchase($quantity)` at `:68` and returns the `WP_Error` at `:69-70`. Note this call is skipped for `is_custom` items (`:67`).
+- **Instant checkout** — `CartResource::generateCartForInstantCheckout()` (`fluent-cart/api/Resource/FrontendResource/CartResource.php:28`) calls `canPurchase($quantity)` at `:68` and returns the `WP_Error` at `:69-70`. Note this call is skipped for `is_custom` items (`:67`). The veto is raised correctly here; what happens to it afterwards depends on **which** instant-checkout route asked, and the two routes differ — see the second correction below.
 - **Order bump / variation upgrade** — `WebCheckoutHandler::handleOrderBumpRequest()` (`fluent-cart/app/Hooks/Cart/WebCheckoutHandler.php:1032`) calls it at `:1065`. **The veto does not take effect here**, for two independent reasons; see the correction below.
 
-**Correction worth carrying: the order-bump path does not honor the veto.** Line 1065 reads `if (!$productVariation || !$productVariation->canPurchase())`. A `WP_Error` object is *truthy* in PHP, so `!$wpError` evaluates to `false` and the guard passes — the refusal is discarded. Separately, the call passes no quantity (defaulting to 1) and the subsequent `addByVariation` at `:1070` does not set `will_validate`, so a quantity rule would have nothing meaningful to judge there anyway. The filter *fires* on this path; it does not *block* on it. Treat the order-bump/upgrade flow as uncovered by quantity rules. This is a host-side bug from our perspective, not something the extension can fix from a filter.
+#### The recurring defect: a `WP_Error` is truthy, so a plain truth test is not a check
+
+Two audited call sites make the same mistake, and it is worth naming as a class rather than as two anecdotes. `WP_Error` is an object; every object is truthy in PHP. So `if ($x)` and `if (!$x)` cannot distinguish "succeeded" from "refused" once the refusal is carried as a `WP_Error`. Only `is_wp_error()` can. Both instances below are host-side bugs the extension cannot fix from a filter, and both are invisible until something actually refuses — which, before Order Rules existed, nothing routinely did.
+
+**Instance 1 — the order-bump path discards the veto.** Line 1065 reads `if (!$productVariation || !$productVariation->canPurchase())`. `!$wpError` evaluates to `false`, the guard passes, and the refusal is dropped on the floor. Separately, the call passes no quantity (defaulting to 1) and the subsequent `addByVariation` at `:1070` does not set `will_validate`, so a quantity rule would have nothing meaningful to judge there anyway. The filter *fires* on this path; it does not *block* on it. Treat the order-bump/upgrade flow as uncovered by quantity rules.
+
+**Instance 2 — modal checkout passes the veto into a typed constructor.** `WebRoutes::handleModalCheckout()` (`fluent-cart/app/Http/Routes/WebRoutes.php:303`, reached from the `modal_checkout` case at `:295`) does:
+
+```php
+$cart = CartResource::generateCartForInstantCheckout($variationId, $quantity);   // :331
+
+if ($cart) {                                                                     // :333
+    $modalCheckoutRenderer = new ModalCheckoutRenderer($cart);                   // :334
+```
+
+Same truthiness mistake, worse landing. `ModalCheckoutRenderer::__construct()` is declared `__construct(Cart $cart, $config = [])` (`fluent-cart/app/Services/Renderer/ModalCheckoutRenderer.php:43`, where `Cart` is `FluentCart\App\Models\Cart`, imported at `:13`). PHP enforces class type declarations unconditionally, so a `WP_Error` here does not produce a degraded modal — it throws an uncaught `TypeError`. On a store with modal checkout switched on, our order-rule refusal is a fatal error.
+
+Verified 2026-08-30 by reading the source; not reproduced against a live store with modal checkout enabled, so the claim rests on the type declaration rather than on an observed stack trace.
+
+**Its sibling route gets the check right and still mislabels the outcome.** The non-modal instant checkout, ten lines apart in the same file, *does* test properly:
+
+```php
+if (is_wp_error($cart)) {                                                        // :132
+    // ... renders $cart->get_error_message() ...
+    FrontendView::make(__('Product Not Found', 'fluent-cart'), $view);            // :139
+    die();
+}
+```
+
+The message survives, but the page it arrives on is titled **"Product Not Found"** — so a shopper who asked for 1 of a product sold in 5s is told the product does not exist. The refusal is honored and then described as something else entirely. There is no filter on that title.
+
+**Which stores are exposed to instance 2.** Modal checkout is opt-in: `Helper::isModalCheckoutEnabled()`, read at `ProductRenderer.php:1390` and surfaced to the front end as `data-enable-modal-checkout` (`:1420`, and again for the block variant at `:1519`). Stores with it off get the "Product Not Found" page; stores with it on get the fatal.
+
+**What the extension did about it, since it cannot fix either.** Neither instance is reachable from a filter, so the response was to stop *triggering* them: `\FluentCartBulkOrder\Display\QuantityRules` rewrites FluentCart's own quantity box and Buy Now link so the page never proposes an out-of-rule quantity in the first place. That is a mitigation, not a fix — a crafted request still reaches the refusal and still lands on whichever of the two bad outcomes the store is configured for. The server-side veto was deliberately left refusing rather than silently clamping through `fluent_cart/item_max_quantity` (`CartResource.php:58`), which was available and rejected: quietly changing what someone asked to buy is worse than an honest refusal, even an ugly one.
 
 **How a veto surfaces to the browser.** For cart operations, `WebCheckoutHandler::globalCheckoutRouteHandler()` funnels every handler's return through a single `is_wp_error` check and emits HTTP **422** with the error message (`fluent-cart/app/Hooks/Cart/WebCheckoutHandler.php:116-120`). So a `WP_Error` raised deep inside `canPurchase()` reaches the front-end as a 422 with your message intact.
 
@@ -133,7 +168,9 @@ Both registrations carry an in-code comment (`fluent-cart-bulk-order.php:67-91`)
 
 **The host can honor a veto shape and still discard your message.** Returning `false` from `can_purchase_bundle` blocks the purchase and tells the shopper the product is out of stock — which is false and unactionable when the real reason is a case-pack rule. Same veto, wrong outcome.
 
-**And a host can fire a hook on a path where it ignores the result.** The order-bump call site proves the audit cannot stop at "does the hook fire here". `!$variation->canPurchase()` looks like a check and is not one, because of PHP's truthiness of objects. Reading the consumption is what caught it.
+**And a host can fire a hook on a path where it ignores the result.** The order-bump call site proves the audit cannot stop at "does the hook fire here". `!$variation->canPurchase()` looks like a check and is not one, because of PHP's truthiness of objects. Reading the consumption is what caught it — and the same mistake turned up a second time, at `WebRoutes.php:333`, where `if ($cart)` hands a `WP_Error` to a constructor typed `Cart`. Once you have seen it once, grep the host for every plain truth test on a value that can carry a `WP_Error`; it will not be the only one.
+
+**Finding the veto only tells you the refusal is raised, not that anyone will read it well.** Both surviving instant-checkout outcomes here are wrong in different directions: one is a fatal, the other renders the right message under the heading "Product Not Found". A refusal is only as good as its worst landing page, and none of those landing pages are filterable. So the audit has a step beyond "can this hook veto" — **follow the refusal all the way to the pixel**, and if the destination is bad and unhookable, budget separately for keeping the UI from ever reaching it.
 
 ## When to Apply
 

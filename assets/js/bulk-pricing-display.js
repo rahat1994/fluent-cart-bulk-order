@@ -16,6 +16,48 @@
         });
     }
 
+    // The row "model" PHP wrote into data-fcbo-variant: id, price, tiers and
+    // order_rules. One reader so the shape is described in exactly one place.
+    function variantData(row) {
+        return JSON.parse(row.getAttribute('data-fcbo-variant'));
+    }
+
+    // --- Order rules ---
+    //
+    // These mirror PHP OrderRules::normalize()/normalizeQty() and the copies in
+    // product-table.js, bulk-order.js and single-product-qty.js. All of them must
+    // change together: the server rejects any quantity these would have altered.
+    function orderRules(data) {
+        var raw = (data && data.order_rules) || {};
+
+        return {
+            min_qty: Math.max(0, parseInt(raw.min_qty, 10) || 0),
+            step: Math.max(1, parseInt(raw.step, 10) || 1)
+        };
+    }
+
+    // Rounds UP only, so a shopper never silently receives less than they asked
+    // for — with one addition the other surfaces do not need: 0 is preserved
+    // rather than raised to the minimum. On this widget every variant of the
+    // product has a row whether or not the shopper wants it, and an empty row
+    // means "not ordering this one", which no rule constrains. Raising it to the
+    // minimum would put products in the cart nobody asked for.
+    function normalizeQty(qty, rules) {
+        qty = parseInt(qty, 10) || 0;
+
+        if (qty <= 0) {
+            return 0;
+        }
+
+        qty = Math.max(1, qty, rules.min_qty);
+
+        if (rules.step > 1) {
+            qty = Math.ceil(qty / rules.step) * rules.step;
+        }
+
+        return qty;
+    }
+
     // Mirrors PHP fcbo_match_tier(): several tiers can match one quantity (an
     // open-ended "30+" still matches at 70 when a "60+" exists), so the most
     // specific match wins — the highest min_qty, not the first one found.
@@ -117,7 +159,7 @@
         var grandDiscounted = 0;
 
         rows.forEach(function(row) {
-            var data = JSON.parse(row.getAttribute('data-fcbo-variant'));
+            var data = variantData(row);
             var input = row.querySelector('.fcbo-bp-qty-input');
             var priceCell = row.querySelector('.fcbo-bp-price-cell');
             var qty = parseInt(input.value, 10) || 0;
@@ -196,6 +238,26 @@
         if (table) recalcTable(table);
     });
 
+    // Correct a typed quantity once it is committed. 'change', not 'input', so a
+    // half-typed "1" on the way to "12" is not snapped to the minimum
+    // mid-keystroke — the same rule the product table follows.
+    document.addEventListener('change', function(e) {
+        var input = e.target.closest('.fcbo-bp-qty-input');
+        if (!input) return;
+
+        var row = input.closest('tr[data-fcbo-variant]');
+        if (!row) return;
+
+        var settled = normalizeQty(input.value, orderRules(variantData(row)));
+
+        if (String(settled) !== String(input.value)) {
+            input.value = settled;
+        }
+
+        var table = input.closest('.fcbo-bp-order-table');
+        if (table) recalcTable(table);
+    });
+
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.fcbo-bp-checkout-btn');
         if (!btn || btn.classList.contains('fcbo-bp-loading')) return;
@@ -206,11 +268,26 @@
         if (!table) return;
         var rows = table.querySelectorAll('tbody tr[data-fcbo-variant]');
         var items = [];
+        var adjusted = false;
+
         rows.forEach(function(row) {
-            var data = JSON.parse(row.getAttribute('data-fcbo-variant'));
-            var qty = parseInt(row.querySelector('.fcbo-bp-qty-input').value, 10) || 0;
+            var data = variantData(row);
+            var input = row.querySelector('.fcbo-bp-qty-input');
+            var qty = normalizeQty(input.value, orderRules(data));
+
+            // Correct in place rather than adding a different quantity than the
+            // one on screen. The server refuses an out-of-rule quantity outright
+            // (includes/Cart/RuleEnforcement.php), so an uncorrected row here would
+            // fail mid-chain and leave a half-added order behind.
+            if (String(qty) !== String(input.value)) {
+                input.value = qty;
+                adjusted = true;
+            }
+
             if (qty > 0) items.push({ id: data.id, qty: qty });
         });
+
+        if (adjusted) recalcTable(table);
 
         if (!items.length) return;
 

@@ -2,7 +2,9 @@
 
 namespace FluentCartBulkOrder\Display;
 
+use FluentCartBulkOrder\Analytics\Surface;
 use FluentCartBulkOrder\Pricing\OrderRules;
+use FluentCartBulkOrder\Pricing\Tiers;
 use FluentCartBulkOrder\Strings;
 
 defined('ABSPATH') || exit;
@@ -48,15 +50,43 @@ class SingleProductTiers
 
         wp_localize_script('fcbo-bulk-pricing-display', 'fcboBpConfig', [
             'currency_sign' => fcbo_get_currency_sign(),
+            // Where "Bulk order now" sends the shopper. '' when FluentCart
+            // cannot name a checkout page — renderOrderTable() then omits the
+            // button entirely rather than shipping a dead link.
+            'checkout_url'  => esc_url_raw(self::checkoutUrl()),
             'i18n'          => fcbo_savings_strings(),
         ]);
+    }
+
+    /**
+     * The marked checkout URL "Bulk order now" hands the shopper to.
+     *
+     * FluentCart's own Buy Now goes through `?fluent-cart=instant_checkout`
+     * (fluent-cart/app/Http/Routes/WebRoutes.php:78-210), and that route is not
+     * usable here: it takes ONE `item_id` and calls
+     * `CartResource::generateCartForInstantCheckout()` (:129), which builds a
+     * fresh single-line cart. A bulk order of four variants sent through it
+     * would arrive at checkout as one line. So this surface does what the Bulk
+     * Order Form does instead — add every line through FluentCart's own cart
+     * API, then go to FluentCart's own checkout page — which is the same
+     * destination the instant_checkout route redirects to anyway (:174).
+     *
+     * Marked so an order that reached checkout from this block can be told
+     * apart on the analytics screen.
+     *
+     * @return string Checkout URL, or '' when FluentCart cannot supply one.
+     */
+    private static function checkoutUrl()
+    {
+        return Surface::mark(fcbo_checkout_page_url(), Surface::SINGLE_PRODUCT_TIERS);
     }
 
     /**
      * Render the order table rows for variants.
      *
      * Each row has: title, quantity input, price cell (updated by JS).
-     * Footer row has: grand total + Add to Cart button.
+     * Footer row has the grand total, and under the table the Add to Cart /
+     * Bulk order now pair.
      *
      * @param array  $variants [{id, title, price, tiers, order_rules}]
      * @param string $titleHeader Column header for the first column
@@ -120,16 +150,105 @@ class SingleProductTiers
         echo '<td class="fcbo-bp-grand-saving"></td>';
         echo '<td class="fcbo-bp-grand-total"><span class="fcbo-bp-muted">&mdash;</span></td>';
         echo '</tr></tfoot></table>';
-        echo '<div class="fcbo-bp-checkout-row">';
-        echo '<button type="button" class="fcbo-bp-checkout-btn">' . esc_html__('Add to Cart', 'fluent-cart-bulk-order') . '</button>';
+
+        // Two actions, matching what the bulk order form offers: stay here, or
+        // go and pay. Both add exactly the same quantities — the only
+        // difference is where the shopper lands afterwards, which is why they
+        // share one JS handler keyed on data-fcbo-bp-action.
+        //
+        // Classes mirror .fcbo-btn / .fcbo-btn-primary / .fcbo-btn-secondary in
+        // assets/css/bulk-order.css rather than reusing them: the two files
+        // define their own palette variables on their own root element
+        // (.fcbo-wrap vs .fcbo-bp-wrap), so a shared class would inherit
+        // nothing here. Same shape, same hues, separate declaration.
+        echo '<div class="fcbo-bp-actions">';
+        printf(
+            '<button type="button" class="fcbo-bp-btn fcbo-bp-btn-secondary" data-fcbo-bp-action="add">%s</button>',
+            // "Add to Cart", capital C, because that is the exact string the
+            // product table's button already uses (@see Strings::productTable()).
+            // One wording of one action across the plugin's surfaces.
+            esc_html__('Add to Cart', 'fluent-cart-bulk-order')
+        );
+
+        // Omitted, not disabled, when FluentCart cannot name a checkout page: a
+        // button that cannot do its job is worse than no button, and the
+        // shopper still has "Add to Cart" and the store's own checkout link.
+        if (self::checkoutUrl() !== '') {
+            printf(
+                '<button type="button" class="fcbo-bp-btn fcbo-bp-btn-primary" data-fcbo-bp-action="checkout">%s</button>',
+                esc_html__('Bulk order now', 'fluent-cart-bulk-order')
+            );
+        }
         echo '</div>';
+    }
+
+    /**
+     * Open the Bulk Pricing accordion — wrapper, disclosure and summary line.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY <details>/<summary> RATHER THAN A BUTTON AND A HIDDEN PANEL
+     * ---------------------------------------------------------------------------
+     *
+     * The bulk order form's Quick Order panel uses the button pattern
+     * (includes/Shortcodes/BulkOrderForm.php:128), so this is a deliberate
+     * departure and there are two reasons for it.
+     *
+     * 1. It stays open-able when the script does not run. The button pattern
+     *    ships the panel with `hidden` and only JavaScript takes it off, so a
+     *    blocked or errored bundle shuts this block permanently. Everything
+     *    inside it that a shopper reads — the tier ranges and their discounts —
+     *    is rendered here in PHP and is worth reading on its own, so it must not
+     *    depend on a script to be reachable. `<details>` is opened by the
+     *    browser itself.
+     *
+     * 2. It is the a11y bar of plan 005 met with less to get wrong. That plan
+     *    hand-wrote `aria-expanded`/`aria-activedescendant` for the product
+     *    search because no native element is a combobox. A disclosure IS a
+     *    native element: `<summary>` is focusable, operated by Enter and Space,
+     *    and exposed as an expandable to a screen reader with no attributes and
+     *    no JavaScript to keep in sync. Re-implementing that by hand would only
+     *    add a state that can drift from the DOM.
+     *
+     * Collapsed by default is simply the absence of `open`, which is server
+     * rendered — so there is no moment where the block is expanded before a
+     * script gets round to closing it.
+     *
+     * @param array $tiers Every tier this block will show, across all variants —
+     *                     what the summary line's claim has to be true of.
+     * @return void
+     */
+    private static function openAccordion($tiers)
+    {
+        printf(
+            '<div class="fcbo-bp-wrap"><details class="fcbo-bp-accordion">'
+                . '<summary class="fcbo-bp-summary">'
+                // The caret is decoration: <summary> already announces its own
+                // expanded state, and a screen reader reading "▸" on top of that
+                // would be noise.
+                . '<span class="fcbo-bp-caret" aria-hidden="true">&#9656;</span>'
+                . '<span class="fcbo-bp-summary-text">%s</span>'
+                . '</summary><div class="fcbo-bp-panel">',
+            esc_html(Tiers::describeBestDiscount($tiers, Strings::bulkPricingSummary()))
+        );
+    }
+
+    /**
+     * Close what self::openAccordion() opened.
+     *
+     * @return void
+     */
+    private static function closeAccordion()
+    {
+        echo '</div></details></div>';
     }
 
     /**
      * Render bulk pricing tiers on the single product page.
      *
-     * Shows tier info followed by an order table with quantity inputs, live totals,
-     * and a single Add to Cart button.
+     * The whole block is a closed accordion: a summary line naming the best
+     * discount on offer, and behind it the tier info, an order table with
+     * quantity inputs and live totals, and the Add to Cart / Bulk order now
+     * pair.
      *
      * @param array $args ['product' => Product, 'scope' => string]
      */
@@ -164,8 +283,7 @@ class SingleProductTiers
 
             self::enqueueAssets();
 
-            echo '<div class="fcbo-bp-wrap">';
-            echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
+            self::openAccordion($tiers);
             echo '<div class="fcbo-bp-simple"><ul>';
             foreach ($tiers as $tier) {
                 $minQty = (int) ($tier['min_qty'] ?? 0);
@@ -196,7 +314,7 @@ class SingleProductTiers
                 ],
             ], __('Product', 'fluent-cart-bulk-order'));
 
-            echo '</div>';
+            self::closeAccordion();
             return;
         }
 
@@ -234,8 +352,18 @@ class SingleProductTiers
             }
         }
 
-        echo '<div class="fcbo-bp-wrap">';
-        echo '<h4 class="fcbo-bp-heading">' . esc_html__('Bulk Pricing', 'fluent-cart-bulk-order') . '</h4>';
+        // Every variant's tiers in one flat list. The summary line claims a
+        // ceiling ("save up to 20%") over the WHOLE block, so it has to see
+        // every tier the block will show — reading only the first variant's set
+        // would understate a better discount sitting two rows down.
+        $allTiers = [];
+        foreach ($variantsWithTiers as $entry) {
+            foreach ($entry['tiers'] as $tier) {
+                $allTiers[] = $tier;
+            }
+        }
+
+        self::openAccordion($allTiers);
 
         // Tier info table
         echo '<table class="fcbo-bp-table">';
@@ -290,6 +418,6 @@ class SingleProductTiers
 
         self::renderOrderTable($variantsWithTiers, __('Variant', 'fluent-cart-bulk-order'));
 
-        echo '</div>';
+        self::closeAccordion();
     }
 }

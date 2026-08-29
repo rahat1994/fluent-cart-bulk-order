@@ -216,15 +216,16 @@ abstract class AbstractShortcode
     /**
      * The store's checkout page URL, or '' when FluentCart cannot supply one.
      *
+     * Delegates to fcbo_checkout_page_url() for the same reason currencySign()
+     * delegates: the single-product Bulk Pricing block also hands shoppers to
+     * checkout and is not a shortcode, so the lookup could not stay behind a
+     * protected method on this base class.
+     *
      * @return string
      */
     protected function checkoutPageUrl()
     {
-        if (!class_exists(\FluentCart\Api\StoreSettings::class)) {
-            return '';
-        }
-
-        return (string) (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
+        return fcbo_checkout_page_url();
     }
 
     /**

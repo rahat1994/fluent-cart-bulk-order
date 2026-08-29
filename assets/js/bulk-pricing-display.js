@@ -258,27 +258,22 @@
         if (table) recalcTable(table);
     });
 
-    document.addEventListener('click', function(e) {
-        var btn = e.target.closest('.fcbo-bp-checkout-btn');
-        if (!btn || btn.classList.contains('fcbo-bp-loading')) return;
-        if (!window.fluentCartCart) return;
-
-        var wrap = btn.closest('.fcbo-bp-wrap');
-        var table = wrap ? wrap.querySelector('.fcbo-bp-order-table') : null;
-        if (!table) return;
-        var rows = table.querySelectorAll('tbody tr[data-fcbo-variant]');
+    // Every row's quantity, corrected in place, as [{id, qty}].
+    //
+    // Correcting the INPUT rather than quietly adding a different number is the
+    // point: the server refuses an out-of-rule quantity outright
+    // (includes/Cart/RuleEnforcement.php), so an uncorrected row would fail
+    // mid-chain and leave a half-added order behind — and the shopper would
+    // have no idea which line did it.
+    function collectItems(table) {
         var items = [];
         var adjusted = false;
 
-        rows.forEach(function(row) {
+        table.querySelectorAll('tbody tr[data-fcbo-variant]').forEach(function(row) {
             var data = variantData(row);
             var input = row.querySelector('.fcbo-bp-qty-input');
             var qty = normalizeQty(input.value, orderRules(data));
 
-            // Correct in place rather than adding a different quantity than the
-            // one on screen. The server refuses an out-of-rule quantity outright
-            // (includes/Cart/RuleEnforcement.php), so an uncorrected row here would
-            // fail mid-chain and leave a half-added order behind.
             if (String(qty) !== String(input.value)) {
                 input.value = qty;
                 adjusted = true;
@@ -289,20 +284,100 @@
 
         if (adjusted) recalcTable(table);
 
-        if (!items.length) return;
+        return items;
+    }
 
-        btn.classList.add('fcbo-bp-loading');
-        btn.disabled = true;
-
+    // Add every line through FluentCart's own cart API, one after another.
+    //
+    // Sequential, not parallel: the cart endpoint returns the whole cart on each
+    // call and the client overwrites its counters from that response, so two
+    // in-flight adds race and the later reply can carry a cart that predates the
+    // earlier add.
+    //
+    // `openCart` is the 4th argument of FluentCart's addProduct(item, qty,
+    // byInput, openCart, isCustom) — it sets open_cart on the request, which
+    // makes the drawer slide out. Only ever true on the LAST item, and never at
+    // all when we are about to navigate away.
+    function addAll(items, openCartAtEnd) {
         var chain = Promise.resolve();
+
         items.forEach(function(item, i) {
             chain = chain.then(function() {
-                var openCart = (i === items.length - 1);
+                var openCart = openCartAtEnd && (i === items.length - 1);
                 return window.fluentCartCart.addProduct(item.id, item.qty, false, openCart);
             });
         });
 
-        chain.then(function() {
+        return chain;
+    }
+
+    // Where "Bulk order now" goes.
+    //
+    // NOT FluentCart's own Buy Now route. That is
+    // `?fluent-cart=instant_checkout&item_id=…&quantity=…`
+    // (fluent-cart/app/Services/Renderer/ProductRenderer.php:1413), and it takes
+    // a single item_id: WebRoutes.php:129 hands it to
+    // CartResource::generateCartForInstantCheckout(), which builds a fresh
+    // one-line cart. A four-variant bulk order sent through it would arrive as
+    // one line. So we go to the destination that route itself redirects to
+    // (WebRoutes.php:174 — the store's configured checkout page) after filling
+    // the cart properly.
+    //
+    // AND WE PASS NO fct_cart_hash, unlike bulk-order.js:940-951.
+    // That parameter is Helper::INSTANT_CHECKOUT_URL_PARAM and it means
+    // "instant checkout", not "here is my cart": when it is present,
+    // CartResource::get() looks the hash up with
+    // `->where('cart_group', 'instant')`
+    // (fluent-cart/api/Resource/FrontendResource/CartResource.php:155-168) and
+    // returns null for anything else. addProduct() builds a cart_group='global'
+    // cart, so passing its hash finds NOTHING and checkout renders "Your cart
+    // is empty" — verified on the local store with a real three-line cart.
+    // Left off, FluentCart reads its own device cookie and finds it. The only
+    // query argument this URL carries is the attribution marker PHP put on it.
+    //
+    // @return {boolean} whether the browser is actually leaving. PHP only
+    //   renders the button when it has a URL to give, so false means the two
+    //   sides disagreed — the caller re-enables the button rather than leaving
+    //   a dead control on screen with the items already in the cart.
+    function goToCheckout() {
+        var url = (window.fcboBpConfig && window.fcboBpConfig.checkout_url) || '';
+        if (!url) return false;
+
+        window.location.href = url;
+
+        return true;
+    }
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-fcbo-bp-action]');
+        if (!btn || btn.classList.contains('fcbo-bp-loading')) return;
+        if (!window.fluentCartCart) return;
+
+        var wrap = btn.closest('.fcbo-bp-wrap');
+        var table = wrap ? wrap.querySelector('.fcbo-bp-order-table') : null;
+        if (!table) return;
+
+        var items = collectItems(table);
+        if (!items.length) return;
+
+        // The two buttons add exactly the same lines; they differ only in where
+        // the shopper ends up. Keeping that in one handler is what stops the two
+        // paths drifting into adding different quantities.
+        var toCheckout = btn.getAttribute('data-fcbo-bp-action') === 'checkout';
+
+        btn.classList.add('fcbo-bp-loading');
+        btn.disabled = true;
+
+        // The cart drawer is for the shopper who is staying. Opening it a
+        // moment before navigating away would only flash.
+        addAll(items, !toCheckout).then(function() {
+            // Deliberately left disabled once the browser is leaving: a button
+            // that goes clickable again invites a second checkout trip that
+            // would add every line twice.
+            if (toCheckout && goToCheckout()) {
+                return;
+            }
+
             btn.classList.remove('fcbo-bp-loading');
             btn.disabled = false;
         }).catch(function() {

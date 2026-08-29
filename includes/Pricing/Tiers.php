@@ -128,22 +128,105 @@ class Tiers
     {
         $type  = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
         $value = (float) ($tier['discount_value'] ?? 0);
-        $sign  = fcbo_get_currency_sign();
 
         switch ($type) {
             case 'fixed_unit_price':
+                // The currency sign is looked up inside the money branches, not
+                // above the switch: it is the one thing in this class that
+                // reaches out to the store, and a percent tier has no use for
+                // it. Keeping it here leaves the percent path a pure function.
                 // Money keeps 2 decimals (currency), matching the JS formatPrice() output.
                 /* translators: %s: formatted unit price, e.g. $8.50 */
-                return sprintf(__('%s/unit', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
+                return sprintf(__('%s/unit', 'fluent-cart-bulk-order'), fcbo_get_currency_sign() . number_format($value, 2));
             case 'amount_off':
                 /* translators: %s: formatted amount, e.g. $2.00 */
-                return sprintf(__('%s off', 'fluent-cart-bulk-order'), $sign . number_format($value, 2));
+                return sprintf(__('%s off', 'fluent-cart-bulk-order'), fcbo_get_currency_sign() . number_format($value, 2));
             case 'percent':
             default:
-                // Percent strips trailing zeros (10% not 10.00%) — unchanged from before.
-                $num = rtrim(rtrim(number_format($value, 2), '0'), '.');
                 /* translators: %s: percentage number, e.g. 10 */
-                return sprintf(__('%s%% off', 'fluent-cart-bulk-order'), $num);
+                return sprintf(__('%s%% off', 'fluent-cart-bulk-order'), self::formatPercent($value));
         }
+    }
+
+    /**
+     * One line summarising the best discount a whole tier set offers.
+     *
+     * This is the sentence on the collapsed Bulk Pricing accordion, and it is
+     * the only thing a shopper sees before deciding whether the block is worth
+     * opening — so it has to be worth clicking AND it has to be true.
+     *
+     * WHY A MONEY TIER CANNOT NAME ITS NUMBER
+     * A percentage is the same quantity as "how much you save": 20% off IS a 20%
+     * saving. The two money types are not. "$4.00/unit" is a price, not a
+     * saving, and "$2.00 off" is a saving per unit whose share of the total
+     * depends on a list price this sentence does not carry. Printing either
+     * behind "save up to" would label a number as something it is not. So they
+     * degrade to a generic phrase — exactly the trade unlockText() in
+     * assets/js/bulk-order.js and assets/js/bulk-pricing-display.js already
+     * makes when the next tier is a money tier.
+     *
+     * WHY ONE MONEY TIER DEGRADES THE WHOLE SET
+     * "Save up to N%" claims N is the ceiling. In a set holding both a 20% tier
+     * and a $4.00/unit tier, the real ceiling may well be the money tier, and
+     * this function cannot tell without a list price. Naming 20 would be a
+     * ceiling that is not the ceiling, so a mixed set degrades too.
+     *
+     * A tier with no type is a percent tier, matching self::applyToPrice().
+     *
+     * @param array                $tiers     Every tier the block will show, across all
+     *                                        variants. Order does not matter.
+     * @param array<string,string> $templates ['summary_percent' => '… {percent} …',
+     *                                        'summary_generic' => '…']. Passed in
+     *                                        rather than read from Strings so this
+     *                                        stays a pure map from array to string.
+     * @return string Ready to escape and print; '' when neither template is given.
+     */
+    public static function describeBestDiscount($tiers, $templates)
+    {
+        $bestPercent = 0.0;
+
+        foreach ((array) $tiers as $tier) {
+            $type = isset($tier['discount_type']) ? (string) $tier['discount_type'] : 'percent';
+
+            if ($type !== 'percent') {
+                $bestPercent = 0.0;
+                break;
+            }
+
+            // Clamped at 100 because applyToPrice() clamps the price at zero: a
+            // misconfigured 150% tier makes the item free, and "save up to 100%"
+            // is the largest saving that can actually happen.
+            $value = min(100.0, (float) ($tier['discount_value'] ?? 0));
+
+            if ($value > $bestPercent) {
+                $bestPercent = $value;
+            }
+        }
+
+        if ($bestPercent > 0) {
+            return str_replace(
+                '{percent}',
+                self::formatPercent($bestPercent),
+                isset($templates['summary_percent']) ? (string) $templates['summary_percent'] : ''
+            );
+        }
+
+        return isset($templates['summary_generic']) ? (string) $templates['summary_generic'] : '';
+    }
+
+    /**
+     * A percentage as a shopper reads it: 10, not 10.00.
+     *
+     * Shared by formatDiscountLabel() and describeBestDiscount() so the tier
+     * table and the summary line above it can never print the same discount two
+     * different ways. unlockText() in the two JS surfaces mirrors this with
+     * parseFloat(value.toFixed(2)).
+     *
+     * @param float $value
+     * @return string
+     */
+    private static function formatPercent($value)
+    {
+        return rtrim(rtrim(number_format((float) $value, 2), '0'), '.');
     }
 }

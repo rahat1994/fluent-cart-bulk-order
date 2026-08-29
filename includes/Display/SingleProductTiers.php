@@ -2,6 +2,9 @@
 
 namespace FluentCartBulkOrder\Display;
 
+use FluentCartBulkOrder\Pricing\OrderRules;
+use FluentCartBulkOrder\Strings;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -55,11 +58,13 @@ class SingleProductTiers
      * Each row has: title, quantity input, price cell (updated by JS).
      * Footer row has: grand total + Add to Cart button.
      *
-     * @param array  $variants [{id, title, price, tiers}]
+     * @param array  $variants [{id, title, price, tiers, order_rules}]
      * @param string $titleHeader Column header for the first column
      */
     public static function renderOrderTable($variants, $titleHeader)
     {
+        $ruleTemplates = Strings::orderRuleHints();
+
         echo '<table class="fcbo-bp-order-table">';
         echo '<thead><tr>';
         echo '<th>' . esc_html($titleHeader) . '</th>';
@@ -68,20 +73,46 @@ class SingleProductTiers
         echo '</tr></thead><tbody>';
 
         foreach ($variants as $v) {
+            $rules = OrderRules::normalize(isset($v['order_rules']) ? $v['order_rules'] : []);
+
             $variantData = wp_json_encode([
-                'id'    => (int) $v['id'],
-                'price' => (int) $v['price'],
-                'tiers' => $v['tiers'],
+                'id'          => (int) $v['id'],
+                'price'       => (int) $v['price'],
+                'tiers'       => $v['tiers'],
+                // Carried on the row so bulk-pricing-display.js can correct a typed
+                // quantity the same way every other ordering surface does. Without
+                // it this widget was the one place a shopper could assemble an
+                // order the server would refuse line by line.
+                'order_rules' => $rules,
             ]);
 
+            // min stays 0, NOT the rule minimum, and that is deliberate: on this
+            // widget an empty row means "not ordering this variant", and a
+            // case-pack rule has nothing to say about ordering none. The rule
+            // lives in `step` plus the two data- attributes, and the JS applies it
+            // only once the quantity is above zero.
+            //
             // The two empty spans are filled by bulk-pricing-display.js as the
             // quantity changes: the nudge toward the next tier sits under the input
             // the shopper is typing in, the line saving under the price it changes.
             printf(
-                '<tr data-fcbo-variant="%s"><td>%s</td><td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" /><span class="fcbo-bp-nudge"></span></td><td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>',
+                '<tr data-fcbo-variant="%s"><td>%s</td>'
+                    . '<td><input type="number" class="fcbo-bp-qty-input" value="0" min="0" step="%d"'
+                    . ' data-min-qty="%d" data-step="%d" />',
                 esc_attr($variantData),
-                esc_html($v['title'])
+                esc_html($v['title']),
+                (int) $rules['step'],
+                (int) $rules['min_qty'],
+                (int) $rules['step']
             );
+
+            $hint = OrderRules::describe($rules, $ruleTemplates);
+            if ($hint !== '') {
+                echo '<span class="fcbo-bp-qty-hint">' . esc_html($hint) . '</span>';
+            }
+
+            echo '<span class="fcbo-bp-nudge"></span></td>'
+                . '<td class="fcbo-bp-price-cell"><span class="fcbo-bp-muted">&mdash;</span></td></tr>';
         }
 
         echo '</tbody><tfoot><tr>';
@@ -159,6 +190,9 @@ class SingleProductTiers
                     'title' => $product->post_title,
                     'price' => (int) $variant->item_price,
                     'tiers' => $tiers,
+                    // Resolved through the same feed match as the tiers, so the
+                    // feed that prices this variant is the feed that constrains it.
+                    'order_rules' => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
                 ],
             ], __('Product', 'fluent-cart-bulk-order'));
 
@@ -178,6 +212,9 @@ class SingleProductTiers
                 'title' => $variant->variation_title ?: 'Default',
                 'price' => (int) $variant->item_price,
                 'tiers' => $tiers,
+                // Per-variant, not per-product: two variants of the same product
+                // can be sold in different case sizes.
+                'order_rules' => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
             ];
         }
 

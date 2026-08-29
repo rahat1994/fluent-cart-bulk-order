@@ -157,3 +157,12 @@ require_once dirname(__DIR__) . '/includes/Analytics/Surface.php';
 require_once dirname(__DIR__) . '/includes/Analytics/TierSignature.php';
 require_once dirname(__DIR__) . '/includes/Analytics/TierUsage.php';
 require_once dirname(__DIR__) . '/includes/Analytics/RevenueSplit.php';
+
+// A display class, and here for one method. QuantityRules::sharedRules() decides
+// whether the Order Rule hint on the single product page can be written in PHP at
+// all — FluentCart picks the default variant inside its own renderer and does not
+// pass that choice to the hook we render from, so the sentence is only safe when
+// every variant agrees. It is a pure map from array to array like everything else
+// above, and it fails silently: get it wrong and the page still renders, quoting
+// a rule that does not apply to what the shopper is looking at.
+require_once dirname(__DIR__) . '/includes/Display/QuantityRules.php';

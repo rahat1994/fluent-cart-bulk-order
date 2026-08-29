@@ -165,6 +165,17 @@
     display: block;
 }
 
+/* Order-rule hint under a quantity input ("Sold in 12s"). Rendered by PHP, not
+   JS — unlike the nudge below it, the rule is known at render time and does not
+   depend on what the shopper types. */
+.fcbo-bp-qty-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--fcbo-text-3);
+}
+
 .fcbo-bp-nudge {
     display: block;
     margin-top: 4px;

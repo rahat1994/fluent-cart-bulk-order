@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-29T18:44:23+00:00\n"
+"POT-Creation-Date: 2026-08-29T19:02:29+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
@@ -36,20 +36,20 @@ msgstr ""
 msgid "Fluent Cart Bulk Order requires the FluentCart plugin to be installed and activated."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1255
+#: fluent-cart-bulk-order.php:1288
 msgid "You must be logged in."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1260
+#: fluent-cart-bulk-order.php:1293
 msgid "Please enter a name for this order."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1265
+#: fluent-cart-bulk-order.php:1298
 msgid "There are no valid items to save."
 msgstr ""
 
 #. translators: %s: FluentCart order number.
-#: fluent-cart-bulk-order.php:1543
+#: fluent-cart-bulk-order.php:1576
 msgid "Order #%s"
 msgstr ""
 
@@ -211,7 +211,7 @@ msgid "These priced real orders in this period but are no longer on any feed —
 msgstr ""
 
 #: includes/Analytics/AnalyticsScreen.php:488
-#: includes/Display/SingleProductTiers.php:66
+#: includes/Display/SingleProductTiers.php:71
 #: includes/Export/OrderCsv.php:149
 #: includes/Export/OrderReceiptView.php:212
 #: includes/Integrations/Elementor/ProductTableWidget.php:127
@@ -221,8 +221,8 @@ msgid "Quantity"
 msgstr ""
 
 #: includes/Analytics/AnalyticsScreen.php:489
-#: includes/Display/SingleProductTiers.php:208
-#: includes/Display/SingleProductTiers.php:226
+#: includes/Display/SingleProductTiers.php:245
+#: includes/Display/SingleProductTiers.php:263
 #: includes/Export/OrderReceiptView.php:328
 msgid "Discount"
 msgstr ""
@@ -326,8 +326,8 @@ msgstr ""
 
 #: includes/BulkPricingIntegration.php:24
 #: includes/BulkPricingIntegration.php:110
-#: includes/Display/SingleProductTiers.php:137
-#: includes/Display/SingleProductTiers.php:201
+#: includes/Display/SingleProductTiers.php:168
+#: includes/Display/SingleProductTiers.php:238
 msgid "Bulk Pricing"
 msgstr ""
 
@@ -514,8 +514,8 @@ msgstr ""
 msgid "PO number"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:67
-#: includes/Display/SingleProductTiers.php:88
+#: includes/Display/SingleProductTiers.php:72
+#: includes/Display/SingleProductTiers.php:119
 #: includes/Export/OrderExportScreen.php:251
 #: includes/Export/OrderReceiptView.php:339
 #: includes/Shortcodes/BulkOrderForm.php:163
@@ -523,17 +523,17 @@ msgstr ""
 msgid "Total"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:93
-#: includes/Strings.php:165
+#: includes/Display/SingleProductTiers.php:124
+#: includes/Strings.php:196
 msgid "Add to Cart"
 msgstr ""
 
 #. translators: %s: quantity range the tier covers, e.g. "10 – 24" or "25+".
-#: includes/Display/SingleProductTiers.php:149
+#: includes/Display/SingleProductTiers.php:180
 msgid "Buy %s:"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:163
+#: includes/Display/SingleProductTiers.php:197
 #: includes/Export/OrderCsv.php:147
 #: includes/Export/OrderReceiptView.php:210
 #: includes/Quotes/QuoteReviewScreen.php:539
@@ -541,13 +541,13 @@ msgstr ""
 msgid "Product"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:207
-#: includes/Display/SingleProductTiers.php:225
+#: includes/Display/SingleProductTiers.php:244
+#: includes/Display/SingleProductTiers.php:262
 msgid "Qty Range"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:224
-#: includes/Display/SingleProductTiers.php:254
+#: includes/Display/SingleProductTiers.php:261
+#: includes/Display/SingleProductTiers.php:291
 #: includes/Export/OrderCsv.php:148
 msgid "Variant"
 msgstr ""
@@ -1646,7 +1646,7 @@ msgid "Search products..."
 msgstr ""
 
 #: includes/Shortcodes/ProductTable.php:172
-#: includes/Strings.php:160
+#: includes/Strings.php:191
 msgid "Loading products..."
 msgstr ""
 
@@ -1686,7 +1686,7 @@ msgstr ""
 msgid "Loading saved orders..."
 msgstr ""
 
-#: includes/Shortcodes/ShortcodeHandler.php:185
+#: includes/Shortcodes/ShortcodeHandler.php:186
 msgid "Fluent Cart Bulk Order needs the FluentCart plugin installed and active to show this content. Only site administrators can see this message."
 msgstr ""
 
@@ -1862,22 +1862,22 @@ msgid "Add {amount} more to reach the {minimum} minimum order total."
 msgstr ""
 
 #: includes/Strings.php:95
-#: includes/Strings.php:204
+#: includes/Strings.php:231
 msgid "FluentCart cart is not available. Please refresh the page and try again."
 msgstr ""
 
 #: includes/Strings.php:96
-#: includes/Strings.php:208
+#: includes/Strings.php:235
 msgid "Adding items to cart..."
 msgstr ""
 
 #: includes/Strings.php:97
-#: includes/Strings.php:211
+#: includes/Strings.php:238
 msgid "Redirecting to checkout..."
 msgstr ""
 
 #: includes/Strings.php:98
-#: includes/Strings.php:212
+#: includes/Strings.php:239
 msgid "Checkout page is not configured. Please check FluentCart settings."
 msgstr ""
 
@@ -1892,8 +1892,8 @@ msgid "Failed to add item: {error}"
 msgstr ""
 
 #: includes/Strings.php:103
-#: includes/Strings.php:183
-#: includes/Strings.php:215
+#: includes/Strings.php:210
+#: includes/Strings.php:242
 msgid "Unknown error"
 msgstr ""
 
@@ -1990,96 +1990,96 @@ msgstr ""
 msgid "Your quote request could not be sent. Please try again."
 msgstr ""
 
-#: includes/Strings.php:161
-msgid "Failed to load products."
-msgstr ""
-
-#: includes/Strings.php:162
-msgid "No products found."
-msgstr ""
-
-#: includes/Strings.php:166
-msgid "Out of Stock"
-msgstr ""
-
-#: includes/Strings.php:167
-msgid "Adding..."
-msgstr ""
-
-#: includes/Strings.php:168
-msgid "Added!"
-msgstr ""
-
 #. translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is.
-#: includes/Strings.php:172
+#: includes/Strings.php:169
 msgid "Min {min}, in {step}s"
 msgstr ""
 
 #. translators: {step}: case-pack multiple. Keep {step} as-is.
-#: includes/Strings.php:174
+#: includes/Strings.php:171
 msgid "Sold in {step}s"
 msgstr ""
 
 #. translators: {min}: minimum quantity. Keep {min} as-is.
-#: includes/Strings.php:176
+#: includes/Strings.php:173
 msgid "Min {min}"
 msgstr ""
 
+#: includes/Strings.php:192
+msgid "Failed to load products."
+msgstr ""
+
+#: includes/Strings.php:193
+msgid "No products found."
+msgstr ""
+
+#: includes/Strings.php:197
+msgid "Out of Stock"
+msgstr ""
+
+#: includes/Strings.php:198
+msgid "Adding..."
+msgstr ""
+
+#: includes/Strings.php:199
+msgid "Added!"
+msgstr ""
+
 #. translators: {qty}: the quantity now set. Keep {qty} as-is.
-#: includes/Strings.php:178
+#: includes/Strings.php:205
 msgid "Quantity adjusted to {qty} to meet this product's order rules."
 msgstr ""
 
-#: includes/Strings.php:180
+#: includes/Strings.php:207
 msgid "FluentCart cart is not available. Please refresh the page."
 msgstr ""
 
 #. translators: {error}: the error the cart reported. Keep {error} as-is.
-#: includes/Strings.php:182
+#: includes/Strings.php:209
 msgid "Failed: {error}"
 msgstr ""
 
 #. translators: {current}: current page number; {total}: how many pages there are. Keep both as-is.
-#: includes/Strings.php:186
+#: includes/Strings.php:213
 msgid "Page {current} of {total}"
 msgstr ""
 
-#: includes/Strings.php:201
+#: includes/Strings.php:228
 msgid "Saved orders"
 msgstr ""
 
-#: includes/Strings.php:202
+#: includes/Strings.php:229
 msgid "Past orders"
 msgstr ""
 
-#: includes/Strings.php:205
+#: includes/Strings.php:232
 msgid "None of the items in this order are available anymore."
 msgstr ""
 
-#: includes/Strings.php:206
+#: includes/Strings.php:233
 msgid "This order mixes subscription and one-time products, which cannot be reordered together."
 msgstr ""
 
 #. translators: {count}: items being added; {skipped}: items no longer available. Keep both as-is.
-#: includes/Strings.php:210
+#: includes/Strings.php:237
 msgid "Adding {count} item(s); {skipped} unavailable skipped..."
 msgstr ""
 
 #. translators: {error}: the error the cart reported. Keep {error} as-is.
-#: includes/Strings.php:214
+#: includes/Strings.php:241
 msgid "Failed to add an item: {error}"
 msgstr ""
 
 #. translators: {name}: the name the shopper gave the saved order. Keep {name} as-is.
-#: includes/Strings.php:218
+#: includes/Strings.php:245
 msgid "Delete saved order \"{name}\"?"
 msgstr ""
 
-#: includes/Strings.php:219
+#: includes/Strings.php:246
 msgid "Saved order deleted."
 msgstr ""
 
-#: includes/Strings.php:220
+#: includes/Strings.php:247
 msgid "Could not delete the saved order. Please try again."
 msgstr ""
 

@@ -271,12 +271,14 @@ you are sent to checkout. Prices in the cart match what the form quoted.
 
 **4.13a Checkout handoff — read the URL**
 Repeat 4.13 and look at the address bar on the checkout page.
-*Expect:* the only query argument is `fcbo_src=bulk_order_form`. There is **no
-`fct_cart_hash`**. Adding one by hand — copy the `fct_cart_hash` cookie value
-into `?fct_cart_hash=…` and reload — empties the page to "Your cart is empty."
-That is the failure this check exists to catch (issue #41): the page must render
-your lines with the parameter absent, and the same cart must come back when you
-remove it again.
+*Expect:* `fcbo_src=bulk_order_form` is present and **`fct_cart_hash` is
+absent**. Other query arguments may legitimately be there — check for those two
+specifically rather than requiring a bare URL. Adding the hash by hand — copy
+the `fct_cart_hash` cookie value and append `&fct_cart_hash=…` to the existing
+query string (an `&`, not a second `?`) — empties the page to "Your cart is
+empty." That is the failure this check exists to catch (issue #41): the page
+must render your lines with the parameter absent, and the same cart must come
+back when you remove it again.
 
 **4.14 Checkout redirect setting**
 Settings → "Send bulk orders to" → set a custom page. Repeat 4.13.
@@ -410,8 +412,9 @@ Unavailable lines are skipped with a notice, and do not block the rest.
 
 **6.5a Reorder checkout handoff — read the URL**
 Stay on the checkout page you were sent to in 6.5 and look at the address bar.
-*Expect:* the only query argument is `fcbo_src=saved_orders`, with **no
-`fct_cart_hash`**, and the reordered lines are on screen. This is the same
+*Expect:* `fcbo_src=saved_orders` is present and **`fct_cart_hash` is absent**
+— check for those two specifically, since other query arguments may legitimately
+be there — and the reordered lines are on screen. This is the same
 issue-#41 check as 4.13a on the other surface; run both, because the two
 redirects are separate pieces of code that have gone wrong together before.
 

@@ -8,7 +8,7 @@ component: frontend_script
 symptoms:
   - "A shopper who filled the Bulk Order Form arrives at checkout showing 'Your cart is empty.'"
   - "Reorder from Saved Orders lands on an empty checkout even though the items really did go into the cart"
-  - "Removing ?fct_cart_hash=... from the checkout URL brings the whole order back, unchanged"
+  - "Removing the fct_cart_hash argument from the checkout URL brings the whole order back, unchanged"
 root_cause: wrong_api
 resolution_type: code_fix
 severity: high
@@ -158,7 +158,7 @@ Delete the append from both redirects and send nothing.
 
 ```js
 // assets/js/bulk-order.js and assets/js/saved-orders.js
-window.location.href = checkoutUrl;   // the only query arg is fcbo_src, set by PHP
+window.location.href = checkoutUrl;   // carries fcbo_src from PHP, and no cart hash
 ```
 
 With no `hash` in `$params`, `CartResource::get()` skips the instant branch

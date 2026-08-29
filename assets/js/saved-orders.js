@@ -221,11 +221,15 @@
                     if (btn) btn.disabled = false;
                     return;
                 }
-                var cartHash = getCookie('fct_cart_hash');
-                if (cartHash) {
-                    var sep = checkoutUrl.indexOf('?') !== -1 ? '&' : '?';
-                    checkoutUrl += sep + 'fct_cart_hash=' + encodeURIComponent(cartHash);
-                }
+                // DO NOT append fct_cart_hash here. It empties the cart.
+                // Reorder fills the shopper's ordinary (cart_group='global')
+                // cart through addProduct(), but as a URL parameter that hash
+                // means "instant checkout" to FluentCart, which looks it up
+                // with `->where('cart_group', 'instant')` and hands the
+                // checkout renderer a null cart — "Your cart is empty." after a
+                // reorder that did land in the cart. The full reasoning, and
+                // why the cookie value can never be an instant hash, is in
+                // bulk-order.js at the matching redirect.
                 window.location.href = checkoutUrl;
             }, 500);
             return;
@@ -315,11 +319,6 @@
         return String(str == null ? '' : str)
             .replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;')
             .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function getCookie(name) {
-        var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-        return match ? decodeURIComponent(match[2]) : '';
     }
 
     if (document.readyState === 'loading') {

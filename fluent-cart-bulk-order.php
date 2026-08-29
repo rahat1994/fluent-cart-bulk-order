@@ -770,6 +770,34 @@ function fcbo_get_currency_sign()
 }
 
 /**
+ * The store's checkout page URL, or '' when FluentCart cannot supply one.
+ *
+ * Every surface of this plugin that sends a shopper to checkout asks FluentCart
+ * where checkout is rather than building a URL of its own, so a store that has
+ * moved its checkout page keeps working. The empty string is a real answer: the
+ * caller is expected to drop the handoff rather than link somewhere invented.
+ *
+ * Cached for the request like fcbo_get_currency_sign(), and for the same
+ * reason — the tier block, the bulk order form and the saved orders table can
+ * all render on one page.
+ *
+ * @return string
+ */
+function fcbo_checkout_page_url()
+{
+    static $url = null;
+
+    if ($url === null) {
+        $url = '';
+        if (class_exists(\FluentCart\Api\StoreSettings::class)) {
+            $url = (string) (new \FluentCart\Api\StoreSettings())->getCheckoutPage();
+        }
+    }
+
+    return $url;
+}
+
+/**
  * Apply one tier's discount to a unit price, in integer cents.
  *
  * @see \FluentCartBulkOrder\Pricing\Tiers::applyToPrice()
@@ -835,6 +863,10 @@ function fcbo_load_display()
     // its quantity inputs, and QuantityRules turns them into a sentence through
     // OrderRules::describe(). Neither can be rendered without the pricing engine.
     fcbo_load_pricing();
+    // There is no autoloader — every class is required by the loader that needs
+    // it. SingleProductTiers marks its "Bulk order now" checkout URL, and the
+    // marker's closed list of surfaces lives in this class.
+    require_once FCBO_DIR . 'includes/Analytics/Surface.php';
 
     require_once FCBO_DIR . 'includes/Display/SingleProductTiers.php';
     require_once FCBO_DIR . 'includes/Display/QuantityRules.php';

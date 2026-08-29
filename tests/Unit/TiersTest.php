@@ -151,4 +151,167 @@ class TiersTest extends TestCase
             $this->assertGreaterThan(0, $saving, 'a matched tier always saves something');
         }
     }
+
+    /**
+     * The summary line on the collapsed Bulk Pricing accordion.
+     *
+     * It is the only thing a shopper reads before deciding whether the block is
+     * worth opening, and it makes a claim — "save up to N%" says N is the
+     * ceiling. Every case below is about whether that claim is TRUE, because a
+     * summary that overstates the discount is a promise the cart will not keep
+     * and nothing else in the plugin would catch it.
+     */
+    private function summaryTemplates()
+    {
+        return [
+            'summary_percent' => 'Bulk pricing - save up to {percent}%',
+            'summary_generic' => 'Bulk pricing - buy more, pay less',
+        ];
+    }
+
+    public function testTheSummaryNamesTheLargestPercentage()
+    {
+        $tiers = [
+            ['min_qty' => 10, 'discount_type' => 'percent', 'discount_value' => 5],
+            ['min_qty' => 50, 'discount_type' => 'percent', 'discount_value' => 20],
+            ['min_qty' => 25, 'discount_type' => 'percent', 'discount_value' => 12],
+        ];
+
+        $this->assertSame(
+            'Bulk pricing - save up to 20%',
+            Tiers::describeBestDiscount($tiers, $this->summaryTemplates()),
+            'the ceiling is the best tier, not the first or the last one listed'
+        );
+    }
+
+    /**
+     * 10, not 10.00 - the same form fcbo_format_tier_discount_label() prints in
+     * the table the shopper sees on opening the block. Two spellings of one
+     * number would read as two different discounts.
+     */
+    public function testThePercentageIsSpeltTheSameWayTheTierTableSpellsIt()
+    {
+        $tier = ['discount_type' => 'percent', 'discount_value' => 10];
+
+        $this->assertSame(
+            'Bulk pricing - save up to 10%',
+            Tiers::describeBestDiscount([$tier], $this->summaryTemplates())
+        );
+        $this->assertStringContainsString('10%', Tiers::formatDiscountLabel($tier));
+        $this->assertStringNotContainsString('10.00', Tiers::formatDiscountLabel($tier));
+    }
+
+    public function testAFractionalPercentageKeepsItsFraction()
+    {
+        $tiers = [['discount_type' => 'percent', 'discount_value' => 7.5]];
+
+        $this->assertSame(
+            'Bulk pricing - save up to 7.5%',
+            Tiers::describeBestDiscount($tiers, $this->summaryTemplates())
+        );
+    }
+
+    /**
+     * A tier saved before discount types existed is a percentage, exactly as
+     * self::applyToPrice() treats it. If these two disagreed, an old store's
+     * summary would degrade for tiers that do in fact discount by percent.
+     */
+    public function testAMissingTypeIsAPercentage()
+    {
+        $this->assertSame(
+            'Bulk pricing - save up to 25%',
+            Tiers::describeBestDiscount([['discount_value' => 25]], $this->summaryTemplates())
+        );
+    }
+
+    /**
+     * The degrade rule. "$4.00/unit" is a price and "$2.00 off" is a per-unit
+     * amount; neither is a percentage, so neither can go behind "save up to"
+     * without labelling a number as something it is not.
+     *
+     * @dataProvider moneyTiers
+     */
+    public function testAMoneyTierCannotNameItsNumber(array $tiers, $why)
+    {
+        $this->assertSame(
+            'Bulk pricing - buy more, pay less',
+            Tiers::describeBestDiscount($tiers, $this->summaryTemplates()),
+            $why
+        );
+    }
+
+    public function moneyTiers()
+    {
+        return [
+            'fixed unit price' => [
+                [['min_qty' => 10, 'discount_type' => 'fixed_unit_price', 'discount_value' => 4]],
+                'a per-unit price is not a saving',
+            ],
+            'amount off' => [
+                [['min_qty' => 10, 'discount_type' => 'amount_off', 'discount_value' => 2]],
+                'a flat amount off is a saving, but not one measurable in percent without a list price',
+            ],
+            'a percent tier mixed with a money tier' => [
+                [
+                    ['min_qty' => 10, 'discount_type' => 'percent', 'discount_value' => 20],
+                    ['min_qty' => 50, 'discount_type' => 'amount_off', 'discount_value' => 9],
+                ],
+                'naming 20 would claim a ceiling the money tier may well beat',
+            ],
+            'no tiers at all' => [
+                [],
+                'nothing to claim',
+            ],
+        ];
+    }
+
+    /**
+     * applyToPrice() clamps a misconfigured tier at free, so 100% is the largest
+     * saving that can actually happen. "Save up to 150%" would be a number no
+     * shopper can be paid.
+     */
+    public function testAPercentageAbove100IsClampedToWhatCanActuallyHappen()
+    {
+        $this->assertSame(
+            'Bulk pricing - save up to 100%',
+            Tiers::describeBestDiscount(
+                [['discount_type' => 'percent', 'discount_value' => 150]],
+                $this->summaryTemplates()
+            )
+        );
+    }
+
+    /**
+     * A 0% tier is not a discount, so it must not produce "save up to 0%" - but
+     * it must not suppress a real tier sitting beside it either.
+     */
+    public function testAZeroPercentTierIsNotADiscount()
+    {
+        $templates = $this->summaryTemplates();
+
+        $this->assertSame(
+            'Bulk pricing - buy more, pay less',
+            Tiers::describeBestDiscount([['discount_type' => 'percent', 'discount_value' => 0]], $templates),
+            'nothing to name'
+        );
+
+        $this->assertSame(
+            'Bulk pricing - save up to 15%',
+            Tiers::describeBestDiscount([
+                ['discount_type' => 'percent', 'discount_value' => 0],
+                ['discount_type' => 'percent', 'discount_value' => 15],
+            ], $templates),
+            'the blank row alongside a real tier still names the real one'
+        );
+    }
+
+    /**
+     * A translator who deletes a placeholder, or a caller who forgets a key,
+     * must not put "{percent}" or the word "undefined" in front of a shopper.
+     */
+    public function testAMissingTemplateProducesNothingRatherThanAPlaceholder()
+    {
+        $this->assertSame('', Tiers::describeBestDiscount([['discount_value' => 20]], []));
+        $this->assertSame('', Tiers::describeBestDiscount([], []));
+    }
 }

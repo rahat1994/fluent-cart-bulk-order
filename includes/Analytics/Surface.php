@@ -18,12 +18,14 @@ defined('ABSPATH') || exit;
  * of the page the shopper was looking at, so there is no server-side moment at
  * which "this line came from the product table" is a fact we hold.
  *
- * What IS knowable is the handoff. The Bulk Order Form and the Saved Orders
- * table both send the shopper to a checkout URL that THIS PLUGIN builds in PHP,
- * so that URL can carry a marker, and a hidden field on the checkout form
- * carries it into the order. The Product Table has no such handoff: it adds to
- * the cart and leaves the shopper on the catalog page to check out however they
- * like. There is nothing to mark.
+ * What IS knowable is the handoff. The Bulk Order Form, the Saved Orders table
+ * and the Bulk Pricing block's "Bulk order now" button all send the shopper to
+ * a checkout URL that THIS PLUGIN builds in PHP, so that URL can carry a
+ * marker, and a hidden field on the checkout form carries it into the order.
+ * The Product Table has no such handoff: it adds to the cart and leaves the
+ * shopper on the catalog page to check out however they like. There is nothing
+ * to mark — and the same is true of every plain "add to cart" button this
+ * plugin renders, including the one beside "Bulk order now".
  *
  * So the entry point is recorded when it is known and left empty when it is
  * not, and the screen prints "Entry point not recorded" for the empty case
@@ -59,6 +61,21 @@ class Surface
     const SAVED_ORDERS = 'saved_orders';
 
     /**
+     * The Bulk Pricing block on a single product page, via its "Bulk order now"
+     * button — which builds a checkout URL in this plugin's PHP exactly the way
+     * the two surfaces above do, and so can be marked the same way.
+     *
+     * Its plain "Add to cart" button is NOT this surface and is not marked: it
+     * leaves the shopper on the product page to check out however they like,
+     * which is the Product Table's situation described above. There is nothing
+     * to mark on that path, so those orders stay unattributed rather than being
+     * credited to a button the shopper did not press.
+     *
+     * @see \FluentCartBulkOrder\Display\SingleProductTiers
+     */
+    const SINGLE_PRODUCT_TIERS = 'single_product_tiers';
+
+    /**
      * Not a surface a shopper clicks: an order the owner created by converting
      * an accepted Quote Request. It never passes through checkout at all, so it
      * is stamped where it is made rather than by a marker.
@@ -74,7 +91,7 @@ class Surface
      */
     public static function keys()
     {
-        return [self::BULK_ORDER_FORM, self::SAVED_ORDERS, self::QUOTE];
+        return [self::BULK_ORDER_FORM, self::SAVED_ORDERS, self::SINGLE_PRODUCT_TIERS, self::QUOTE];
     }
 
     /**
@@ -114,6 +131,8 @@ class Surface
                 return __('Bulk Order Form', 'fluent-cart-bulk-order');
             case self::SAVED_ORDERS:
                 return __('Saved Orders', 'fluent-cart-bulk-order');
+            case self::SINGLE_PRODUCT_TIERS:
+                return __('Bulk Pricing block', 'fluent-cart-bulk-order');
             case self::QUOTE:
                 return __('Converted quote', 'fluent-cart-bulk-order');
             default:

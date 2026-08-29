@@ -19,17 +19,66 @@
     --fcbo-success: #16a34a;
     --fcbo-success-hover: #15803d;
     --fcbo-focus: #3b82f6;
+    /* Same two hues as .fcbo-wrap in bulk-order.css and .fcbo-pt-wrap in
+       product-table.css. Repeated rather than shared because each file scopes
+       its palette to its own root element, and this block never renders inside
+       either of theirs. Change one, change all three. */
+    --fcbo-accent: #2271b1;
+    --fcbo-accent-hover: #135e96;
 
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid var(--fcbo-line);
 }
 
-.fcbo-bp-heading {
-    margin: 0 0 10px;
+/* Accordion.
+   <details>/<summary> rather than a scripted button+panel — see the WHY block
+   on SingleProductTiers::openAccordion(). The browser supplies the toggle, the
+   keyboard handling and the expanded state; this file only has to make it not
+   look like a browser default. */
+.fcbo-bp-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
     font-size: 15px;
     font-weight: 600;
-    color: inherit;
+    color: var(--fcbo-accent);
+    cursor: pointer;
+    /* Both lines are needed to drop the native triangle: the pseudo-element for
+       WebKit, list-style for everyone else. The caret span replaces it, so it
+       can be positioned and rotated. */
+    list-style: none;
+}
+
+.fcbo-bp-summary::-webkit-details-marker {
+    display: none;
+}
+
+.fcbo-bp-summary:hover {
+    color: var(--fcbo-accent-hover);
+}
+
+/* :focus-visible only, so a mouse click does not leave a ring behind — but a
+   keyboard user tabbing to the disclosure always sees where they are. */
+.fcbo-bp-summary:focus-visible {
+    outline: 2px solid var(--fcbo-focus);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+.fcbo-bp-caret {
+    display: inline-block;
+    font-size: 11px;
+    transition: transform 0.15s;
+}
+
+.fcbo-bp-accordion[open] > .fcbo-bp-summary .fcbo-bp-caret {
+    transform: rotate(90deg);
+}
+
+.fcbo-bp-panel {
+    padding-top: 12px;
 }
 
 /* Simple product – compact tier list */
@@ -190,31 +239,66 @@
     display: none;
 }
 
-/* Checkout button row */
-.fcbo-bp-checkout-row {
+/* Action row.
+   Shape, padding and hues copied from .fcbo-btn in bulk-order.css so the three
+   ordering surfaces read as one plugin. The classes are not shared because the
+   palette variables above are scoped to .fcbo-bp-wrap, which .fcbo-btn never
+   sits inside. */
+.fcbo-bp-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
     margin-top: 12px;
-    text-align: right;
 }
 
-.fcbo-bp-checkout-btn {
-    padding: 10px 28px;
-    background: var(--fcbo-success);
-    color: #fff;
+.fcbo-bp-btn {
+    padding: 10px 20px;
     border: none;
     border-radius: 4px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.15s;
+    transition: background 0.2s;
 }
 
-.fcbo-bp-checkout-btn:hover {
-    background: var(--fcbo-success-hover);
-}
-
-.fcbo-bp-checkout-btn.fcbo-bp-loading {
+.fcbo-bp-btn:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.fcbo-bp-btn.fcbo-bp-loading {
     cursor: wait;
+}
+
+.fcbo-bp-btn-secondary {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: inherit;
+}
+
+.fcbo-bp-btn-secondary:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.fcbo-bp-btn-primary {
+    background: var(--fcbo-accent);
+    color: #fff;
+}
+
+.fcbo-bp-btn-primary:hover:not(:disabled) {
+    background: var(--fcbo-accent-hover);
+}
+
+/* Under the product column the block sits in, two side-by-side buttons get
+   narrow enough to wrap mid-word. Stack them instead. */
+@media (max-width: 600px) {
+    .fcbo-bp-actions {
+        flex-direction: column;
+    }
+
+    .fcbo-bp-btn {
+        width: 100%;
+        text-align: center;
+    }
 }
 
 /* Hue tuning only. Structure already adapts via currentColor above; this just
@@ -226,5 +310,13 @@
         --fcbo-success: #3fb950;
         --fcbo-success-hover: #2ea043;
         --fcbo-focus: #58a6ff;
+        --fcbo-accent: #5aa4dc;
+        --fcbo-accent-hover: #7db8e8;
+    }
+
+    /* The lifted accent is bright enough that white label text loses contrast
+       against it. Same flip .fcbo-btn-primary makes in bulk-order.css. */
+    .fcbo-bp-btn-primary {
+        color: #0b1015;
     }
 }

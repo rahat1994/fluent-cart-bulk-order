@@ -175,6 +175,34 @@ class Strings
     }
 
     /**
+     * The two forms of the collapsed Bulk Pricing accordion's summary line.
+     *
+     * The one sentence a shopper reads before deciding whether to open the
+     * block at all, so it is a whole sentence with a {percent} slot rather than
+     * "save up to " + n + "%" — the same rule the JS tables above follow, for
+     * the same reason: word order differs between languages.
+     *
+     * Their own table (rather than a pair of inline esc_html__() calls in the
+     * renderer) because Tiers::describeBestDiscount() is a pure function that
+     * takes its templates as an argument, the way OrderRules::describe() does.
+     * That is what keeps the "which discount may name its number" rule unit
+     * testable without WordPress.
+     *
+     * @see \FluentCartBulkOrder\Pricing\Tiers::describeBestDiscount()
+     * @return array<string,string>
+     */
+    public static function bulkPricingSummary()
+    {
+        return [
+            /* translators: {percent}: the largest percentage discount on offer, e.g. 20. Keep {percent} as-is. */
+            'summary_percent' => __('Bulk pricing — save up to {percent}%', 'fluent-cart-bulk-order'),
+            // Used when the tiers are money amounts rather than percentages, where
+            // naming a number would mislabel the unit.
+            'summary_generic' => __('Bulk pricing — buy more, pay less', 'fluent-cart-bulk-order'),
+        ];
+    }
+
+    /**
      * Every shopper-facing sentence in assets/js/product-table.js.
      *
      * @see self::bulkOrder() for why whole sentences are translated

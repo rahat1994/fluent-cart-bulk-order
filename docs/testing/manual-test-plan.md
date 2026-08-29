@@ -415,22 +415,53 @@ Sign in as `admin_u` (or another wholesale user) and open the page.
 
 ## 7. Single product page tiers
 
-**7.1 Tier table**
+**7.1 Collapsed by default**
 With tiers on P1, open the P1 product page as `wholesale_u`.
-*Expect:* a tier table under the quantity block — quantity range, discount, and
-the resulting unit price. A small order table is available.
+*Expect:* one line under the quantity block — "Bulk pricing — save up to N%",
+where N is the largest percentage any of this product's tiers offers. Nothing
+else of the block is visible until it is opened.
 
-**7.2 Live price on the product page**
-Change the quantity to hit a tier.
-*Expect:* the shown price updates to the tier price.
+**7.2 The summary degrades for money tiers**
+Change P1's feed to a fixed per-unit price or a flat amount off, or mix one of
+those in with a percentage tier.
+*Expect:* the line reads "Bulk pricing — buy more, pay less". A money discount
+cannot be stated as a percentage without mislabelling the unit, and a mixed set
+cannot claim a percentage ceiling it may not hold.
 
-**7.3 Gate 2 hides it**
+**7.3 Open it, by mouse and by keyboard**
+Click the summary line. Then reload, Tab to it, and press Enter (and Space).
+*Expect:* both open it, revealing the tier table and the order table. The caret
+turns. Tabbing to it shows a focus ring. A screen reader announces it as a
+collapsed/expanded item.
+
+**7.4 Tier table**
+With the block open.
+*Expect:* a tier table — quantity range, discount, and the resulting unit price
+— above a small order table with one quantity row per variant.
+
+**7.5 Live price on the product page**
+Change a quantity to hit a tier.
+*Expect:* the shown price updates to the tier price, with the saving beside it.
+
+**7.6 Add to Cart stays put**
+Type quantities on two rows and press **Add to Cart**.
+*Expect:* both lines go in the cart, the cart drawer opens, and the page does
+not navigate.
+
+**7.7 Bulk order now goes to checkout**
+Type quantities on two rows and press **Bulk order now**.
+*Expect:* the same lines go in the cart and the browser lands on the store's
+checkout page, showing both lines at their tier prices. The cart drawer does not
+flash on the way out.
+
+**7.8 Gate 2 hides it**
 As `retail_u` (with Gate 2 set to Wholesale Customer only).
-*Expect:* no tier table, retail price only.
+*Expect:* no accordion at all, retail price only.
 
-**7.4 Product with no tiers**
+**7.9 Product with no tiers**
 Open P3.
-*Expect:* nothing extra renders, and no empty table shell.
+*Expect:* nothing extra renders — not even the summary line, and no empty table
+shell behind it.
 
 ---
 

@@ -8,3 +8,6 @@
 /vendor/
 .phpunit.result.cache
 /build/
+
+# macOS folder metadata. Never part of the plugin.
+.DS_Store

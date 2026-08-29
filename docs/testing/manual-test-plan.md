@@ -102,8 +102,16 @@ the Plugins row is the new one.
 
 **1.3 Missing dependency**
 Deactivate FluentCart. Go to Plugins.
-*Expect:* an admin error notice saying FluentCart is required. No fatal error. No
-shortcode output on the four pages (they print nothing or the raw tag, never a PHP error).
+*Expect:* an admin error notice saying FluentCart is required. No fatal error.
+
+Then open each of the four pages holding a plugin shortcode — twice, because
+they are supposed to show two different things.
+*Expect signed out, or signed in as `wholesale_u`:* the page renders normally
+with the surface region simply empty. Never a raw `[fluent_cart_bulk_order]`
+tag in the content, never a PHP error.
+*Expect as `admin_u`:* one sentence in place of each surface saying FluentCart
+must be installed and active. This is the only place that message appears on the
+front end, and only administrators get it.
 
 **1.4 Activation**
 Activate FluentCart, then this plugin.

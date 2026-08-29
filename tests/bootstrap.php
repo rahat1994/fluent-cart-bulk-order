@@ -33,6 +33,59 @@ if (!function_exists('esc_html')) {
     }
 }
 
+// WordPress composes this one out of the two above. Stubbed rather than
+// skipped because the string it escapes is the ONE thing an admin sees when
+// FluentCart is missing, and a test asserting on an unescaped string would pass
+// while the shipped code emitted raw markup.
+//
+// It escapes directly instead of wrapping the __() stub above. The two are the
+// same thing here — that stub is a passthrough — and calling __() with
+// variables makes the i18n sniff read this file as real translation code and
+// reject it. $domain is kept only so the signature matches what callers pass.
+if (!function_exists('esc_html__')) {
+    function esc_html__($text, $domain = null)
+    {
+        unset($domain);
+
+        return esc_html($text);
+    }
+}
+
+/*
+ * Two stubs below are a different kind from the ones above: they are not
+ * passthroughs, they are WordPress state that a test has to be able to SET.
+ *
+ * They exist for one reason — ShortcodeHandler must keep working when
+ * FluentCart is not installed, and "works" there means two different answers
+ * for two different viewers. Proving that needs a capability check whose answer
+ * the test controls, and a shortcode registry the test can read back.
+ *
+ * Both read a global rather than taking an argument, because the code under
+ * test calls them through WordPress's own signatures and cannot be handed a
+ * double. Each test is responsible for resetting what it sets.
+ */
+
+// Which capabilities the "current user" holds. Empty means a logged-out
+// shopper, which is the default a test should not have to opt into.
+$GLOBALS['fcbo_test_caps'] = [];
+
+if (!function_exists('current_user_can')) {
+    function current_user_can($capability)
+    {
+        return in_array($capability, $GLOBALS['fcbo_test_caps'], true);
+    }
+}
+
+// What add_shortcode() would have handed WordPress: tag => callback.
+$GLOBALS['fcbo_test_shortcodes'] = [];
+
+if (!function_exists('add_shortcode')) {
+    function add_shortcode($tag, $callback)
+    {
+        $GLOBALS['fcbo_test_shortcodes'][$tag] = $callback;
+    }
+}
+
 // Number formatting, which WordPress localises and the suite does not need to.
 // Same class of stub as __(): a passthrough that lets a pure class build a
 // human-readable label without a locale behind it.
@@ -80,6 +133,13 @@ require_once dirname(__DIR__) . '/includes/Quotes/QuoteInput.php';
 // spreadsheet runs as a formula still downloads perfectly.
 require_once dirname(__DIR__) . '/includes/Checkout/PoNumber.php';
 require_once dirname(__DIR__) . '/includes/Export/OrderCsv.php';
+
+// Not a pure class, and here anyway. ShortcodeHandler is the plugin's front
+// door: it decides what a page holding one of our tags shows, and the case worth
+// pinning is the one nobody exercises by hand — FluentCart absent. It qualifies
+// for this suite because registration and the hostless render path touch no
+// database and no FluentCart class, which is precisely the property under test.
+require_once dirname(__DIR__) . '/includes/Shortcodes/ShortcodeHandler.php';
 
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';

@@ -65,6 +65,24 @@ register_deactivation_hook(__FILE__, function () {
 });
 
 add_action('plugins_loaded', function () {
+    // Every shortcode tag this plugin owns, registered from one registry. The
+    // per-tag classes under includes/Shortcodes/ load only when a tag actually
+    // renders — see ShortcodeHandler.
+    //
+    // This runs BEFORE the FluentCart check below, and that is deliberate.
+    // WordPress prints an unregistered shortcode's literal text into the page,
+    // so returning early without claiming these tags puts
+    // `[fluent_cart_bulk_order]` in front of every shopper on a page that uses
+    // one — the store looks broken to the people least able to fix it. Claimed
+    // here, the same page renders empty for shoppers and carries a one-line
+    // explanation for whoever can install the host plugin.
+    //
+    // Nothing in register() touches FluentCart, which is what makes it safe to
+    // run on this side of the guard. ShortcodeHandler::renderTag() re-tests
+    // FLUENTCART_VERSION at render time and decides from there.
+    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
+    (new \FluentCartBulkOrder\Shortcodes\ShortcodeHandler())->register();
+
     if (!defined('FLUENTCART_VERSION')) {
         add_action('admin_notices', function () {
             echo '<div class="notice notice-error"><p>';
@@ -73,12 +91,6 @@ add_action('plugins_loaded', function () {
         });
         return;
     }
-
-    // Every shortcode tag this plugin owns, registered from one registry. The
-    // per-tag classes under includes/Shortcodes/ load only when a tag actually
-    // renders — see ShortcodeHandler.
-    require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
-    (new \FluentCartBulkOrder\Shortcodes\ShortcodeHandler())->register();
 
     // Editor wrappers over two of those tags, for owners who never touch a
     // shortcode. Both render THROUGH the shortcodes above, so they inherit the
@@ -1329,6 +1341,20 @@ function fcbo_resolve_variant_ids($variantIds)
 {
     $variantIds = array_values(array_unique(array_filter(array_map('absint', (array) $variantIds))));
     if (empty($variantIds)) {
+        return [];
+    }
+
+    // Same guard, and the same reasoning, as fcbo_get_currency_sign(): every
+    // `fcbo_*` function here is callable by a theme or a snippet at any point
+    // in the request, including one where FluentCart is inactive (see the
+    // comment at the top of this file). Without this the next line fatals on
+    // a missing class and takes the whole page with it.
+    //
+    // The empty map is the honest answer, not a degraded one — "none of these
+    // variants resolve to anything orderable" is exactly true with no catalog
+    // behind them, and every caller already handles a variant that is missing
+    // from the map by marking that line unavailable.
+    if (!class_exists(\FluentCart\App\Models\Product::class)) {
         return [];
     }
 

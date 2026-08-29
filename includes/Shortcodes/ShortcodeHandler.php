@@ -29,6 +29,21 @@ defined('ABSPATH') || exit;
  * class name. That is the ONE convention this class depends on: every shortcode
  * class is a sibling file in this directory named exactly after the class.
  *
+ * ---------------------------------------------------------------------------
+ * WHEN FLUENTCART IS NOT THERE
+ * ---------------------------------------------------------------------------
+ *
+ * The tags are registered anyway. An unregistered shortcode is not silent —
+ * WordPress leaves its literal `[fluent_cart_bulk_order]` text in the post
+ * content — so declining to register would put raw tag text in front of every
+ * shopper on the page. That is the loudest possible failure aimed at exactly
+ * the person who cannot act on it.
+ *
+ * So register() claims the tags unconditionally and renderTag() decides what a
+ * tag without its host is allowed to show. The one thing that buys must be
+ * protected: registration may not touch FluentCart, and it does not — the
+ * per-tag classes load inside renderTag(), never in register().
+ *
  * @see \FluentCartBulkOrder\Shortcodes\AbstractShortcode The shared render flow.
  */
 class ShortcodeHandler
@@ -57,12 +72,11 @@ class ShortcodeHandler
     /**
      * Register every shortcode with WordPress.
      *
-     * Called from the `plugins_loaded` handler in the main plugin file, after
-     * the FluentCart-is-active check — these surfaces are useless without the
-     * host plugin, so the tags are deliberately absent rather than rendering an
-     * error when it is missing. An unregistered shortcode leaves its literal
-     * `[fluent_cart_bulk_order]` text in the page, which is the clearest signal
-     * a site owner can get.
+     * Called from the `plugins_loaded` handler in the main plugin file BEFORE
+     * the FluentCart-is-active check, and that order is load-bearing. Moving
+     * this call back below the guard hands raw `[fluent_cart_bulk_order]` text
+     * to shoppers on any page holding one of our tags the moment the host
+     * plugin is deactivated. @see the class docblock for the full argument.
      *
      * @return void
      */
@@ -99,14 +113,40 @@ class ShortcodeHandler
      *
      * @param string                      $tag  A key of self::SHORTCODES.
      * @param array<string, mixed>|string $atts Raw attributes.
-     * @return string Markup, or '' for an unknown tag.
+     * @return string Markup; '' for an unknown tag, and the hostMissingNotice()
+     *                answer when FluentCart is not loaded.
      */
     public static function renderTag($tag, $atts = [])
     {
-        $shortcode = self::make($tag);
+        $tag = (string) $tag;
 
         // Unknown tag: nothing sensible to render, and a visible error would be
-        // worse than silence on a public storefront page.
+        // worse than silence on a public storefront page. This check has to
+        // stay ahead of the host check below, so a tag this plugin does not own
+        // can never produce an FCBO message.
+        if (!isset(self::SHORTCODES[$tag])) {
+            return '';
+        }
+
+        // FluentCart is not loaded. Tested HERE rather than in register()
+        // because render time is the only moment the answer is worth acting
+        // on: registration runs early on `plugins_loaded`, and deciding there
+        // would leave the tags permanently dead for the rest of a request in
+        // which the host became available late.
+        //
+        // FLUENTCART_VERSION is the same constant the bootstrap guard in
+        // fluent-cart-bulk-order.php tests. Keep the two in step — a render
+        // that disagreed with the bootstrap would reach make() with none of the
+        // FluentCart classes the surfaces call.
+        if (!defined('FLUENTCART_VERSION')) {
+            return self::hostMissingNotice();
+        }
+
+        $shortcode = self::make($tag);
+
+        // The tag is ours and the host is here, so getting nothing back means
+        // a broken install — a missing or unparsable class file. Nothing a
+        // shopper could be told about it would help them.
         if (!$shortcode) {
             return '';
         }
@@ -115,19 +155,52 @@ class ShortcodeHandler
     }
 
     /**
+     * What one of our tags renders when FluentCart is missing.
+     *
+     * Two audiences, two answers, and the split is the point of the method.
+     *
+     * A shopper gets the empty string. Without the host plugin there is no
+     * catalog, no cart and no price to show them, and a storefront page is not
+     * where a site's plugin problems get reported — an empty region reads as
+     * "nothing here", which is true, while any message reads as an error the
+     * shopper caused.
+     *
+     * A user who can `manage_options` gets one sentence, because they are the
+     * only person who can act on it and a silently empty page gives them
+     * nothing to search for. It says who it is for, so an owner previewing the
+     * page does not file it as something shoppers are seeing too.
+     *
+     * Deliberately NOT an admin_notices call — the bootstrap already prints one
+     * of those on every admin screen. This one is in place, on the page, which
+     * is the piece of information the admin notice cannot carry: WHERE the
+     * broken surface is.
+     *
+     * @return string Escaped markup, or '' for everyone who is not an admin.
+     */
+    private static function hostMissingNotice()
+    {
+        if (!current_user_can('manage_options')) {
+            return '';
+        }
+
+        return '<p class="fcbo-host-missing">' . esc_html__(
+            'Fluent Cart Bulk Order needs the FluentCart plugin installed and active to show this content. Only site administrators can see this message.',
+            'fluent-cart-bulk-order'
+        ) . '</p>';
+    }
+
+    /**
      * Build the handler object for a tag.
      *
-     * @param string $tag A key of self::SHORTCODES.
+     * Takes the tag on trust: renderTag() is the only caller and has already
+     * rejected anything outside SHORTCODES. Re-checking here would have to be
+     * kept in step with a check that runs two lines earlier, for no gain.
+     *
+     * @param string $tag A key of self::SHORTCODES, already validated.
      * @return \FluentCartBulkOrder\Shortcodes\AbstractShortcode|null
      */
     private static function make($tag)
     {
-        $tag = (string) $tag;
-
-        if (!isset(self::SHORTCODES[$tag])) {
-            return null;
-        }
-
         $class = self::load(self::SHORTCODES[$tag]);
 
         return $class ? new $class($tag) : null;

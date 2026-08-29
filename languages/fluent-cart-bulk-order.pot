@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-27T09:08:23+00:00\n"
+"POT-Creation-Date: 2026-08-29T18:44:23+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
@@ -32,24 +32,24 @@ msgstr ""
 msgid "https://profiles.wordpress.org/rahatbaksh/"
 msgstr ""
 
-#: fluent-cart-bulk-order.php:71
+#: fluent-cart-bulk-order.php:89
 msgid "Fluent Cart Bulk Order requires the FluentCart plugin to be installed and activated."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1243
+#: fluent-cart-bulk-order.php:1255
 msgid "You must be logged in."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1248
+#: fluent-cart-bulk-order.php:1260
 msgid "Please enter a name for this order."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1253
+#: fluent-cart-bulk-order.php:1265
 msgid "There are no valid items to save."
 msgstr ""
 
 #. translators: %s: FluentCart order number.
-#: fluent-cart-bulk-order.php:1517
+#: fluent-cart-bulk-order.php:1543
 msgid "Order #%s"
 msgstr ""
 
@@ -1684,6 +1684,10 @@ msgstr ""
 
 #: includes/Shortcodes/SavedOrders.php:115
 msgid "Loading saved orders..."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeHandler.php:185
+msgid "Fluent Cart Bulk Order needs the FluentCart plugin installed and active to show this content. Only site administrators can see this message."
 msgstr ""
 
 #: includes/Shortcodes/WholesaleApplication.php:107

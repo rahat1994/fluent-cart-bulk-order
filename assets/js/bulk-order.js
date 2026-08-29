@@ -943,12 +943,40 @@
                     disableCheckout(false);
                     return;
                 }
-                // Append cart hash from cookie if available
-                var cartHash = getCookie('fct_cart_hash');
-                if (cartHash) {
-                    var separator = checkoutUrl.indexOf('?') !== -1 ? '&' : '?';
-                    checkoutUrl += separator + 'fct_cart_hash=' + encodeURIComponent(cartHash);
-                }
+                // DO NOT append fct_cart_hash here. It empties the cart.
+                //
+                // fct_cart_hash is two different things wearing one name. As a
+                // cookie it is the device id for the shopper's ordinary
+                // (cart_group='global') cart — the cart we just filled. As a
+                // URL parameter it is Helper::INSTANT_CHECKOUT_URL_PARAM, and
+                // CartResource::get() looks it up with
+                // `->where('cart_group', 'instant')`
+                // (fluent-cart/api/Resource/FrontendResource/CartResource.php),
+                // then returns that result directly when the caller did not ask
+                // for auto-create. Every checkout renderer is such a caller —
+                // CartHelper::getCart() defaults $create to false. So the hash
+                // resolves to null and the shopper's filled basket is replaced
+                // by "Your cart is empty."
+                //
+                // The two meanings can never coincide: FluentCart mints the
+                // cookie on `init` as a plain device id (CartCookieHandler) and
+                // only ever writes a global cart's hash into it, while an
+                // instant cart gets a fresh random hash that is never stored
+                // there. So this is not "usually wrong" — it is always wrong.
+                //
+                // Every link of that chain was read in FluentCart 1.5.5:
+                // CartHelper.php:20 declares getCart($hash = null, $create =
+                // false); :23 feeds the URL parameter straight in as the hash;
+                // CartResource.php:158 scopes the lookup to 'instant'; :165
+                // returns the null it found because $create was false. The
+                // empty checkout was also seen once by hand, on a filled cart,
+                // by loading /checkout/ and then the same URL with the cookie
+                // appended — but the source chain above is the durable evidence
+                // and is what to re-read if this ever looks wrong again.
+                //
+                // Sending nothing is the fix. FluentCart then reads its own
+                // cookie and finds the cart. bulk-pricing-display.js has always
+                // done it this way; keep all three surfaces the same.
                 window.location.href = checkoutUrl;
             }, 500);
             return;
@@ -1318,11 +1346,6 @@
 
     function escapeAttr(str) {
         return str.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function getCookie(name) {
-        var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-        return match ? decodeURIComponent(match[2]) : '';
     }
 
     // --- Init ---

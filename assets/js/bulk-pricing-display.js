@@ -323,7 +323,9 @@
     // (WebRoutes.php:174 — the store's configured checkout page) after filling
     // the cart properly.
     //
-    // AND WE PASS NO fct_cart_hash, unlike bulk-order.js:940-951.
+    // AND WE PASS NO fct_cart_hash. Neither do bulk-order.js and
+    // saved-orders.js any more — they did until issue #41, and both shipped
+    // with an empty checkout because of it. All three surfaces now agree.
     // That parameter is Helper::INSTANT_CHECKOUT_URL_PARAM and it means
     // "instant checkout", not "here is my cart": when it is present,
     // CartResource::get() looks the hash up with

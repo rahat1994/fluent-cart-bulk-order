@@ -269,10 +269,22 @@ Fill two rows, press Checkout.
 *Expect:* both lines land in the FluentCart cart with the right quantities, and
 you are sent to checkout. Prices in the cart match what the form quoted.
 
+**4.13a Checkout handoff — read the URL**
+Repeat 4.13 and look at the address bar on the checkout page.
+*Expect:* `fcbo_src=bulk_order_form` is present and **`fct_cart_hash` is
+absent**. Other query arguments may legitimately be there — check for those two
+specifically rather than requiring a bare URL. Adding the hash by hand — copy
+the `fct_cart_hash` cookie value and append `&fct_cart_hash=…` to the existing
+query string (an `&`, not a second `?`) — empties the page to "Your cart is
+empty." That is the failure this check exists to catch (issue #41): the page
+must render your lines with the parameter absent, and the same cart must come
+back when you remove it again.
+
 **4.14 Checkout redirect setting**
 Settings → "Send bulk orders to" → set a custom page. Repeat 4.13.
 *Expect:* you land on the page you set. Clear the setting and confirm it goes
-back to the FluentCart default.
+back to the FluentCart default. Check 4.13a again on the custom page — the
+redirect must still carry no `fct_cart_hash`.
 
 **4.15 Empty checkout**
 Press Checkout with no rows filled.
@@ -397,6 +409,14 @@ Delete or disable a variant used by the saved order. Reload.
 Press Reorder.
 *Expect:* every still-available line goes into the cart at current prices.
 Unavailable lines are skipped with a notice, and do not block the rest.
+
+**6.5a Reorder checkout handoff — read the URL**
+Stay on the checkout page you were sent to in 6.5 and look at the address bar.
+*Expect:* `fcbo_src=saved_orders` is present and **`fct_cart_hash` is absent**
+— check for those two specifically, since other query arguments may legitimately
+be there — and the reordered lines are on screen. This is the same
+issue-#41 check as 4.13a on the other surface; run both, because the two
+redirects are separate pieces of code that have gone wrong together before.
 
 **6.6 Past orders**
 Complete a real order as `wholesale_u`, then reload the page.

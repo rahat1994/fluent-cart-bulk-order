@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Quotes;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -103,7 +105,9 @@ class QuoteFlow
         // page load; the capability that actually protects it is checked twice
         // inside the class. @see QuoteReviewScreen
         if (is_admin()) {
-            add_action('admin_menu', [self::class, 'registerReviewScreen']);
+            // The priority is the submenu position under Bulk Order.
+            // @see \FluentCartBulkOrder\Admin\Menu
+            add_action('admin_menu', [self::class, 'registerReviewScreen'], Menu::priority(Menu::SLUG_QUOTES));
         }
     }
 

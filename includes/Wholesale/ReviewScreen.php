@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Wholesale;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -33,7 +35,7 @@ defined('ABSPATH') || exit;
  *   4. A legal transition.               ApplicationStatus::canTransition()
  *
  * The screen itself repeats check 3 rather than trusting the menu capability.
- * add_users_page() hides the menu item from users without the capability but
+ * add_submenu_page() hides the menu item from users without the capability but
  * does not stop a direct URL, and `admin.php?page=` dispatch has been the
  * source of enough plugin vulnerabilities to be worth two lines.
  *
@@ -64,9 +66,11 @@ class ReviewScreen
     /**
      * Add the menu entry.
      *
-     * Under Users, not under Settings: an application is about a person, and
-     * that is where an admin goes to look at people. The settings for the
-     * feature stay on the plugin's own settings page.
+     * Under the plugin's own Bulk Order menu. It used to sit under Users — an
+     * application is about a person — but that put the one screen an owner has
+     * to act on furthest from the settings that produce it, and left the
+     * plugin with screens under two unrelated parents. Everything an owner
+     * decides about wholesale now sits together.
      *
      * @return void
      */
@@ -74,7 +78,7 @@ class ReviewScreen
     {
         $title = __('Wholesale Applications', 'fluent-cart-bulk-order');
 
-        // The capability check is NOT redundant with add_users_page() below,
+        // The capability check is NOT redundant with add_submenu_page() below,
         // and it is not about security here — it is about cost.
         //
         // `admin_menu` fires on EVERY wp-admin request for EVERY logged-in
@@ -85,22 +89,25 @@ class ReviewScreen
         // table a FluentCart store keeps its whole customer list in.
         //
         // The number is only ever SHOWN to a user who holds the capability, so
-        // counting for anyone else buys nothing at all. add_users_page() still
-        // enforces the gate that matters.
+        // counting for anyone else buys nothing at all, and Menu::cachedCount()
+        // keeps it off most of the requests that do show it.
+        // add_submenu_page() still enforces the gate that matters.
         $pending = current_user_can(self::CAPABILITY)
-            ? ApplicationStore::countByStatus(ApplicationStatus::PENDING)
+            ? Menu::cachedCount(Menu::COUNT_APPLICATIONS, function () {
+                return ApplicationStore::countByStatus(ApplicationStatus::PENDING);
+            })
             : 0;
 
         // The count bubble is the whole discovery mechanism for this screen. An
         // owner who never notices an application has a feature that does not
-        // work, whatever the code does.
-        $menuTitle = $pending > 0
-            ? $title . ' <span class="awaiting-mod"><span class="pending-count">' . (int) $pending . '</span></span>'
-            : $title;
+        // work, whatever the code does. Reported to the parent as well, because
+        // a submenu row is hidden until the Bulk Order menu is open.
+        Menu::countPending($pending);
 
-        add_users_page(
+        add_submenu_page(
+            Menu::PARENT_SLUG,
             $title,
-            $menuTitle,
+            Menu::bubbleTitle($title, $pending),
             self::CAPABILITY,
             self::PAGE_SLUG,
             [self::class, 'render']
@@ -114,7 +121,7 @@ class ReviewScreen
      */
     public static function render()
     {
-        // Not redundant with the menu capability. add_users_page() controls
+        // Not redundant with the menu capability. add_submenu_page() controls
         // visibility; this controls access.
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('You do not have permission to review wholesale applications.', 'fluent-cart-bulk-order'));
@@ -323,7 +330,7 @@ class ReviewScreen
                 '<li><a href="%1$s"%2$s>%3$s%4$s</a>%5$s</li>',
                 esc_url(add_query_arg(
                     ['page' => self::PAGE_SLUG, 'status' => $slug],
-                    admin_url('users.php')
+                    Menu::baseUrl()
                 )),
                 $isCurrent ? ' class="current" aria-current="page"' : '',
                 esc_html($label),
@@ -584,7 +591,7 @@ class ReviewScreen
 
         $base = add_query_arg(
             ['page' => self::PAGE_SLUG, 'status' => $status === '' ? 'all' : $status],
-            admin_url('users.php')
+            Menu::baseUrl()
         );
 
         echo '<div class="tablenav"><div class="tablenav-pages">';
@@ -645,7 +652,7 @@ class ReviewScreen
                 'status'      => $status,
                 'fcbo_review' => $code,
             ],
-            admin_url('users.php')
+            Menu::baseUrl()
         ));
 
         exit;

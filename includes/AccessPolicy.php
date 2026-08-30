@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -548,7 +550,7 @@ class AccessPolicy
      */
     public static function settingsPageUrl()
     {
-        return admin_url('options-general.php?page=' . Settings::PAGE_SLUG);
+        return Menu::url(Settings::PAGE_SLUG);
     }
 
     /* =====================================================================

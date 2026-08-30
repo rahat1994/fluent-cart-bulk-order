@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Wholesale;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -165,7 +167,7 @@ class Notifier
             self::answerLines($record),
             '',
             __('Review it here:', 'fluent-cart-bulk-order'),
-            admin_url('users.php?page=' . ReviewScreen::PAGE_SLUG),
+            Menu::url(ReviewScreen::PAGE_SLUG),
         ];
 
         self::send('admin_new_application', $to, $subject, $lines, $user, $record);

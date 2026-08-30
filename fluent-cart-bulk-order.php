@@ -31,6 +31,12 @@ require_once FCBO_DIR . 'includes/StoreDefaults.php';
 require_once FCBO_DIR . 'includes/AccessPolicy.php';
 require_once FCBO_DIR . 'includes/Settings.php';
 
+// The admin menu registrar, loaded on the same terms and for the same reason:
+// AccessPolicy::settingsPageUrl() builds its URL through it, and each of the
+// five screen classes asks it where to hang and where to redirect back to.
+// Nothing in the file runs at include time. @see \FluentCartBulkOrder\Admin\Menu
+require_once FCBO_DIR . 'includes/Admin/Menu.php';
+
 // StoreDefaults caches its option for the request, and the settings page reads
 // it again after saving. Hooked here rather than inside the class so the class
 // stays a plain data reader with no side effects at include time.
@@ -237,6 +243,15 @@ add_action('plugins_loaded', function () {
     // resolved $cart, which a whole-cart total rule needs
     // (fluent-cart/api/Checkout/CheckoutApi.php:1039).
     add_filter('fluent_cart/checkout/validate_data', 'fcbo_validate_checkout_minimum', 10, 2);
+
+    // The plugin's top-level Bulk Order menu, which every one of its five
+    // screens hangs under. Registered BEFORE the settings page below only for
+    // readability — the order the five screens appear in is decided by
+    // `admin_menu` priorities, not by the order these lines run.
+    //
+    // Inside the FluentCart guard, like every screen it parents: a menu whose
+    // submenus all refused to register would be an empty row in the sidebar.
+    \FluentCartBulkOrder\Admin\Menu::register();
 
     // Admin settings page for the "apply bulk pricing to roles" policy.
     // The file itself is required at the top of this plugin file.

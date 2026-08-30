@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Wholesale;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -140,7 +142,9 @@ class WholesaleFlow
         // page load; the capability that actually protects it is checked twice
         // inside the class. @see ReviewScreen
         if (is_admin()) {
-            add_action('admin_menu', [self::class, 'registerReviewScreen']);
+            // The priority is the submenu position under Bulk Order.
+            // @see \FluentCartBulkOrder\Admin\Menu
+            add_action('admin_menu', [self::class, 'registerReviewScreen'], Menu::priority(Menu::SLUG_WHOLESALE));
         }
     }
 

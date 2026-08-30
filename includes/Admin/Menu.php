@@ -59,14 +59,44 @@ defined('ABSPATH') || exit;
  */
 class Menu
 {
+    /*
+     * Every screen's slug, repeated here as a literal.
+     *
+     * NOT aliased to each screen's own PAGE_SLUG, and that is the point: a flow
+     * has to know its screen's menu POSITION on `plugins_loaded`, long before
+     * `admin_menu` fires, and reading `QuoteReviewScreen::PAGE_SLUG` there
+     * would load an admin-only class into every request the plugin runs in —
+     * exactly the lazy loading each flow class exists to preserve.
+     *
+     * The screens remain the source of truth for their own slug. AdminMenuTest
+     * asserts each constant below equals it, so the two cannot drift apart
+     * silently.
+     */
+
     /**
      * The top-level menu slug, which is also the settings screen's slug.
-     *
-     * Repeated as a literal rather than aliased to `Settings::PAGE_SLUG` so
-     * this class stays loadable on its own. AdminMenuTest pins the two
-     * together, so they cannot drift apart silently.
      */
     const PARENT_SLUG = 'fcbo-settings';
+
+    /**
+     * @see \FluentCartBulkOrder\Quotes\QuoteReviewScreen::PAGE_SLUG
+     */
+    const SLUG_QUOTES = 'fcbo-quotes';
+
+    /**
+     * @see \FluentCartBulkOrder\Wholesale\ReviewScreen::PAGE_SLUG
+     */
+    const SLUG_WHOLESALE = 'fcbo-wholesale-applications';
+
+    /**
+     * @see \FluentCartBulkOrder\Analytics\AnalyticsScreen::PAGE_SLUG
+     */
+    const SLUG_ANALYTICS = 'fcbo-analytics';
+
+    /**
+     * @see \FluentCartBulkOrder\Export\OrderExportScreen::PAGE_SLUG
+     */
+    const SLUG_EXPORTS = 'fcbo-order-exports';
 
     /**
      * Capability for the menu ENTRY. Every screen re-checks its own on render;
@@ -107,11 +137,11 @@ class Menu
      * owner, then the two read-only reports.
      */
     const SUBMENU_PRIORITIES = [
-        'fcbo-settings'               => 10,
-        'fcbo-quotes'                 => 11,
-        'fcbo-wholesale-applications' => 12,
-        'fcbo-analytics'              => 13,
-        'fcbo-order-exports'          => 14,
+        self::PARENT_SLUG    => 10,
+        self::SLUG_QUOTES    => 11,
+        self::SLUG_WHOLESALE => 12,
+        self::SLUG_ANALYTICS => 13,
+        self::SLUG_EXPORTS   => 14,
     ];
 
     /**
@@ -126,6 +156,16 @@ class Menu
      * Transient prefix for a cached menu count.
      */
     const COUNT_TRANSIENT_PREFIX = 'fcbo_menu_count_';
+
+    /**
+     * Cache key for the open-quote count.
+     */
+    const COUNT_QUOTES = 'quotes';
+
+    /**
+     * Cache key for the pending-application count.
+     */
+    const COUNT_APPLICATIONS = 'applications';
 
     /**
      * How long a cached menu count is trusted, in seconds.
@@ -362,7 +402,7 @@ class Menu
      */
     public static function flushCounts()
     {
-        foreach (['quotes', 'applications'] as $key) {
+        foreach ([self::COUNT_QUOTES, self::COUNT_APPLICATIONS] as $key) {
             delete_transient(self::COUNT_TRANSIENT_PREFIX . $key);
         }
     }

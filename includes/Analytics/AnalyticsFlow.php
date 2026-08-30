@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Analytics;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -76,7 +78,9 @@ class AnalyticsFlow
         add_action('fluent_cart/before_payment_methods', [self::class, 'renderSurfaceField']);
 
         if (is_admin()) {
-            add_action('admin_menu', [self::class, 'registerScreen']);
+            // The priority is the submenu position under Bulk Order.
+            // @see \FluentCartBulkOrder\Admin\Menu
+            add_action('admin_menu', [self::class, 'registerScreen'], Menu::priority(Menu::SLUG_ANALYTICS));
         }
     }
 

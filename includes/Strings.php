@@ -63,7 +63,11 @@ class Strings
      */
     public static function bulkOrder()
     {
-        return self::searchMatchLabel() + [
+        // subscriptionNotices() merged rather than spelled out here, for the
+        // same reason orderRuleHints() is: the Product Table refuses the exact
+        // same basket for the exact same reason, and two wordings of one
+        // refusal would read as two different rules. @see self::subscriptionNotices()
+        return self::searchMatchLabel() + self::subscriptionNotices() + [
             // Row controls
             'remove_row'         => __('Remove', 'fluent-cart-bulk-order'),
             'search_placeholder' => __('Search products...', 'fluent-cart-bulk-order'),
@@ -88,8 +92,8 @@ class Strings
             'save_succeeded'     => __('Saved order "{name}".', 'fluent-cart-bulk-order'),
 
             // Checkout
+            // checkout_mixed_types arrives from self::subscriptionNotices().
             'checkout_need_product'   => __('Please select at least one product.', 'fluent-cart-bulk-order'),
-            'checkout_mixed_types'    => __('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'fluent-cart-bulk-order'),
             /* translators: {amount}: money still needed; {minimum}: the required order total. Keep both as-is. */
             'checkout_below_minimum'  => __('Add {amount} more to reach the {minimum} minimum order total.', 'fluent-cart-bulk-order'),
             'checkout_cart_missing'   => __('FluentCart cart is not available. Please refresh the page and try again.', 'fluent-cart-bulk-order'),
@@ -212,6 +216,60 @@ class Strings
         ];
     }
 
+    /**
+     * What every ordering surface says about a subscription line.
+     *
+     * Shared for the same reason self::orderRuleHints() is shared: these three
+     * sentences describe rules FluentCart enforces, not choices this plugin
+     * made, so every surface has to state them identically or a shopper reads
+     * two different stories about one refusal.
+     *
+     *   checkout_mixed_types   The Bulk Order Form has said this since before
+     *                          the Product Table could tell the two apart. It
+     *                          restates fluent-cart/app/Models/Cart.php:443.
+     *   recurring_label        A visible badge on the row, so "why can I not
+     *                          type a quantity here" is answered on the page.
+     *   recurring_note         The sentence that replaces the Order Rule hint
+     *                          under a pinned quantity input.
+     *
+     * @see \FluentCartBulkOrder\Cart\SubscriptionRule for the rules themselves.
+     * @return array<string,string>
+     */
+    public static function subscriptionNotices()
+    {
+        return [
+            'checkout_mixed_types' => __('Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding.', 'fluent-cart-bulk-order'),
+            'recurring_label'      => __('Subscription', 'fluent-cart-bulk-order'),
+            'recurring_note'       => __('Sold one at a time. Bulk pricing and order rules do not apply.', 'fluent-cart-bulk-order'),
+        ];
+    }
+
+    /**
+     * What the OWNER is told about tiers on a subscription product.
+     *
+     * A plain string rather than a keyed array, and deliberately not part of
+     * self::subscriptionNotices(): that array is handed to every shopper's
+     * browser through wp_localize_script(), and this sentence is for the person
+     * configuring the store. It is here anyway so the three admin screens that
+     * say it — the tier editor, the order-rule editor and the Bulk Pricing
+     * Access section — say it in one wording a translator writes once.
+     *
+     * It has to be true, and it is: a subscription's quantity is fixed at 1
+     * (fluent-cart/api/Resource/FrontendResource/CartResource.php:63-65), so no
+     * tier above min_qty 1 is reachable, and the discount would not be applied
+     * even at 1 because FluentCart builds subscription plans through
+     * `fluent_cart/cart/item_modify` and never reaches the `item_price` filter
+     * this plugin prices on.
+     * @see \FluentCartBulkOrder\Cart\LinePricing
+     * @see \FluentCartBulkOrder\Cart\SubscriptionRule
+     *
+     * @return string
+     */
+    public static function subscriptionOwnerNotice()
+    {
+        return __('Bulk pricing tiers and order rules do not apply to subscription products. FluentCart sells a subscription one at a time, so a quantity discount can never be reached.', 'fluent-cart-bulk-order');
+    }
+
     public static function bulkPricingSummary()
     {
         return [
@@ -239,7 +297,10 @@ class Strings
         // searchMatchLabel() merged for the same reason orderRuleHints() is:
         // the Bulk Order Form prints the identical sentence, and two wordings of
         // "this is the one you searched for" would read as two different claims.
-        return self::orderRuleHints() + self::searchMatchLabel() + [
+        // subscriptionNotices() merged for the third time, and deliberately:
+        // this table now refuses a mixed basket BEFORE the cart does, and it
+        // has to refuse it in the Bulk Order Form's exact words. Issue #34.
+        return self::orderRuleHints() + self::searchMatchLabel() + self::subscriptionNotices() + [
             'loading'      => __('Loading products...', 'fluent-cart-bulk-order'),
             'load_failed'  => __('Failed to load products.', 'fluent-cart-bulk-order'),
             'no_products'  => __('No products found.', 'fluent-cart-bulk-order'),

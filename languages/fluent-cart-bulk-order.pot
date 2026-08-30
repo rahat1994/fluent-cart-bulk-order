@@ -9,14 +9,14 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-30T05:36:11+00:00\n"
+"POT-Creation-Date: 2026-08-30T06:02:45+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
 
 #. Plugin Name of the plugin
 #: includes/Settings.php:93
-#: includes/Settings.php:1447
+#: includes/Settings.php:1453
 msgid "Fluent Cart Bulk Order"
 msgstr ""
 
@@ -36,20 +36,20 @@ msgstr ""
 msgid "Fluent Cart Bulk Order requires the FluentCart plugin to be installed and activated."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1323
+#: fluent-cart-bulk-order.php:1328
 msgid "You must be logged in."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1328
+#: fluent-cart-bulk-order.php:1333
 msgid "Please enter a name for this order."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1333
+#: fluent-cart-bulk-order.php:1338
 msgid "There are no valid items to save."
 msgstr ""
 
 #. translators: %s: FluentCart order number.
-#: fluent-cart-bulk-order.php:1611
+#: fluent-cart-bulk-order.php:1616
 msgid "Order #%s"
 msgstr ""
 
@@ -211,18 +211,18 @@ msgid "These priced real orders in this period but are no longer on any feed —
 msgstr ""
 
 #: includes/Analytics/AnalyticsScreen.php:488
-#: includes/Display/SingleProductTiers.php:101
+#: includes/Display/SingleProductTiers.php:102
 #: includes/Export/OrderCsv.php:149
 #: includes/Export/OrderReceiptView.php:212
 #: includes/Integrations/Elementor/ProductTableWidget.php:127
-#: includes/Settings.php:735
+#: includes/Settings.php:741
 #: includes/Shortcodes/ProductTable.php:111
 msgid "Quantity"
 msgstr ""
 
 #: includes/Analytics/AnalyticsScreen.php:489
-#: includes/Display/SingleProductTiers.php:373
-#: includes/Display/SingleProductTiers.php:391
+#: includes/Display/SingleProductTiers.php:416
+#: includes/Display/SingleProductTiers.php:434
 #: includes/Export/OrderReceiptView.php:328
 msgid "Discount"
 msgstr ""
@@ -365,131 +365,131 @@ msgstr ""
 msgid "Applies to every qualifying customer unless a role-specific list below overrides it."
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:324
+#: includes/BulkPricingIntegration.php:342
 msgid "No discount tiers configured. Click \"Add Tier\" to create one."
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:328
+#: includes/BulkPricingIntegration.php:346
 msgid "Min Qty"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:332
+#: includes/BulkPricingIntegration.php:350
 msgid "Max Qty (0 = no limit)"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:336
-#: includes/Settings.php:1154
+#: includes/BulkPricingIntegration.php:354
+#: includes/Settings.php:1160
 msgid "Type"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:338
+#: includes/BulkPricingIntegration.php:356
 msgid "Percent off (%)"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:339
+#: includes/BulkPricingIntegration.php:357
 msgid "Fixed unit price"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:340
-#: includes/BulkPricingIntegration.php:346
+#: includes/BulkPricingIntegration.php:358
+#: includes/BulkPricingIntegration.php:364
 msgid "Amount off"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:344
+#: includes/BulkPricingIntegration.php:362
 msgid "Discount %"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:345
+#: includes/BulkPricingIntegration.php:363
 #: includes/Export/OrderCsv.php:150
 #: includes/Export/OrderReceiptView.php:213
 msgid "Unit price"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:353
+#: includes/BulkPricingIntegration.php:371
 msgid "+ Add Tier"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:396
+#: includes/BulkPricingIntegration.php:414
 msgid "+ Add role pricing"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:398
-#: includes/Strings.php:68
+#: includes/BulkPricingIntegration.php:416
+#: includes/Strings.php:72
 msgid "Remove"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:409
+#: includes/BulkPricingIntegration.php:427
 msgid "Optional. Give specific roles their own price list. A shopper falls back to the default Discount Tiers above when their role has no list."
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:445
-#: includes/BulkPricingIntegration.php:508
+#: includes/BulkPricingIntegration.php:463
+#: includes/BulkPricingIntegration.php:526
 #: includes/Shortcodes/BulkOrderForm.php:259
 msgid "Settings → Bulk Order"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:455
+#: includes/BulkPricingIntegration.php:473
 msgid "Administrators can preview these tiers on product pages, but are not charged them at checkout, because this role is not in the bulk pricing policy."
 msgstr ""
 
 #. translators: %s: link to the Bulk Pricing settings page.
-#: includes/BulkPricingIntegration.php:458
+#: includes/BulkPricingIntegration.php:476
 msgid "Add it under %s to apply the discount for real."
 msgstr ""
 
 #. translators: %s: role name, e.g. "Contributor".
-#: includes/BulkPricingIntegration.php:467
+#: includes/BulkPricingIntegration.php:485
 msgid "%s does not receive bulk pricing, so these tiers will never apply."
 msgstr ""
 
 #. translators: %s: link to the Bulk Pricing settings page.
-#: includes/BulkPricingIntegration.php:472
+#: includes/BulkPricingIntegration.php:490
 msgid "Add the role under %s to activate them."
 msgstr ""
 
 #. translators: %s: comma-separated role names.
-#: includes/BulkPricingIntegration.php:499
+#: includes/BulkPricingIntegration.php:517
 msgid "Bulk pricing currently reaches these roles only: %s."
 msgstr ""
 
 #. translators: %s: link to the Bulk Pricing settings page.
-#: includes/BulkPricingIntegration.php:504
+#: includes/BulkPricingIntegration.php:522
 msgid "Changed under %s."
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:527
+#: includes/BulkPricingIntegration.php:545
 msgid "Optional. Constrain how much of this product can be ordered per line. Leave at the defaults (0 and 1) for no restriction."
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:530
+#: includes/BulkPricingIntegration.php:548
 msgid "Minimum qty"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:534
+#: includes/BulkPricingIntegration.php:552
 msgid "Sold in multiples of"
 msgstr ""
 
-#: includes/BulkPricingIntegration.php:538
+#: includes/BulkPricingIntegration.php:556
 msgid "The minimum is rounded up to a whole multiple when you save — a minimum of 20 with multiples of 12 becomes 24."
 msgstr ""
 
 #. translators: 1: minimum quantity, 2: case-pack size, 3: nearest valid quantity
-#: includes/Cart/RuleEnforcement.php:82
+#: includes/Cart/RuleEnforcement.php:101
 msgid "This product has a minimum of %1$d and is sold in multiples of %2$d. Try %3$d."
 msgstr ""
 
 #. translators: 1: case-pack size, 2: nearest valid quantity
-#: includes/Cart/RuleEnforcement.php:88
+#: includes/Cart/RuleEnforcement.php:107
 msgid "This product is sold in multiples of %1$d. Try %2$d."
 msgstr ""
 
 #. translators: 1: minimum quantity
-#: includes/Cart/RuleEnforcement.php:93
+#: includes/Cart/RuleEnforcement.php:112
 msgid "This product has a minimum order quantity of %1$d."
 msgstr ""
 
 #. translators: 1: shortfall amount, 2: minimum order total
-#: includes/Cart/RuleEnforcement.php:129
+#: includes/Cart/RuleEnforcement.php:148
 msgid "Add %1$s more to reach the %2$s minimum order total."
 msgstr ""
 
@@ -516,8 +516,8 @@ msgstr ""
 msgid "PO number"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:102
-#: includes/Display/SingleProductTiers.php:149
+#: includes/Display/SingleProductTiers.php:103
+#: includes/Display/SingleProductTiers.php:150
 #: includes/Export/OrderExportScreen.php:251
 #: includes/Export/OrderReceiptView.php:339
 #: includes/Shortcodes/BulkOrderForm.php:163
@@ -525,21 +525,21 @@ msgstr ""
 msgid "Total"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:170
-#: includes/Strings.php:248
+#: includes/Display/SingleProductTiers.php:171
+#: includes/Strings.php:309
 msgid "Add to Cart"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:179
+#: includes/Display/SingleProductTiers.php:180
 msgid "Bulk order now"
 msgstr ""
 
 #. translators: %s: quantity range the tier covers, e.g. "10 – 24" or "25+".
-#: includes/Display/SingleProductTiers.php:298
+#: includes/Display/SingleProductTiers.php:328
 msgid "Buy %s:"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:315
+#: includes/Display/SingleProductTiers.php:345
 #: includes/Export/OrderCsv.php:147
 #: includes/Export/OrderReceiptView.php:210
 #: includes/Quotes/QuoteReviewScreen.php:539
@@ -547,13 +547,13 @@ msgstr ""
 msgid "Product"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:372
-#: includes/Display/SingleProductTiers.php:390
+#: includes/Display/SingleProductTiers.php:415
+#: includes/Display/SingleProductTiers.php:433
 msgid "Qty Range"
 msgstr ""
 
-#: includes/Display/SingleProductTiers.php:389
-#: includes/Display/SingleProductTiers.php:419
+#: includes/Display/SingleProductTiers.php:432
+#: includes/Display/SingleProductTiers.php:462
 #: includes/Export/OrderCsv.php:148
 msgid "Variant"
 msgstr ""
@@ -797,25 +797,25 @@ msgid "Collapsed"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:124
-#: includes/Settings.php:732
+#: includes/Settings.php:738
 #: includes/Shortcodes/ProductTable.php:108
 msgid "ID"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:125
-#: includes/Settings.php:733
+#: includes/Settings.php:739
 #: includes/Shortcodes/ProductTable.php:109
 msgid "Title"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:126
-#: includes/Settings.php:734
+#: includes/Settings.php:740
 #: includes/Shortcodes/ProductTable.php:110
 msgid "Price"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:128
-#: includes/Settings.php:736
+#: includes/Settings.php:742
 #: includes/Shortcodes/ProductTable.php:112
 msgid "Action"
 msgstr ""
@@ -1192,7 +1192,7 @@ msgid "You already have several quote requests waiting. Please wait for those be
 msgstr ""
 
 #: includes/Rest/QuotesController.php:103
-#: includes/Strings.php:138
+#: includes/Strings.php:142
 msgid "Add at least one product before requesting a quote."
 msgstr ""
 
@@ -1295,277 +1295,277 @@ msgstr ""
 msgid "Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages."
 msgstr ""
 
-#: includes/Settings.php:514
+#: includes/Settings.php:520
 msgid "Leave all unchecked and bulk pricing applies to everyone — including logged-out visitors. See the summary below for what that means today."
 msgstr ""
 
-#: includes/Settings.php:542
+#: includes/Settings.php:548
 msgid "Everyone, including logged-out visitors, can see tier prices on your product pages."
 msgstr ""
 
-#: includes/Settings.php:547
+#: includes/Settings.php:553
 msgid "This is the default. To keep trade prices off the public storefront, tick the roles above that should see them — anyone else, signed in or not, then sees only your normal price."
 msgstr ""
 
 #. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:565
+#: includes/Settings.php:571
 msgid "Only these roles see tier prices: %s."
 msgstr ""
 
-#: includes/Settings.php:570
+#: includes/Settings.php:576
 msgid "Logged-out visitors do not. Administrators can always see the tier table so they can check it, but they are not given the discount at checkout — an administrator's own order is charged the same as any other shopper the policy excludes."
 msgstr ""
 
-#: includes/Settings.php:581
+#: includes/Settings.php:587
 msgid "Require a minimum order value from specific roles. This is enforced at checkout on the server, so it cannot be bypassed by editing the page."
 msgstr ""
 
-#: includes/Settings.php:602
+#: includes/Settings.php:608
 msgid "Leave blank or 0 for no minimum (default). Compared against the order subtotal, before shipping and tax."
 msgstr ""
 
-#: includes/Settings.php:615
+#: includes/Settings.php:621
 msgid "Leave all unchecked = the minimum applies to nobody. Unlike the setting above, this one is opt-in."
 msgstr ""
 
-#: includes/Settings.php:642
+#: includes/Settings.php:648
 msgid "Administrators and wholesale customers can always reach the bulk order form, the product table and saved orders. Add any other roles that should reach them too."
 msgstr ""
 
-#: includes/Settings.php:676
+#: includes/Settings.php:682
 msgid "(always allowed)"
 msgstr ""
 
-#: includes/Settings.php:681
+#: includes/Settings.php:687
 msgid "This widens both the on-page surfaces and the REST endpoints behind them, so a role added here can actually load products. A shortcode \"roles\" attribute still widens one placement only, and does not reach the REST routes."
 msgstr ""
 
-#: includes/Settings.php:692
+#: includes/Settings.php:698
 msgid "Defaults for every [fluent_cart_product_table] on the site. A shortcode attribute always overrides what you set here, for that placement only."
 msgstr ""
 
 #. translators: 1: lowest allowed value, 2: highest allowed value, 3: the default.
-#: includes/Settings.php:716
+#: includes/Settings.php:722
 msgid "Between %1$d and %2$d. Default %3$d. Counts variant rows, not products."
 msgstr ""
 
-#: includes/Settings.php:755
+#: includes/Settings.php:761
 msgid "Columns always appear in this order. Selecting all of them is the same as selecting none: the table shows everything."
 msgstr ""
 
-#: includes/Settings.php:770
+#: includes/Settings.php:776
 msgid "Show the search box"
 msgstr ""
 
-#: includes/Settings.php:777
+#: includes/Settings.php:783
 msgid "Open variant rows by default"
 msgstr ""
 
-#: includes/Settings.php:780
+#: includes/Settings.php:786
 msgid "Opening variant rows suits small catalogues; leave it off when products have many variants."
 msgstr ""
 
-#: includes/Settings.php:791
+#: includes/Settings.php:797
 msgid "By default a finished bulk order goes to the store checkout page. Point it somewhere else if wholesale orders use their own checkout."
 msgstr ""
 
-#: includes/Settings.php:809
+#: includes/Settings.php:815
 msgid "Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A \"redirect\" attribute on the shortcode still wins for that placement."
 msgstr ""
 
-#: includes/Settings.php:845
+#: includes/Settings.php:851
 msgid "Purchasing departments buy against a purchase-order number and need it on the paperwork. Turn this on and the field appears at checkout, is saved with the order, and is printed on the receipt and in every export."
 msgstr ""
 
-#: includes/Settings.php:854
+#: includes/Settings.php:860
 msgid "Open the order exports screen"
 msgstr ""
 
-#: includes/Settings.php:874
+#: includes/Settings.php:880
 msgid "Off — do not ask (default)"
 msgstr ""
 
-#: includes/Settings.php:875
+#: includes/Settings.php:881
 msgid "Optional — show the field, allow an empty one"
 msgstr ""
 
-#: includes/Settings.php:876
+#: includes/Settings.php:882
 msgid "Required — refuse the order without one"
 msgstr ""
 
 #. translators: %d: the maximum number of characters a PO number may have.
-#: includes/Settings.php:897
+#: includes/Settings.php:903
 msgid "\"Required\" is enforced on the server, so it holds even if the checkout page is edited. Up to %d characters; anything longer is shortened rather than refused."
 msgstr ""
 
-#: includes/Settings.php:931
+#: includes/Settings.php:937
 msgid "Leave all unchecked and every shopper is asked, including logged-out ones. Tick the wholesale roles to ask only your trade buyers."
 msgstr ""
 
-#: includes/Settings.php:963
+#: includes/Settings.php:969
 msgid "Nobody. The field does not appear at checkout."
 msgstr ""
 
-#: includes/Settings.php:976
+#: includes/Settings.php:982
 msgid "EVERY shopper, including logged-out ones, must enter a PO number to complete an order."
 msgstr ""
 
-#: includes/Settings.php:977
+#: includes/Settings.php:983
 msgid "Every shopper, including logged-out ones, is offered the field. Nobody is refused for leaving it blank."
 msgstr ""
 
-#: includes/Settings.php:984
+#: includes/Settings.php:990
 msgid "That includes your retail customers. If you only want it from trade buyers, tick their roles above."
 msgstr ""
 
 #. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:999
+#: includes/Settings.php:1005
 msgid "Only these roles are asked, and they must answer: %s."
 msgstr ""
 
 #. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:1002
+#: includes/Settings.php:1008
 msgid "Only these roles are offered the field: %s."
 msgstr ""
 
-#: includes/Settings.php:1012
+#: includes/Settings.php:1018
 msgid "Everyone else checks out exactly as they do today."
 msgstr ""
 
-#: includes/Settings.php:1033
+#: includes/Settings.php:1039
 msgid "Lets a buyer send you their filled bulk order table and ask for a price instead of checking out. You review it, set the prices, and turn it into a FluentCart order — which also lets a buyer ask for a subscription product and a one-time product together, something the cart cannot do."
 msgstr ""
 
-#: includes/Settings.php:1038
+#: includes/Settings.php:1044
 msgid "Open the quote requests screen"
 msgstr ""
 
-#: includes/Settings.php:1051
+#: includes/Settings.php:1057
 msgid "Show a \"Request a quote\" button on the bulk order form"
 msgstr ""
 
-#: includes/Settings.php:1054
+#: includes/Settings.php:1060
 msgid "A \"quotes\" attribute on the shortcode still wins for that placement, so you can offer quotes on one page and not another."
 msgstr ""
 
-#: includes/Settings.php:1069
+#: includes/Settings.php:1075
 msgid "Email me when a buyer asks for a quote"
 msgstr ""
 
-#: includes/Settings.php:1072
+#: includes/Settings.php:1078
 msgid "Sent to the site admin email. Repeat requests from the same buyer within fifteen minutes are not emailed again, but every one of them still appears on the quote requests screen."
 msgstr ""
 
-#: includes/Settings.php:1115
+#: includes/Settings.php:1121
 msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Users > Wholesale Applications, and approving one grants the Wholesale Customer role."
 msgstr ""
 
-#: includes/Settings.php:1123
+#: includes/Settings.php:1129
 msgid "The form always asks for a company name and a tax / VAT ID. Anything below is asked as well."
 msgstr ""
 
-#: includes/Settings.php:1146
+#: includes/Settings.php:1152
 msgid "Single line"
 msgstr ""
 
-#: includes/Settings.php:1147
+#: includes/Settings.php:1153
 msgid "Paragraph"
 msgstr ""
 
-#: includes/Settings.php:1148
+#: includes/Settings.php:1154
 msgid "Choose one"
 msgstr ""
 
-#: includes/Settings.php:1149
+#: includes/Settings.php:1155
 msgid "Tick box"
 msgstr ""
 
-#: includes/Settings.php:1153
+#: includes/Settings.php:1159
 msgid "Question"
 msgstr ""
 
-#: includes/Settings.php:1155
+#: includes/Settings.php:1161
 msgid "Choices"
 msgstr ""
 
-#: includes/Settings.php:1156
+#: includes/Settings.php:1162
 msgid "Required"
 msgstr ""
 
-#: includes/Settings.php:1173
+#: includes/Settings.php:1179
 msgid "Clear a question to remove it. \"Choices\" is only used by \"Choose one\" — put one choice on each line. A \"Choose one\" question with no choices is dropped, because nobody could answer it."
 msgstr ""
 
-#: includes/Settings.php:1181
+#: includes/Settings.php:1187
 msgid "Answers already given are stored under the question's key. Renaming a question keeps its key, so past applications keep their answers; changing the key starts a new question."
 msgstr ""
 
 #. translators: %d: the maximum number of extra questions.
-#: includes/Settings.php:1194
+#: includes/Settings.php:1200
 msgid "A key is worked out from the question when you leave it blank, using only Latin letters and digits — so if your question is written in another script, type a key yourself. company_name and tax_id are taken by the two built-in questions. At most %d extra questions."
 msgstr ""
 
-#: includes/Settings.php:1202
+#: includes/Settings.php:1208
 msgid "You have reached the limit. Clear a question to make room for another."
 msgstr ""
 
-#: includes/Settings.php:1231
+#: includes/Settings.php:1237
 msgid "e.g. Trade reference"
 msgstr ""
 
-#: includes/Settings.php:1236
+#: includes/Settings.php:1242
 msgid "Key"
 msgstr ""
 
-#: includes/Settings.php:1239
+#: includes/Settings.php:1245
 msgid "auto"
 msgstr ""
 
-#: includes/Settings.php:1260
+#: includes/Settings.php:1266
 msgid ""
 "Retail\n"
 "Wholesale"
 msgstr ""
 
-#: includes/Settings.php:1275
+#: includes/Settings.php:1281
 msgid "Must answer"
 msgstr ""
 
-#: includes/Settings.php:1290
+#: includes/Settings.php:1296
 msgid "Email me when someone applies"
 msgstr ""
 
 #. translators: %s: the site's admin email address.
-#: includes/Settings.php:1297
+#: includes/Settings.php:1303
 msgid "Sent to %s. Applicants are always emailed when you approve or reject them."
 msgstr ""
 
-#: includes/Settings.php:1331
+#: includes/Settings.php:1337
 msgid "FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here."
 msgstr ""
 
-#: includes/Settings.php:1332
+#: includes/Settings.php:1338
 msgid "FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear."
 msgstr ""
 
-#: includes/Settings.php:1340
+#: includes/Settings.php:1346
 msgid "When someone applies"
 msgstr ""
 
-#: includes/Settings.php:1346
+#: includes/Settings.php:1352
 msgid "When you approve them"
 msgstr ""
 
-#: includes/Settings.php:1352
+#: includes/Settings.php:1358
 msgid "The applicant's contact is tagged so you can run FluentCRM automations from it. A contact is created if they do not have one; an existing contact is never changed beyond the tag."
 msgstr ""
 
-#: includes/Settings.php:1406
+#: includes/Settings.php:1412
 msgid "— no tag —"
 msgstr ""
 
 #. translators: %d: a FluentCRM tag id that no longer exists.
-#: includes/Settings.php:1419
+#: includes/Settings.php:1425
 msgid "Tag #%d — no longer in FluentCRM"
 msgstr ""
 
@@ -1647,12 +1647,12 @@ msgid "You do not have permission to access the product table."
 msgstr ""
 
 #: includes/Shortcodes/ProductTable.php:158
-#: includes/Strings.php:69
+#: includes/Strings.php:73
 msgid "Search products..."
 msgstr ""
 
 #: includes/Shortcodes/ProductTable.php:172
-#: includes/Strings.php:243
+#: includes/Strings.php:304
 msgid "Loading products..."
 msgstr ""
 
@@ -1800,305 +1800,317 @@ msgstr ""
 msgid "Add {qty} more to unlock a better price"
 msgstr ""
 
-#: includes/Strings.php:72
+#: includes/Strings.php:76
 msgid "Product search results"
 msgstr ""
 
-#: includes/Strings.php:73
+#: includes/Strings.php:77
 msgid "Search failed"
 msgstr ""
 
-#: includes/Strings.php:74
+#: includes/Strings.php:78
 msgid "No products found"
 msgstr ""
 
-#: includes/Strings.php:75
+#: includes/Strings.php:79
 msgid "No available variants"
 msgstr ""
 
-#: includes/Strings.php:76
+#: includes/Strings.php:80
 msgid "(Out of stock)"
 msgstr ""
 
 #. translators: {sku}: a product SKU. Keep {sku} as-is.
-#: includes/Strings.php:78
+#: includes/Strings.php:82
 msgid "SKU {sku}"
 msgstr ""
 
-#: includes/Strings.php:81
+#: includes/Strings.php:85
 msgid "Add at least one product before saving."
 msgstr ""
 
-#: includes/Strings.php:82
+#: includes/Strings.php:86
 msgid "Name this saved order:"
 msgstr ""
 
-#: includes/Strings.php:83
+#: includes/Strings.php:87
 msgid "Please enter a name for the saved order."
 msgstr ""
 
-#: includes/Strings.php:84
+#: includes/Strings.php:88
 msgid "Saving order..."
 msgstr ""
 
-#: includes/Strings.php:85
+#: includes/Strings.php:89
 msgid "Could not save the order."
 msgstr ""
 
-#: includes/Strings.php:86
+#: includes/Strings.php:90
 msgid "Could not save the order. Please try again."
 msgstr ""
 
 #. translators: {name}: the name the shopper gave the saved order. Keep {name} as-is.
-#: includes/Strings.php:88
+#: includes/Strings.php:92
 msgid "Saved order \"{name}\"."
 msgstr ""
 
-#: includes/Strings.php:91
+#: includes/Strings.php:96
 msgid "Please select at least one product."
 msgstr ""
 
-#: includes/Strings.php:92
-msgid "Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding."
-msgstr ""
-
 #. translators: {amount}: money still needed; {minimum}: the required order total. Keep both as-is.
-#: includes/Strings.php:94
+#: includes/Strings.php:98
 msgid "Add {amount} more to reach the {minimum} minimum order total."
 msgstr ""
 
-#: includes/Strings.php:95
-#: includes/Strings.php:283
+#: includes/Strings.php:99
+#: includes/Strings.php:344
 msgid "FluentCart cart is not available. Please refresh the page and try again."
 msgstr ""
 
-#: includes/Strings.php:96
-#: includes/Strings.php:287
+#: includes/Strings.php:100
+#: includes/Strings.php:348
 msgid "Adding items to cart..."
 msgstr ""
 
-#: includes/Strings.php:97
-#: includes/Strings.php:290
+#: includes/Strings.php:101
+#: includes/Strings.php:351
 msgid "Redirecting to checkout..."
 msgstr ""
 
-#: includes/Strings.php:98
-#: includes/Strings.php:291
+#: includes/Strings.php:102
+#: includes/Strings.php:352
 msgid "Checkout page is not configured. Please check FluentCart settings."
 msgstr ""
 
 #. translators: {index}: which item is being added; {total}: how many there are. Keep both as-is.
-#: includes/Strings.php:100
+#: includes/Strings.php:104
 msgid "Adding item {index} of {total}..."
 msgstr ""
 
 #. translators: {error}: the error the cart reported. Keep {error} as-is.
-#: includes/Strings.php:102
+#: includes/Strings.php:106
 msgid "Failed to add item: {error}"
 msgstr ""
 
-#: includes/Strings.php:103
-#: includes/Strings.php:262
-#: includes/Strings.php:294
+#: includes/Strings.php:107
+#: includes/Strings.php:323
+#: includes/Strings.php:355
 msgid "Unknown error"
 msgstr ""
 
 #. translators: {min}: minimum quantity; {step}: case-pack multiple; {qty}: the quantity now set. Keep all three as-is.
-#: includes/Strings.php:107
+#: includes/Strings.php:111
 msgid "Minimum order is {min}, in multiples of {step}. Quantity set to {qty}."
 msgstr ""
 
 #. translators: {step}: case-pack multiple; {qty}: the quantity now set. Keep both as-is.
-#: includes/Strings.php:109
+#: includes/Strings.php:113
 msgid "Sold in multiples of {step}. Quantity rounded up to {qty}."
 msgstr ""
 
 #. translators: {min}: minimum quantity; {qty}: the quantity now set. Keep both as-is.
-#: includes/Strings.php:111
+#: includes/Strings.php:115
 msgid "Minimum order quantity is {min}. Quantity set to {qty}."
 msgstr ""
 
-#: includes/Strings.php:112
+#: includes/Strings.php:116
 msgid "Some quantities were adjusted to meet this store's order rules."
 msgstr ""
 
-#: includes/Strings.php:115
+#: includes/Strings.php:119
 msgid "Could not read the file. Please try again."
 msgstr ""
 
-#: includes/Strings.php:116
+#: includes/Strings.php:120
 msgid "Missing SKU"
 msgstr ""
 
-#: includes/Strings.php:117
+#: includes/Strings.php:121
 msgid "No matching product"
 msgstr ""
 
 #. translators: {count}: how many variants share the SKU. Keep {count} as-is.
-#: includes/Strings.php:119
+#: includes/Strings.php:123
 msgid "Matches {count} variants — add it manually"
 msgstr ""
 
 #. translators: {qty}: the unreadable value the shopper pasted. Keep {qty} as-is.
-#: includes/Strings.php:121
+#: includes/Strings.php:125
 msgid "Invalid quantity \"{qty}\""
 msgstr ""
 
 #. translators: {count}: how many rows were added. Keep {count} as-is.
-#: includes/Strings.php:123
+#: includes/Strings.php:127
 msgid "{count} item added"
 msgstr ""
 
 #. translators: {count}: how many rows were added. Keep {count} as-is.
-#: includes/Strings.php:125
+#: includes/Strings.php:129
 msgid "{count} items added"
 msgstr ""
 
 #. translators: {count}: how many pasted lines were not added. Keep {count} as-is.
-#: includes/Strings.php:127
+#: includes/Strings.php:131
 msgid "{count} skipped"
 msgstr ""
 
 #. translators: {line}: the line number in the pasted text or CSV. Keep {line} as-is.
-#: includes/Strings.php:129
+#: includes/Strings.php:133
 msgid "Line {line}"
 msgstr ""
 
 #. translators: {label}: product name; {qty}: quantity added. Keep both as-is.
-#: includes/Strings.php:131
+#: includes/Strings.php:135
 msgid "{label} × {qty}"
 msgstr ""
 
 #. translators: {qty}: the quantity originally asked for. Keep {qty} as-is.
-#: includes/Strings.php:133
+#: includes/Strings.php:137
 msgid "(adjusted from {qty} to meet order rules)"
 msgstr ""
 
-#: includes/Strings.php:139
+#: includes/Strings.php:143
 msgid "Sending your quote request..."
 msgstr ""
 
 #. translators: {reference}: the quote's reference, e.g. "Quote #41". Keep {reference} as-is.
-#: includes/Strings.php:141
+#: includes/Strings.php:145
 msgid "Request sent as {reference}. The store will email you a price."
 msgstr ""
 
 #. translators: {reference}: the quote's reference; {skipped}: how many products are no longer available. Keep both as-is.
-#: includes/Strings.php:143
+#: includes/Strings.php:147
 msgid "Request sent as {reference}, but {skipped} item(s) are no longer available and were left out."
 msgstr ""
 
-#: includes/Strings.php:144
+#: includes/Strings.php:148
 msgid "Your quote request could not be sent."
 msgstr ""
 
-#: includes/Strings.php:145
+#: includes/Strings.php:149
 msgid "Your quote request could not be sent. Please try again."
 msgstr ""
 
 #. translators: {min}: minimum quantity; {step}: case-pack multiple. Keep both as-is.
-#: includes/Strings.php:169
+#: includes/Strings.php:173
 msgid "Min {min}, in {step}s"
 msgstr ""
 
 #. translators: {step}: case-pack multiple. Keep {step} as-is.
-#: includes/Strings.php:171
+#: includes/Strings.php:175
 msgid "Sold in {step}s"
 msgstr ""
 
 #. translators: {min}: minimum quantity. Keep {min} as-is.
-#: includes/Strings.php:173
+#: includes/Strings.php:177
 msgid "Min {min}"
 msgstr ""
 
-#: includes/Strings.php:211
+#: includes/Strings.php:215
 msgid "Matches your search"
 msgstr ""
 
+#: includes/Strings.php:241
+msgid "Cannot mix subscription and one-time products in the same order. Please remove one type before proceeding."
+msgstr ""
+
+#: includes/Strings.php:242
+msgid "Subscription"
+msgstr ""
+
+#: includes/Strings.php:243
+msgid "Sold one at a time. Bulk pricing and order rules do not apply."
+msgstr ""
+
+#: includes/Strings.php:270
+msgid "Bulk pricing tiers and order rules do not apply to subscription products. FluentCart sells a subscription one at a time, so a quantity discount can never be reached."
+msgstr ""
+
 #. translators: {percent}: the largest percentage discount on offer, e.g. 20. Keep {percent} as-is.
-#: includes/Strings.php:219
+#: includes/Strings.php:277
 msgid "Bulk pricing — save up to {percent}%"
 msgstr ""
 
-#: includes/Strings.php:222
+#: includes/Strings.php:280
 msgid "Bulk pricing — buy more, pay less"
 msgstr ""
 
-#: includes/Strings.php:244
+#: includes/Strings.php:305
 msgid "Failed to load products."
 msgstr ""
 
-#: includes/Strings.php:245
+#: includes/Strings.php:306
 msgid "No products found."
 msgstr ""
 
-#: includes/Strings.php:249
+#: includes/Strings.php:310
 msgid "Out of Stock"
 msgstr ""
 
-#: includes/Strings.php:250
+#: includes/Strings.php:311
 msgid "Adding..."
 msgstr ""
 
-#: includes/Strings.php:251
+#: includes/Strings.php:312
 msgid "Added!"
 msgstr ""
 
 #. translators: {qty}: the quantity now set. Keep {qty} as-is.
-#: includes/Strings.php:257
+#: includes/Strings.php:318
 msgid "Quantity adjusted to {qty} to meet this product's order rules."
 msgstr ""
 
-#: includes/Strings.php:259
+#: includes/Strings.php:320
 msgid "FluentCart cart is not available. Please refresh the page."
 msgstr ""
 
 #. translators: {error}: the error the cart reported. Keep {error} as-is.
-#: includes/Strings.php:261
+#: includes/Strings.php:322
 msgid "Failed: {error}"
 msgstr ""
 
 #. translators: {current}: current page number; {total}: how many pages there are. Keep both as-is.
-#: includes/Strings.php:265
+#: includes/Strings.php:326
 msgid "Page {current} of {total}"
 msgstr ""
 
-#: includes/Strings.php:280
+#: includes/Strings.php:341
 msgid "Saved orders"
 msgstr ""
 
-#: includes/Strings.php:281
+#: includes/Strings.php:342
 msgid "Past orders"
 msgstr ""
 
-#: includes/Strings.php:284
+#: includes/Strings.php:345
 msgid "None of the items in this order are available anymore."
 msgstr ""
 
-#: includes/Strings.php:285
+#: includes/Strings.php:346
 msgid "This order mixes subscription and one-time products, which cannot be reordered together."
 msgstr ""
 
 #. translators: {count}: items being added; {skipped}: items no longer available. Keep both as-is.
-#: includes/Strings.php:289
+#: includes/Strings.php:350
 msgid "Adding {count} item(s); {skipped} unavailable skipped..."
 msgstr ""
 
 #. translators: {error}: the error the cart reported. Keep {error} as-is.
-#: includes/Strings.php:293
+#: includes/Strings.php:354
 msgid "Failed to add an item: {error}"
 msgstr ""
 
 #. translators: {name}: the name the shopper gave the saved order. Keep {name} as-is.
-#: includes/Strings.php:297
+#: includes/Strings.php:358
 msgid "Delete saved order \"{name}\"?"
 msgstr ""
 
-#: includes/Strings.php:298
+#: includes/Strings.php:359
 msgid "Saved order deleted."
 msgstr ""
 
-#: includes/Strings.php:299
+#: includes/Strings.php:360
 msgid "Could not delete the saved order. Please try again."
 msgstr ""
 

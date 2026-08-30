@@ -31,6 +31,7 @@ Everything is gated by user role, so your retail shop stays exactly as it is. On
 * **Savings messaging** — the form, the cart and the checkout summary tell the buyer what the discount was worth, and nudge them toward the next tier ("add 4 more to unlock 10% off").
 * **Tiers on the product page** — a single product can show its tier table plus a small order table, so a shopper who lands there sees the quantity breaks without leaving.
 * **One price, twice checked** — the price the surface quotes and the price the cart charges are resolved by the same rules against the same quantity. Where a surface cannot be sure the two agree, it shows retail prices rather than a discount that will not be honoured.
+* **Subscription products are left alone** — FluentCart sells a subscription one at a time, so bulk tiers and order rules do not apply to one. The ordering surfaces pin a subscription line to quantity 1, label it, show no tier table for it, and say so before the buyer reaches the cart.
 
 = Order rules =
 
@@ -110,6 +111,12 @@ Yes. The discount is applied again on the cart line itself, priced against the q
 
 Yes. Set a minimum quantity and a quantity step per product variant, and a minimum order total for the roles you choose. The ordering surfaces round an out-of-rule quantity up and say so; the server independently refuses a non-conforming quantity, so the browser is a convenience and the server is the authority.
 
+= Do bulk discounts work on subscription products? =
+
+No, and they cannot. FluentCart sells a subscription one at a time — it fixes the quantity at 1 and refuses a purchase above that — so a "buy 10, save 20%" tier can never be reached. It also prices subscription plans on a different path from the one this plugin discounts, so even a tier starting at 1 would not be charged.
+
+You can still configure tiers on a subscription product; nothing stops you, and nothing will happen. So the plugin does the honest thing instead: the ordering surfaces lock a subscription line to quantity 1 and label it, apply no order rules to it, and show no tier table on its product page. They also warn before checkout if the basket mixes a subscription with a one-time product, because FluentCart's cart will not hold both together.
+
 = Can buyers pay by purchase order? =
 
 The plugin collects the buyer's PO number at checkout and prints it back on their receipt, in their account and in both export formats. It does not add a "pay later on invoice" payment method — that is FluentCart's side of the checkout.
@@ -161,6 +168,7 @@ No, and deliberately so. A past order's price records what was charged, not whic
 * Savings messaging on the form, in the cart and on the checkout summary, including a nudge toward the next tier.
 * Bulk pricing tiers shown on the single product page.
 * Order rules: per-variant minimum quantity and case-pack step, plus a store-wide minimum order total for chosen roles, enforced on the server.
+* Subscription-aware ordering surfaces: a subscription line is pinned to quantity 1 and labelled, gets no tiers and no order rules, and a basket mixing a subscription with a one-time product is refused before checkout rather than at it.
 * Role-based access gating for every surface and every REST endpoint.
 * Wholesale application flow with a configurable question set, an admin review screen, notification emails and optional FluentCRM tagging.
 * Request a quote, with owner-set line prices and conversion to an unpaid FluentCart order.

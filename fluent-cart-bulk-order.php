@@ -870,6 +870,10 @@ function fcbo_load_display()
     // it. SingleProductTiers marks its "Bulk order now" checkout URL, and the
     // marker's closed list of surfaces lives in this class.
     require_once FCBO_DIR . 'includes/Analytics/Surface.php';
+    // SingleProductTiers has to know which variants are subscriptions before it
+    // can decide what the Bulk Pricing block may honestly show (issue #34), and
+    // that rule lives with the other cart rules rather than in the display layer.
+    require_once FCBO_DIR . 'includes/Cart/SubscriptionRule.php';
 
     require_once FCBO_DIR . 'includes/Display/SingleProductTiers.php';
     require_once FCBO_DIR . 'includes/Display/QuantityRules.php';
@@ -1060,6 +1064,7 @@ function fcbo_user_subject_to_min_order($user = null)
  */
 function fcbo_load_cart()
 {
+    require_once FCBO_DIR . 'includes/Cart/SubscriptionRule.php';
     require_once FCBO_DIR . 'includes/Cart/LinePricing.php';
     require_once FCBO_DIR . 'includes/Cart/SavingsDisplay.php';
     require_once FCBO_DIR . 'includes/Cart/RuleEnforcement.php';

@@ -15,6 +15,20 @@
     var totalPages = 1;
     var searchTimer = null;
     var currentSearch = '';
+    // What this table has already handed to the cart, so a basket FluentCart
+    // will refuse can be refused here first — before the shopper has clicked
+    // through several pages of the catalogue building it.
+    //
+    // Deliberately NOT reset when the page or search changes: the cart does not
+    // empty itself when a shopper pages forward, so neither may this. It is
+    // also deliberately not the whole truth — it knows nothing about items
+    // added on another page or in an earlier session, and there is no read-only
+    // cart-contents API to ask. FluentCart's own refusal
+    // (fluent-cart/app/Models/Cart.php:443) remains the authority; this only
+    // moves the common case earlier, which is the whole of issue #34's third
+    // complaint.
+    var addedRecurring = false;
+    var addedOnetime = false;
 
     function init() {
         tbody = document.getElementById('fcbo-pt-tbody');
@@ -107,6 +121,16 @@
         return v.stock_status === 'out-of-stock' || (v.manage_stock && v.available <= 0);
     }
 
+    // Is this variant billed on a repeating schedule?
+    //
+    // Mirrors bulk-order.js, which has read `payment_type` since it shipped;
+    // this table could not, because listCatalog() did not send the field.
+    // @see includes/Cart/SubscriptionRule.php for the rules that follow from a
+    // true answer, and for the FluentCart file:line each of them restates.
+    function isRecurring(v) {
+        return !!v && v.payment_type === 'subscription';
+    }
+
     // --- Order rules ---
     //
     // These three mirror the PHP helpers of the same intent
@@ -115,6 +139,20 @@
     // quantity these would have altered.
 
     function orderRules(v) {
+        // A subscription has no order rules, whatever the feed says. Its
+        // quantity is 1 and cannot be anything else, so a minimum of 5 or a
+        // case pack of 12 is not a constraint the shopper can satisfy — it is
+        // just a product they can no longer buy. Neutralised HERE, at the one
+        // place rules are read, so the spinner attributes, the hint sentence
+        // and handleAddToCart() all inherit the same answer instead of each
+        // remembering to ask.
+        //
+        // The server agrees: RuleEnforcement::validateCartItem() skips
+        // recurring variations for the same reason.
+        if (isRecurring(v)) {
+            return { min_qty: 0, step: 1 };
+        }
+
         var raw = (v && v.order_rules) || {};
         return {
             min_qty: Math.max(0, parseInt(raw.min_qty, 10) || 0),
@@ -146,14 +184,50 @@
 
     function qtyInputHtml(outOfStock, v) {
         var rules = orderRules(v);
+        var recurring = isRecurring(v);
         var start = normalizeQty(1, rules);
-        var hint = describeRule(rules);
+        // The Order Rule hint is replaced, not merely dropped, on a recurring
+        // row: a disabled box reading "1" with nothing beside it looks broken.
+        // orderRules() has already flattened the rules to nothing above, so
+        // describeRule() would return '' here anyway.
+        var hint = recurring ? t('recurring_note') : describeRule(rules);
 
+        // Disabled and pinned to 1, exactly as bulk-order.js:681 does it, and
+        // for the host's reason rather than ours: FluentCart overwrites the
+        // quantity with 1 before it builds the cart
+        // (fluent-cart/api/Resource/FrontendResource/CartResource.php:63-65)
+        // and refuses the purchase above 1
+        // (fluent-cart/app/Models/ProductVariation.php:249). An editable
+        // spinner would be offering a number the store then silently changes.
         return '<input type="number" class="fcbo-pt-qty" value="' + start + '"' +
             ' min="' + Math.max(1, rules.min_qty) + '" step="' + rules.step + '"' +
             ' data-min-qty="' + rules.min_qty + '" data-step="' + rules.step + '"' +
-            (outOfStock ? ' disabled' : '') + ' />' +
+            (outOfStock || recurring ? ' disabled' : '') + ' />' +
             (hint ? '<span class="fcbo-pt-qty-hint">' + escapeHtml(hint) + '</span>' : '');
+    }
+
+    // The visible "this repeats" badge for a row title.
+    //
+    // Visible text rather than an icon or a colour, because it is the answer to
+    // "why is the quantity box greyed out" and that question is asked by
+    // everyone, including the shoppers a colour cue never reaches. Same bar the
+    // search-match marker is held to.
+    function recurringBadgeHtml(v) {
+        if (!isRecurring(v)) {
+            return '';
+        }
+
+        return ' <span class="fcbo-pt-recurring">' + escapeHtml(t('recurring_label')) + '</span>';
+    }
+
+    // Row attributes carrying what the click handler needs to know later.
+    //
+    // A flag, not the payment_type string bulk-order.js keeps in
+    // row.dataset.paymentType. That file assigns through the dataset property,
+    // which cannot break out of an attribute; this file builds an HTML string,
+    // and "1" or nothing is a value that needs no escaping to be safe.
+    function recurringAttr(v) {
+        return isRecurring(v) ? ' data-recurring="1"' : '';
     }
 
     function addBtnHtml(outOfStock) {
@@ -179,11 +253,12 @@
             ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
             : '';
         return assembleRow(
-            'data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
+            'data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' + recurringAttr(v) +
                 (classes.length ? ' class="' + classes.join(' ') + '"' : ''),
             {
                 idText: String(p.id),
-                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>' + matchNote,
+                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>' +
+                    recurringBadgeHtml(v) + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -239,10 +314,11 @@
         return assembleRow(
             'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') +
                 (v.search_match ? ' is-search-match' : '') + '"' +
-                ' data-parent-product="' + p.id + '" data-variant-id="' + v.id + '"',
+                ' data-parent-product="' + p.id + '" data-variant-id="' + v.id + '"' + recurringAttr(v),
             {
                 idText: '',
-                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>' + matchNote,
+                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>' +
+                    recurringBadgeHtml(v) + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -343,13 +419,26 @@
             step: Math.max(1, parseInt(qtyInput && qtyInput.dataset.step, 10) || 1)
         };
         var requested = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
-        var qty = normalizeQty(requested, rules);
+        var recurring = row.dataset.recurring === '1';
+        // Pinned rather than normalised, mirroring handleCheckout() in
+        // bulk-order.js. Sending anything else would be sending a number
+        // CartResource.php:63-65 immediately throws away.
+        var qty = recurring ? 1 : normalizeQty(requested, rules);
 
         // Correct in place and say so, rather than adding a different quantity
-        // than the one on screen.
+        // than the one on screen. Never fires on a recurring row: its input is
+        // disabled at 1 and its rules were flattened in orderRules().
         if (qty !== requested) {
             if (qtyInput) { qtyInput.value = qty; }
             showStatus(fill(t('qty_adjusted'), { qty: qty }), 'error');
+        }
+
+        // The refusal the shopper used to meet at the cart, moved to the click
+        // that causes it. Same sentence the Bulk Order Form uses, from
+        // Strings::subscriptionNotices() — one refusal, one wording.
+        if ((recurring && addedOnetime) || (!recurring && addedRecurring)) {
+            showStatus(t('checkout_mixed_types'), 'error');
+            return;
         }
 
         if (!window.fluentCartCart || typeof window.fluentCartCart.addProduct !== 'function') {
@@ -365,6 +454,7 @@
 
             if (result && typeof result.then === 'function') {
                 result.then(function () {
+                    rememberAddedType(recurring);
                     btn.textContent = t('added');
                     setTimeout(function () {
                         btn.textContent = t('add_to_cart');
@@ -376,6 +466,9 @@
                     btn.disabled = false;
                 });
             } else {
+                // No promise to wait on, so the add is taken on trust here the
+                // same way the "Added!" label below already is.
+                rememberAddedType(recurring);
                 setTimeout(function () {
                     btn.textContent = t('added');
                     setTimeout(function () {
@@ -389,6 +482,20 @@
             btn.textContent = t('add_to_cart');
             btn.disabled = false;
         }
+    }
+
+    // Record what kind of line just reached the cart.
+    //
+    // Only on a SUCCESSFUL add, never on the attempt: a rejected add left the
+    // cart as it was, and remembering it would lock the shopper out of the
+    // other kind for the rest of the visit over something that never happened.
+    function rememberAddedType(recurring) {
+        if (recurring) {
+            addedRecurring = true;
+            return;
+        }
+
+        addedOnetime = true;
     }
 
     function updatePaginationUI() {

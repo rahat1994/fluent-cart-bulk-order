@@ -325,6 +325,24 @@
     text-align: center;
 }
 
+/* Recurring badge beside a subscription row's title (issue #34).
+   currentColor-derived like the rest of this file, so it stays legible on a
+   dark theme without a second declaration. It reads as a quiet label rather
+   than a warning on purpose: a subscription is a normal thing to sell, it just
+   cannot be bought by the dozen. */
+.fcbo-pt-recurring {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0.75;
+}
+
 /* --- Search match highlight (issue #35) --- */
 
 /*

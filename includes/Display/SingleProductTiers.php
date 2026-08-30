@@ -3,6 +3,7 @@
 namespace FluentCartBulkOrder\Display;
 
 use FluentCartBulkOrder\Analytics\Surface;
+use FluentCartBulkOrder\Cart\SubscriptionRule;
 use FluentCartBulkOrder\Pricing\OrderRules;
 use FluentCartBulkOrder\Pricing\Tiers;
 use FluentCartBulkOrder\Strings;
@@ -276,6 +277,35 @@ class SingleProductTiers
                 return;
             }
 
+            // -----------------------------------------------------------------
+            // SUBSCRIPTION VARIANTS GET NO BLOCK AT ALL — NOT EVEN A READ-ONLY ONE
+            // -----------------------------------------------------------------
+            //
+            // The other option considered was showing the tier table as pure
+            // information with the quantity input removed. It was rejected,
+            // because the information would not be true.
+            //
+            // A tier says "buy 10, save 20%". A shopper cannot buy 10 of a
+            // subscription: FluentCart overwrites the quantity with 1
+            // (fluent-cart/api/Resource/FrontendResource/CartResource.php:63-65)
+            // and refuses the purchase outright above 1
+            // (fluent-cart/app/Models/ProductVariation.php:249). And even at a
+            // min_qty of 1 the discount would not arrive — FluentCart builds
+            // subscription plans through `fluent_cart/cart/item_modify` in
+            // ProductItemService::getItem()
+            // (fluent-cart/app/Services/ProductItemService.php:68), which never
+            // reaches the `fluent_cart/cart/item_price` filter this plugin
+            // prices on. @see \FluentCartBulkOrder\Cart\LinePricing
+            //
+            // So a tier table here would advertise a quantity the store refuses
+            // at a price it will never charge. An empty space is a smaller lie.
+            // The owner is told the same thing where they configure the tiers
+            // (@see \FluentCartBulkOrder\Settings) and in readme.txt, so the
+            // absence is documented rather than mysterious. Issue #34.
+            if (SubscriptionRule::isRecurring($variant->payment_type)) {
+                return;
+            }
+
             $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
             if (empty($tiers)) {
                 return;
@@ -321,6 +351,19 @@ class SingleProductTiers
         // Variable product: collect variants that have tiers
         $variantsWithTiers = [];
         foreach ($product->variants as $variant) {
+            // Per VARIANT, not per product, and that is the whole reason this is
+            // a skip rather than an early return: one product can sell a
+            // one-time pack and a monthly plan side by side. Dropping the
+            // recurring variant leaves the block standing for the variants it is
+            // true of, and an all-subscription product falls out of the
+            // `empty($variantsWithTiers)` check below with no block at all —
+            // which is the same answer the simple branch gives, reached the same
+            // way. @see the block comment in the simple branch for why nothing
+            // is shown rather than a read-only tier table.
+            if (SubscriptionRule::isRecurring($variant->payment_type)) {
+                continue;
+            }
+
             $tiers = fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles);
             if (empty($tiers)) {
                 continue;

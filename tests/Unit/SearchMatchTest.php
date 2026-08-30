@@ -96,6 +96,47 @@ class SearchMatchTest extends TestCase
     }
 
     /**
+     * A one-character term is not a search, and must mark nothing.
+     *
+     * This is a regression test for a bug found reviewing #35. Both endpoints
+     * refuse to filter below two characters — listCatalog() skips its WHERE
+     * clause entirely and returns the whole catalogue — but the marking did not
+     * know that. Typing "1" into the Product Table returned all 50 products,
+     * correctly unfiltered, while still highlighting and reordering any variant
+     * whose SKU happened to contain a "1".
+     */
+    public function testATermShorterThanTheMinimumMatchesNothing()
+    {
+        $this->assertFalse(SearchMatch::variantMatches('115523', 'Teal', '1'));
+        $this->assertFalse(SearchMatch::variantMatches('P2-M', 'Medium', 'M'));
+    }
+
+    /**
+     * Two characters is the floor, and it is inclusive — the endpoints filter
+     * at exactly two, so the marking has to as well.
+     */
+    public function testTheMinimumLengthIsInclusive()
+    {
+        $this->assertSame(2, SearchMatch::MIN_LENGTH);
+        $this->assertTrue(SearchMatch::variantMatches('115523', 'Teal', '11'));
+    }
+
+    /**
+     * isSearching() decides whether the `search_match` KEY belongs in a payload
+     * at all, which is a different question from whether one variant matched.
+     * Absent means "this endpoint was not searching" — the honest answer for
+     * resolve-skus, whose response shape must not change.
+     */
+    public function testIsSearchingDistinguishesBrowsingFromSearching()
+    {
+        $this->assertFalse(SearchMatch::isSearching(''));
+        $this->assertFalse(SearchMatch::isSearching('   '));
+        $this->assertFalse(SearchMatch::isSearching('a'));
+        $this->assertTrue(SearchMatch::isSearching('ab'));
+        $this->assertTrue(SearchMatch::isSearching('  ab  '));
+    }
+
+    /**
      * Matched variants lead; everything else follows.
      */
     public function testMatchedVariantsAreMovedToTheFront()

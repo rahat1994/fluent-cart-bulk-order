@@ -353,11 +353,14 @@
  * currentColor-derived, like the rest of this file, so the row still reads as
  * emphasised on a dark theme where a fixed background would not.
  */
-.fcbo-pt-variant-row.is-search-match {
+tr.is-search-match {
     background: rgba(127, 127, 127, 0.12);
     box-shadow: inset 3px 0 0 currentColor;
 }
 
-.fcbo-pt-variant-row.is-search-match .fcbo-pt-variant-name {
+/* Both row kinds: a variant row inside an accordion, and a single-variant
+   product's own row. @see simpleRow() in product-table.js for why both. */
+tr.is-search-match .fcbo-pt-variant-name,
+tr.is-search-match .fcbo-pt-title-text {
     font-weight: 600;
 }

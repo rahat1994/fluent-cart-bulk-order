@@ -41,6 +41,40 @@ defined('ABSPATH') || exit;
 class SearchMatch
 {
     /**
+     * Shortest term that counts as a search at all.
+     *
+     * Both endpoints already refuse to search below this: searchProducts()
+     * returns an empty result set, and listCatalog() skips its WHERE clause and
+     * returns the unfiltered catalogue. The rule is repeated HERE because the
+     * marking has to obey it too, and it did not.
+     *
+     * The bug that put it here: typing one character into the Product Table
+     * returned all 50 products — correctly unfiltered — while still marking and
+     * reordering any variant whose SKU happened to contain that character. The
+     * shopper got a catalogue nobody searched, with rows announced as matches
+     * and shuffled to the top of their product. Found in review of #35.
+     */
+    const MIN_LENGTH = 2;
+
+    /**
+     * Is this term a search at all, as opposed to browsing?
+     *
+     * Separate from variantMatches() because the two answer different
+     * questions and one caller needs only this one. buildVariantPayload() uses
+     * it to decide whether the `search_match` KEY belongs in the payload at
+     * all: absent means "this endpoint was not searching", which is the honest
+     * answer for resolve-skus and the saved-orders resolver, and is not the
+     * same statement as false.
+     *
+     * @param string $search Raw search term as typed.
+     * @return bool
+     */
+    public static function isSearching($search)
+    {
+        return strlen(trim((string) $search)) >= self::MIN_LENGTH;
+    }
+
+    /**
      * Did this variant match the search term?
      *
      * The comparison mirrors the SQL that selected the product in the first
@@ -63,10 +97,14 @@ class SearchMatch
     {
         $search = trim((string) $search);
 
-        // An empty search matches nothing rather than everything. This is the
-        // Product Table's default browse state, where there is no query to have
-        // matched — every row must look ordinary.
-        if ($search === '') {
+        // Too short, or absent, matches nothing rather than everything.
+        //
+        // Empty is the Product Table's default browse state, where there is no
+        // query to have matched. Below MIN_LENGTH is the same situation wearing
+        // a disguise: the endpoints do not filter on such a term either, so the
+        // shopper is looking at an unsearched catalogue and every row must read
+        // as ordinary. @see self::MIN_LENGTH
+        if (strlen($search) < self::MIN_LENGTH) {
             return false;
         }
 

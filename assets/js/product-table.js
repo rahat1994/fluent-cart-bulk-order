@@ -162,15 +162,28 @@
     }
 
     // A simple product (single variant): one directly-addable row, no accordion.
+    //
+    // Marked on a SKU match like any other row. The first cut skipped this,
+    // reasoning that a single-variant product IS the match so there is no
+    // sibling to tell it apart from — true in isolation, wrong on a page. A
+    // result list mixing marked variant rows with unmarked simple rows reads as
+    // "these matched and those did not", which is a false statement about rows
+    // the search did find.
     function simpleRow(p) {
         var v = p.variants[0];
         var oos = isOutOfStock(v);
+        var classes = [];
+        if (oos) classes.push('fcbo-pt-out-of-stock');
+        if (v.search_match) classes.push('is-search-match');
+        var matchNote = v.search_match
+            ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
+            : '';
         return assembleRow(
             'data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
-                (oos ? ' class="fcbo-pt-out-of-stock"' : ''),
+                (classes.length ? ' class="' + classes.join(' ') + '"' : ''),
             {
                 idText: String(p.id),
-                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>',
+                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>' + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -249,9 +262,6 @@
             if (!p.variants || !p.variants.length) continue;
 
             if (p.variants.length === 1) {
-                // A single-variant product carries no ambiguity: the product IS
-                // the match, so there is no sibling row to tell it apart from
-                // and nothing to highlight.
                 html += simpleRow(p);
             } else {
                 // Forced open when the search found a variant in here, whatever

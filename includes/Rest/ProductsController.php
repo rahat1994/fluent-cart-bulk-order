@@ -113,7 +113,7 @@ class ProductsController
             ? fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles)
             : [];
 
-        return [
+        $payload = [
             'id'              => $variant->id,
             'variation_title' => $variant->variation_title ?: 'Default',
             'item_price'      => (int) $variant->item_price,
@@ -144,12 +144,25 @@ class ProductsController
             // show them for everyone or it would let people build carts that get
             // refused at checkout.
             'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
-            // Which variant the shopper actually typed. NOT gated and NOT
-            // filtered on: every variant is returned either way, and this only
-            // says which ones to pick out. @see \FluentCartBulkOrder\Rest\SearchMatch
-            // for why the key is not called `matched`.
-            'search_match'    => SearchMatch::variantMatches($variant->sku, $variant->variation_title, $search),
         ];
+
+        // Which variant the shopper actually typed. NOT gated and NOT filtered
+        // on: every variant is returned either way, and this only says which
+        // ones to pick out. @see \FluentCartBulkOrder\Rest\SearchMatch for why
+        // the key is not called `matched`.
+        //
+        // ADDED ONLY WHEN THERE IS A SEARCH, rather than always present as
+        // false. resolveSkus() and the saved-orders resolver share this builder
+        // and pass no term, and neither is answering a search — giving them the
+        // key would put a second, unrelated "did it match" alongside
+        // resolveSkus()'s own `matched` status, in a payload the same JS reads.
+        // Absent means "this endpoint was not searching"; false means "it was,
+        // and this variant is not the one". The JS treats both as not-a-match.
+        if (SearchMatch::isSearching($search)) {
+            $payload['search_match'] = SearchMatch::variantMatches($variant->sku, $variant->variation_title, $search);
+        }
+
+        return $payload;
     }
 
     public static function searchProducts(\WP_REST_Request $request)
@@ -413,9 +426,10 @@ class ProductsController
                         // then returned all of them with nothing to say which one
                         // was found. Same rule as the search endpoint, one class.
                         //
-                        // $search is '' on the default browse page, and
-                        // variantMatches() answers false for that — so a catalogue
-                        // nobody searched comes back looking exactly as it did.
+                        // '' on the default browse page, and below MIN_LENGTH
+                        // when the shopper has typed one character — this endpoint
+                        // does not filter on either, so variantMatches() answers
+                        // false and an unsearched catalogue looks untouched.
                         'search_match'    => SearchMatch::variantMatches($variant->sku, $variant->variation_title, (string) $search),
                     ];
                 }

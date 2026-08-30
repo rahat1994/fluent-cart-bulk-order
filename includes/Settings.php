@@ -206,6 +206,18 @@ class Settings
         // @see \FluentCartBulkOrder\Wholesale\ApplicationSettings
         settings_errors();
 
+        // A tab that stores nothing is drawn bare — no form, no Save button.
+        // Not cosmetic: such a tab carries its own action buttons, and those
+        // are forms of their own posting to admin-post.php. A browser drops a
+        // nested form, so wrapping them here would make every one of them
+        // submit the settings instead. @see Tab::isForm()
+        if ($tab instanceof Tab && !$tab->isForm()) {
+            do_settings_sections(Tabs::sectionPage($slug));
+            echo '</div>';
+
+            return;
+        }
+
         echo '<form action="options.php" method="post">';
         settings_fields(Tabs::group($slug));
         $this->renderSubmittedKeys($tab);

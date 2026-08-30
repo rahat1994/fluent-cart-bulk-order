@@ -63,7 +63,7 @@ class Strings
      */
     public static function bulkOrder()
     {
-        return [
+        return self::searchMatchLabel() + [
             // Row controls
             'remove_row'         => __('Remove', 'fluent-cart-bulk-order'),
             'search_placeholder' => __('Search products...', 'fluent-cart-bulk-order'),
@@ -191,6 +191,27 @@ class Strings
      * @see \FluentCartBulkOrder\Pricing\Tiers::describeBestDiscount()
      * @return array<string,string>
      */
+    /**
+     * The label that tells a non-visual reader which variant the search found.
+     *
+     * Its own table because BOTH ordering surfaces print it — the Bulk Order
+     * Form's search dropdown and the Product Table's variant rows — and they
+     * are highlighting the same thing for the same reason.
+     *
+     * This exists because the highlight is otherwise colour and weight only,
+     * which says nothing to a screen reader and little to a colour-blind
+     * shopper. It is rendered visually hidden next to the variant title, so the
+     * sighted reader sees the styling and everyone else hears the sentence.
+     *
+     * @return array<string,string>
+     */
+    public static function searchMatchLabel()
+    {
+        return [
+            'search_match' => __('Matches your search', 'fluent-cart-bulk-order'),
+        ];
+    }
+
     public static function bulkPricingSummary()
     {
         return [
@@ -215,7 +236,10 @@ class Strings
         // The rule hints are merged rather than repeated: product-table.js reads
         // them by the same keys the other two surfaces do, and one wording of a
         // rule is the whole point of self::orderRuleHints().
-        return self::orderRuleHints() + [
+        // searchMatchLabel() merged for the same reason orderRuleHints() is:
+        // the Bulk Order Form prints the identical sentence, and two wordings of
+        // "this is the one you searched for" would read as two different claims.
+        return self::orderRuleHints() + self::searchMatchLabel() + [
             'loading'      => __('Loading products...', 'fluent-cart-bulk-order'),
             'load_failed'  => __('Failed to load products.', 'fluent-cart-bulk-order'),
             'no_products'  => __('No products found.', 'fluent-cart-bulk-order'),

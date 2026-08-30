@@ -99,16 +99,21 @@ class ProductsController
      * @param string[]|null $userRoles   Viewer's role slugs, so bulk_tiers is
      *                                   role-resolved server-side (the client never
      *                                   sees other roles' pricing). null = default set.
+     * @param string        $search      The search term this variant is being judged
+     *                                   against, for the `search_match` flag. Empty
+     *                                   for callers with no search at all — the
+     *                                   resolve-skus path, which has its own separate
+     *                                   `matched` status and must not gain a second one.
      * @return array
      */
-    public static function buildVariantPayload($product, $variant, $pricingData, $userRoles = null)
+    public static function buildVariantPayload($product, $variant, $pricingData, $userRoles = null, $search = '')
     {
         // Gate 2, in the CART context — see below for why not 'display'.
         $tiers = fcbo_user_qualifies_for_bulk_pricing(null, 'cart')
             ? fcbo_resolve_tiers($pricingData, $product->ID, $variant->id, $userRoles)
             : [];
 
-        return [
+        $payload = [
             'id'              => $variant->id,
             'variation_title' => $variant->variation_title ?: 'Default',
             'item_price'      => (int) $variant->item_price,
@@ -140,6 +145,24 @@ class ProductsController
             // refused at checkout.
             'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
         ];
+
+        // Which variant the shopper actually typed. NOT gated and NOT filtered
+        // on: every variant is returned either way, and this only says which
+        // ones to pick out. @see \FluentCartBulkOrder\Rest\SearchMatch for why
+        // the key is not called `matched`.
+        //
+        // ADDED ONLY WHEN THERE IS A SEARCH, rather than always present as
+        // false. resolveSkus() and the saved-orders resolver share this builder
+        // and pass no term, and neither is answering a search — giving them the
+        // key would put a second, unrelated "did it match" alongside
+        // resolveSkus()'s own `matched` status, in a payload the same JS reads.
+        // Absent means "this endpoint was not searching"; false means "it was,
+        // and this variant is not the one". The JS treats both as not-a-match.
+        if (SearchMatch::isSearching($search)) {
+            $payload['search_match'] = SearchMatch::variantMatches($variant->sku, $variant->variation_title, $search);
+        }
+
+        return $payload;
     }
 
     public static function searchProducts(\WP_REST_Request $request)
@@ -185,25 +208,28 @@ class ProductsController
         foreach ($products as $product) {
             $catList = self::buildCategoryList($product->ID);
 
-            // If the product matched on its title, show all variants (name search).
-            // If it matched only through a variant SKU / variation title, surface just
-            // the matching variant(s) so a SKU search returns the exact variant instead
-            // of every variant of the product.
-            $titleMatches = stripos($product->post_title, $search) !== false;
-
+            // EVERY active variant, always — then the matched ones marked and
+            // moved to the front.
+            //
+            // This used to `continue` past any variant that did not match when
+            // the product had been found through a variant rather than its
+            // title, so a SKU search returned exactly one variant. That was
+            // half right: it answered "which one did I type" and destroyed
+            // "what else does this product come in". A shopper who searches a
+            // SKU is usually about to want the neighbouring sizes, and could
+            // only get them by starting a different search.
+            //
+            // Returning everything and marking one costs nothing here — the
+            // variants are already loaded on the model — and it makes this
+            // endpoint agree with listCatalog(), which never filtered. Issue #35.
             $variants = [];
             if ($product->variants) {
                 foreach ($product->variants as $variant) {
-                    $variantMatches = ($variant->sku && stripos($variant->sku, $search) !== false)
-                        || ($variant->variation_title && stripos($variant->variation_title, $search) !== false);
-
-                    if (!$titleMatches && !$variantMatches) {
-                        continue;
-                    }
-
-                    $variants[] = self::buildVariantPayload($product, $variant, $pricingData, $userRoles);
+                    $variants[] = self::buildVariantPayload($product, $variant, $pricingData, $userRoles, $search);
                 }
             }
+
+            $variants = SearchMatch::matchedFirst($variants);
 
             $results[] = [
                 'id'         => $product->ID,
@@ -395,6 +421,16 @@ class ProductsController
                         'manage_stock'    => (int) ($variant->manage_stock ?? 0),
                         'available'       => (int) ($variant->available ?? 0),
                         'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),
+                        // The half of issue #35 that was actually reported: this
+                        // endpoint's SQL finds a product THROUGH a variant SKU and
+                        // then returned all of them with nothing to say which one
+                        // was found. Same rule as the search endpoint, one class.
+                        //
+                        // '' on the default browse page, and below MIN_LENGTH
+                        // when the shopper has typed one character — this endpoint
+                        // does not filter on either, so variantMatches() answers
+                        // false and an unsearched catalogue looks untouched.
+                        'search_match'    => SearchMatch::variantMatches($variant->sku, $variant->variation_title, (string) $search),
                     ];
                 }
             }
@@ -402,7 +438,7 @@ class ProductsController
             $results[] = [
                 'id'       => $product->ID,
                 'title'    => $product->post_title,
-                'variants' => $variants,
+                'variants' => SearchMatch::matchedFirst($variants),
             ];
         }
 

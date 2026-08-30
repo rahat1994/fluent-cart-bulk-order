@@ -162,15 +162,28 @@
     }
 
     // A simple product (single variant): one directly-addable row, no accordion.
+    //
+    // Marked on a SKU match like any other row. The first cut skipped this,
+    // reasoning that a single-variant product IS the match so there is no
+    // sibling to tell it apart from — true in isolation, wrong on a page. A
+    // result list mixing marked variant rows with unmarked simple rows reads as
+    // "these matched and those did not", which is a false statement about rows
+    // the search did find.
     function simpleRow(p) {
         var v = p.variants[0];
         var oos = isOutOfStock(v);
+        var classes = [];
+        if (oos) classes.push('fcbo-pt-out-of-stock');
+        if (v.search_match) classes.push('is-search-match');
+        var matchNote = v.search_match
+            ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
+            : '';
         return assembleRow(
             'data-variant-id="' + v.id + '" data-product-id="' + p.id + '"' +
-                (oos ? ' class="fcbo-pt-out-of-stock"' : ''),
+                (classes.length ? ' class="' + classes.join(' ') + '"' : ''),
             {
                 idText: String(p.id),
-                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>',
+                titleHtml: '<span class="fcbo-pt-title-text">' + escapeHtml(p.title) + '</span>' + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -198,15 +211,38 @@
         );
     }
 
+    // Did the search that produced this page find one of the product's variants?
+    //
+    // Drives whether the accordion is forced open below. Without that, a store
+    // with "expand variants" off would mark the matched row and then leave it
+    // collapsed — the shopper searches a SKU, the product appears, and the row
+    // they typed is behind a click they have no reason to make.
+    function hasSearchMatch(p) {
+        if (!p.variants) return false;
+        for (var i = 0; i < p.variants.length; i++) {
+            if (p.variants[i].search_match) return true;
+        }
+        return false;
+    }
+
     // One accordion row per variant of a variable product (hidden until expanded).
     function variantRow(p, v, open) {
         var oos = isOutOfStock(v);
+        // The visually hidden sentence is the accessible half of the highlight.
+        // Everything else about a matched row is colour and weight, which a
+        // screen reader cannot convey and a colour-blind shopper may not see —
+        // the a11y bar this repo set in plan 005 is that no state is signalled
+        // by colour alone.
+        var matchNote = v.search_match
+            ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
+            : '';
         return assembleRow(
-            'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') + '"' +
+            'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') +
+                (v.search_match ? ' is-search-match' : '') + '"' +
                 ' data-parent-product="' + p.id + '" data-variant-id="' + v.id + '"',
             {
                 idText: '',
-                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>',
+                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>' + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -228,9 +264,14 @@
             if (p.variants.length === 1) {
                 html += simpleRow(p);
             } else {
-                html += productSummaryRow(p, EXPAND);
+                // Forced open when the search found a variant in here, whatever
+                // the store's expand_variants setting says. The setting is about
+                // the default browse experience; a search result that hides the
+                // row the shopper searched for is just a wrong answer.
+                var open = EXPAND || hasSearchMatch(p);
+                html += productSummaryRow(p, open);
                 for (var j = 0; j < p.variants.length; j++) {
-                    html += variantRow(p, p.variants[j], EXPAND);
+                    html += variantRow(p, p.variants[j], open);
                 }
             }
         }

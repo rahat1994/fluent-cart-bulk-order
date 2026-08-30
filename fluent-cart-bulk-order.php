@@ -460,6 +460,9 @@ function fcbo_register_elementor_widgets($widgetsManager)
 function fcbo_load_rest()
 {
     require_once FCBO_DIR . 'includes/Rest/Routes.php';
+    // Before ProductsController, which calls it while building every variant
+    // payload. There is no autoloader in this plugin.
+    require_once FCBO_DIR . 'includes/Rest/SearchMatch.php';
     require_once FCBO_DIR . 'includes/Rest/ProductsController.php';
     require_once FCBO_DIR . 'includes/Rest/SavedOrdersController.php';
     require_once FCBO_DIR . 'includes/Rest/QuotesController.php';

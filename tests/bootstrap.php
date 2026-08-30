@@ -134,6 +134,12 @@ require_once dirname(__DIR__) . '/includes/Quotes/QuoteInput.php';
 require_once dirname(__DIR__) . '/includes/Checkout/PoNumber.php';
 require_once dirname(__DIR__) . '/includes/Export/OrderCsv.php';
 
+// Pure, and deliberately extracted from ProductsController so it can be here.
+// The rule it holds — which variants a search highlighted — has to agree with
+// SQL written in a different file, and a unit test is the only place that
+// agreement gets checked without a store behind it.
+require_once dirname(__DIR__) . '/includes/Rest/SearchMatch.php';
+
 // Not a pure class, and here anyway. ShortcodeHandler is the plugin's front
 // door: it decides what a page holding one of our tags shows, and the case worth
 // pinning is the one nobody exercises by hand — FluentCart absent. It qualifies

@@ -568,9 +568,20 @@
                 var skuLabel = v.sku ? '  ·  ' + fill(t('sku_label'), { sku: v.sku }) : '';
                 var stockLabel = outOfStock ? ' ' + t('out_of_stock') : '';
 
-                html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') + '"' +
+                // The visually hidden sentence is the accessible half of the
+                // highlight: everything else marking this option is colour and
+                // weight, which a screen reader cannot convey and a colour-blind
+                // shopper may not see. Plan 005's rule is that no state is
+                // signalled by colour alone.
+                var matchNote = v.search_match
+                    ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
+                    : '';
+
+                html += '<div class="fcbo-dd-item' + (outOfStock ? ' fcbo-dd-disabled' : '') +
+                    (v.search_match ? ' is-search-match' : '') + '"' +
                     ' id="' + dropdown.id + '-opt-' + (optionIndex++) + '"' +
                     ' role="option" aria-selected="false"' +
+                    (v.search_match && !outOfStock ? ' data-search-match="1"' : '') +
                     (outOfStock ? ' aria-disabled="true"' : '') +
                     ' data-product=\'' + escapeAttr(JSON.stringify({
                         productId: p.id,
@@ -579,7 +590,7 @@
                         categories: p.categories,
                         variant: v
                     })) + '\'>' +
-                    '<span class="fcbo-dd-title">' + escapeHtml(label) + '</span>' +
+                    '<span class="fcbo-dd-title">' + escapeHtml(label) + matchNote + '</span>' +
                     '<span class="fcbo-dd-meta">' + escapeHtml(price + skuLabel + stockLabel) + '</span>' +
                 '</div>';
             }
@@ -593,6 +604,25 @@
         // The old options are gone, so any highlight pointing at them is too.
         clearActiveOption(dropdown);
         openDropdown(dropdown);
+
+        // Put the keyboard cursor on the variant the shopper actually typed.
+        //
+        // This replaces something the endpoint used to do for free. It returned
+        // ONLY the matching variant on a SKU search, so the one option in the
+        // list was the right one and Enter picked it. Now that every sibling
+        // variant comes back too (issue #35 — a shopper searching a SKU usually
+        // wants the neighbouring sizes in view), the list is longer and the
+        // right row is somewhere inside it. Pre-selecting keeps a SKU search at
+        // one keystroke instead of making people arrow past the siblings we just
+        // added for their benefit.
+        //
+        // Only the first, and never an out-of-stock option — those are
+        // aria-disabled and not selectable, so pointing the cursor at one would
+        // make Enter do nothing.
+        var preselect = dropdown.querySelector('.fcbo-dd-item[data-search-match="1"]');
+        if (preselect) {
+            setActiveOption(dropdown, preselect);
+        }
 
         var items = selectableOptions(dropdown);
         for (var k = 0; k < items.length; k++) {

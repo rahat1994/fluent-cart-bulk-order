@@ -476,10 +476,14 @@ function fcbo_enqueue_shortcodes_tab_assets($hook)
 
     require_once FCBO_DIR . 'includes/Admin/Settings/Tabs.php';
 
+    $arg = \FluentCartBulkOrder\Admin\Settings\Tabs::QUERY_ARG;
+
+    // A non-string (`?tab[]=x`) is dropped rather than cast: sanitize_key() on
+    // an array is a fatal, and this runs on every admin page load.
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- choosing which stylesheet a read-only GET render needs. Tabs::current() turns anything that is not a real tab into the default one.
-    $requested = isset($_GET[\FluentCartBulkOrder\Admin\Settings\Tabs::QUERY_ARG])
+    $requested = isset($_GET[$arg]) && is_string($_GET[$arg])
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- as above.
-        ? wp_unslash($_GET[\FluentCartBulkOrder\Admin\Settings\Tabs::QUERY_ARG])
+        ? sanitize_key(wp_unslash($_GET[$arg]))
         : '';
 
     if (\FluentCartBulkOrder\Admin\Settings\Tabs::current($requested)

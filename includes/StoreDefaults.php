@@ -47,6 +47,43 @@ class StoreDefaults
     const OPTION = 'fcbo_store_defaults';
 
     /**
+     * The key a submitted form uses to declare WHICH keys it is submitting.
+     *
+     * ---------------------------------------------------------------------------
+     * WHY A FORM HAS TO SAY WHAT IT IS SUBMITTING
+     * ---------------------------------------------------------------------------
+     *
+     * Every key below shares ONE option and ONE sanitizer, and the sanitizer
+     * rebuilds the whole array from what was posted. That was correct while the
+     * settings page was a single form carrying every field: absent meant the
+     * owner had cleared it.
+     *
+     * The page is tabbed now, so a form carries one tab's fields. Absent no
+     * longer means cleared — it usually means "on another tab" — and a
+     * sanitizer that cannot tell the two apart wipes four tabs to save one.
+     * Saving Quote Requests would silently turn the purchase-order field off.
+     * @see docs/solutions/integration-issues/fluentcart-integration-feed-strips-undeclared-settings-keys.md
+     *
+     * Two fixes were available, and the other one does not work here. "Treat an
+     * absent key as unchanged" reads well until you meet a checkbox: an
+     * unticked box posts NOTHING AT ALL, so absence is exactly how the owner
+     * turns `quotes_enabled` off. That reading would make every checkbox on the
+     * page one-way — tickable, never untickable.
+     *
+     * So the form declares its keys instead. A declared key is rebuilt from the
+     * submission, absent-means-off included; an undeclared key keeps its stored
+     * value untouched. The list is rendered as hidden inputs by the settings
+     * page, one per key the visible tab owns.
+     *
+     * A submission with no declaration at all is treated as the whole option,
+     * which is what it was before tabs existed — so a programmatic
+     * `update_option()` and an old form both still replace outright.
+     *
+     * @see \FluentCartBulkOrder\Admin\Settings\Tab::defaultsKeys()
+     */
+    const SUBMITTED_KEYS = '__submitted_keys';
+
+    /**
      * Canonical product-table columns, in their canonical order.
      *
      * Lives here rather than on the shortcode class because the settings
@@ -189,7 +226,34 @@ class StoreDefaults
      */
     public static function sanitize($value)
     {
-        $value = is_array($value) ? $value : [];
+        // Read BEFORE the write, which is safe here and only here: update_option()
+        // sanitizes first and reads the old value second, so this is the value
+        // currently in the table, not the one being saved.
+        $stored = get_option(self::OPTION, []);
+
+        return self::sanitizeAgainst($value, is_array($stored) ? $stored : []);
+    }
+
+    /**
+     * The same validation, against a stored value handed in rather than read.
+     *
+     * Split out of sanitize() for one reason: it is the whole of the rule that
+     * decides whether saving one tab keeps another tab's settings, and a rule
+     * that dangerous should be provable without a database behind it.
+     * @see \FluentCartBulkOrder\Tests\Unit\SettingsTabsTest
+     *
+     * @param mixed                $value  Raw submitted value.
+     * @param array<string, mixed> $stored The option as it stands today.
+     * @return array<string, mixed>
+     */
+    public static function sanitizeAgainst($value, array $stored)
+    {
+        $value     = is_array($value) ? $value : [];
+        $submitted = self::submittedKeys($value);
+
+        // Never stored: it describes the submission, it is not part of it.
+        unset($value[self::SUBMITTED_KEYS]);
+
         $clean = [];
 
         // Widens Gate 1 for BOTH the surfaces and the REST routes. The baseline
@@ -227,7 +291,44 @@ class StoreDefaults
 
         $clean = array_merge($clean, self::sanitizePoNumber($value));
 
-        return $clean;
+        // Nothing declared: the submission is the whole option. @see SUBMITTED_KEYS.
+        if ($submitted === null) {
+            return $clean;
+        }
+
+        // Declared keys come from the submission; everything else is left as it
+        // was found. The stored side is filtered through FALLBACKS so an
+        // unknown key that reached the option some other way is still dropped,
+        // exactly as a full replace used to drop it.
+        return array_merge(
+            array_intersect_key($stored, self::FALLBACKS),
+            array_intersect_key($clean, array_flip($submitted))
+        );
+    }
+
+    /**
+     * The keys a submission says it carries, or null if it did not say.
+     *
+     * Intersected with FALLBACKS rather than trusted: this arrives from a form,
+     * and a key that is not one of ours has nowhere to go. A declaration that
+     * survives as an empty list is the safe failure — it changes nothing.
+     *
+     * @param array<string, mixed> $value Raw submitted value.
+     * @return string[]|null
+     */
+    private static function submittedKeys($value)
+    {
+        if (!isset($value[self::SUBMITTED_KEYS])) {
+            return null;
+        }
+
+        $declared = is_array($value[self::SUBMITTED_KEYS])
+            ? $value[self::SUBMITTED_KEYS]
+            : [$value[self::SUBMITTED_KEYS]];
+
+        $declared = array_map('strval', array_filter($declared, 'is_scalar'));
+
+        return array_values(array_intersect($declared, array_keys(self::FALLBACKS)));
     }
 
     /**

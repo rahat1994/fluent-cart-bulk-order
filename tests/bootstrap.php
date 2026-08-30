@@ -147,6 +147,13 @@ require_once dirname(__DIR__) . '/includes/Rest/SearchMatch.php';
 // database and no FluentCart class, which is precisely the property under test.
 require_once dirname(__DIR__) . '/includes/Shortcodes/ShortcodeHandler.php';
 
+// Pure, and here because none of the rules in it are ours. Each is a copy of a
+// refusal FluentCart performs — quantity pinned to 1, a subscription never
+// beside a one-time line — repeated so our surfaces can warn a shopper before
+// the cart does. A copy that drifts from the original is the failure mode: the
+// surface promises something the cart then refuses, which is issue #34.
+require_once dirname(__DIR__) . '/includes/Cart/SubscriptionRule.php';
+
 require_once dirname(__DIR__) . '/includes/Pricing/OrderRules.php';
 require_once dirname(__DIR__) . '/includes/Pricing/Tiers.php';
 require_once dirname(__DIR__) . '/includes/Pricing/FeedResolver.php';

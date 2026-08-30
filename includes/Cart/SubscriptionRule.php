@@ -80,6 +80,14 @@ class SubscriptionRule
      */
     public static function isRecurring($paymentType)
     {
+        // Non-scalars answer false rather than raising a notice on the cast.
+        // An array or object here means whoever asked did not have a payment
+        // type at all, and "not a subscription" is the answer that leaves an
+        // ordinary product working.
+        if (!is_scalar($paymentType)) {
+            return false;
+        }
+
         return strtolower(trim((string) $paymentType)) === self::RECURRING;
     }
 

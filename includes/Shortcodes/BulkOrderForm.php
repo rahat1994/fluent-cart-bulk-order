@@ -256,7 +256,7 @@ class BulkOrderForm extends AbstractShortcode
         $link = sprintf(
             '<a href="%s">%s</a>',
             esc_url(AccessPolicy::settingsPageUrl()),
-            esc_html__('Settings → Bulk Order', 'fluent-cart-bulk-order')
+            esc_html__('Bulk Order → Settings', 'fluent-cart-bulk-order')
         );
 
         return '<div class="fcbo-policy-notice">'

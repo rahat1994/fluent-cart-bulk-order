@@ -1129,7 +1129,7 @@ class Settings
         printf(
             '<p>%s</p>',
             esc_html__(
-                'Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Users > Wholesale Applications, and approving one grants the Wholesale Customer role.',
+                'Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Bulk Order > Wholesale Applications, and approving one grants the Wholesale Customer role.',
                 'fluent-cart-bulk-order'
             )
         );

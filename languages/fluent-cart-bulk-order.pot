@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-30T06:43:16+00:00\n"
+"POT-Creation-Date: 2026-08-30T06:44:54+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
@@ -434,7 +434,7 @@ msgstr ""
 #: includes/BulkPricingIntegration.php:463
 #: includes/BulkPricingIntegration.php:526
 #: includes/Shortcodes/BulkOrderForm.php:259
-msgid "Settings → Bulk Order"
+msgid "Bulk Order → Settings"
 msgstr ""
 
 #: includes/BulkPricingIntegration.php:473
@@ -1463,7 +1463,7 @@ msgid "Sent to the site admin email. Repeat requests from the same buyer within 
 msgstr ""
 
 #: includes/Settings.php:1131
-msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Users > Wholesale Applications, and approving one grants the Wholesale Customer role."
+msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Bulk Order > Wholesale Applications, and approving one grants the Wholesale Customer role."
 msgstr ""
 
 #: includes/Settings.php:1139

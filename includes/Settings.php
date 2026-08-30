@@ -9,7 +9,8 @@ use FluentCartBulkOrder\Admin\Settings\Tabs;
 defined('ABSPATH') || exit;
 
 /**
- * The plugin's one admin page: every store-wide default, behind five tabs.
+ * The plugin's one admin page: every store-wide default behind five tabs, plus
+ * a sixth that stores nothing and lists the shortcodes.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS CLASS IS NOW
@@ -231,7 +232,7 @@ class Settings
      * Load the tab registry.
      *
      * This file is required on EVERY page load — AccessPolicy reads its page
-     * slug — while the registry and the five tab classes behind it are only
+     * slug — while the registry and the tab classes behind it are only
      * ever needed on `admin_init` and on this one screen. Both callers below
      * are admin-only, and require_once is idempotent.
      *

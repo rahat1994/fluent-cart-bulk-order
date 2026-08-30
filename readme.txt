@@ -55,14 +55,16 @@ Everything is gated by user role, so your retail shop stays exactly as it is. On
 
 * **Bulk order analytics** — how much revenue came through bulk ordering versus normal checkout, which buyers are behind it, and which quantity tiers are actually being reached. Tier utilisation is a join of every tier you have configured against the ones that were used, so the tier nobody has ever reached shows up as a zero instead of being missing from the list.
 
-= Placing the surfaces =
+= Shortcodes =
 
-Four shortcodes:
+Four shortcodes place the surfaces. Bulk Order → Settings → Shortcodes lists them all in wp-admin with a copy button, tells you whether a page already uses one, and can create a draft page holding it for you.
 
-* `[fluent_cart_bulk_order]`
-* `[fluent_cart_product_table]`
-* `[fluent_cart_saved_orders]`
-* `[fluent_cart_wholesale_application]`
+* `[fluent_cart_bulk_order]` — the bulk order form: a permitted buyer searches products by name or SKU, or pastes a SKU list, sets quantities line by line and sends the whole order to checkout in one action. Attributes: `roles`, `redirect`, `quotes`.
+* `[fluent_cart_product_table]` — a paginated table of your catalogue with a quantity box on every row, so a buyer can add several products to the cart without opening a single product page. Attributes: `per_page`, `columns`, `search`, `category`, `roles`, `expand_variants`.
+* `[fluent_cart_saved_orders]` — a buyer's own saved orders, re-priced against the live catalogue every time they are opened, each with a one-click reorder. Attribute: `roles`.
+* `[fluent_cart_wholesale_application]` — the form a signed-in shopper fills in to ask for a wholesale account, which you then approve or reject. No attributes.
+
+Every attribute is optional. Leave one out and that shortcode follows the store-wide setting on the other settings tabs; set one and it wins for that placement only.
 
 The bulk order form and the product table are also a **Gutenberg block** each and an **Elementor widget** each, with the same options as controls. Both wrappers render through the shortcodes, so they behave identically and inherit the same role gates and store-wide defaults.
 
@@ -92,6 +94,10 @@ All five of the plugin's admin screens live together under one **Bulk Order** me
 = Do I need FluentCart? =
 
 Yes. This is an add-on and it will not activate without FluentCart. Every surface it adds reads FluentCart's catalog and hands off to FluentCart's cart and checkout.
+
+= Where do I find the shortcodes? =
+
+Bulk Order → Settings → Shortcodes. Every tag the plugin registers is listed there with what it does, the attributes it takes and a copy button. Each one also has a button that creates a draft page holding it and opens that page in the editor, and the tab tells you whether a page on your site already uses that shortcode so you do not make a second one.
 
 = Who can see the bulk order form? =
 
@@ -177,6 +183,7 @@ No, and deliberately so. A past order's price records what was charged, not whic
 * Bulk order analytics: revenue split, top buyers and tier utilisation.
 * Settings screen for roles, store-wide surface defaults, order rules, PO numbers, quotes and the application form.
 * Gutenberg blocks and Elementor widgets for the bulk order form and the product table.
+* Shortcodes reference in the admin: every registered tag with its attributes, a copy button, whether a page already uses it, and a one-click draft page to put it on.
 * Full translation template shipped in `/languages`.
 
 = 1.0.1 =

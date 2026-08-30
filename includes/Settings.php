@@ -461,6 +461,12 @@ class Settings
             'Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages.',
             'fluent-cart-bulk-order'
         ) . '</p>';
+
+        // Said here as well as in the tier editor, in the same words. An owner
+        // reading a page headed "Bulk Pricing Access" is asking who gets bulk
+        // pricing, and "subscription products, nobody" is part of that answer.
+        fcbo_load_strings();
+        echo '<p class="description">' . esc_html(Strings::subscriptionOwnerNotice()) . '</p>';
     }
 
     /**

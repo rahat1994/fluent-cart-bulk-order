@@ -298,9 +298,27 @@ class BulkPricingIntegration extends BaseIntegrationManager
     private function getTierRepeaterTemplate()
     {
         return '<div class="fcbo-tier-repeater">
-            <p class="fcbo-tier-hint">' . esc_html__('Applies to every qualifying customer unless a role-specific list below overrides it.', 'fluent-cart-bulk-order') . '</p>'
+            <p class="fcbo-tier-hint">' . esc_html__('Applies to every qualifying customer unless a role-specific list below overrides it.', 'fluent-cart-bulk-order') . '</p>
+            <p class="fcbo-tier-hint">' . $this->subscriptionNotice() . '</p>'
             . $this->getTierRowsMarkup('settings.tiers', 'default')
             . '</div>';
+    }
+
+    /**
+     * The one sentence telling an owner that tiers do not bite on a subscription.
+     *
+     * Printed where the tiers and the order rules are actually typed, because
+     * that is the moment the owner forms the expectation. Nothing said so
+     * before, and a feed restricted to a subscription variant would save
+     * cleanly, show no error, and then never change a price — issue #34.
+     *
+     * @return string Escaped, ready to drop into the Vue template string.
+     */
+    private function subscriptionNotice()
+    {
+        fcbo_load_strings();
+
+        return esc_html(Strings::subscriptionOwnerNotice());
     }
 
     /**
@@ -536,6 +554,7 @@ class BulkPricingIntegration extends BaseIntegrationManager
                     </div>
                 </div>
                 <p class="fcbo-tier-hint">' . esc_html__('The minimum is rounded up to a whole multiple when you save — a minimum of 20 with multiples of 12 becomes 24.', 'fluent-cart-bulk-order') . '</p>
+                <p class="fcbo-tier-hint">' . $this->subscriptionNotice() . '</p>
             </div>';
     }
 }

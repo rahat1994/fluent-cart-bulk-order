@@ -179,3 +179,19 @@ require_once dirname(__DIR__) . '/includes/Analytics/RevenueSplit.php';
 // above, and it fails silently: get it wrong and the page still renders, quoting
 // a rule that does not apply to what the shopper is looking at.
 require_once dirname(__DIR__) . '/includes/Display/QuantityRules.php';
+
+// The admin menu, plus the five screen classes it parents. Menu is pure — a
+// slug map, an ordering rule and a bubble string — and it is here because
+// nothing it decides fails loudly: a slug that has drifted from its screen
+// hangs a submenu off nothing, and an ordering mistake puts a duplicated parent
+// row in the sidebar. The screens come along ONLY so the test can compare each
+// slug against the class that owns it; none of them touches WordPress or
+// FluentCart at include time.
+require_once dirname(__DIR__) . '/includes/Admin/Menu.php';
+require_once dirname(__DIR__) . '/includes/StoreDefaults.php';
+require_once dirname(__DIR__) . '/includes/AccessPolicy.php';
+require_once dirname(__DIR__) . '/includes/Settings.php';
+require_once dirname(__DIR__) . '/includes/Quotes/QuoteReviewScreen.php';
+require_once dirname(__DIR__) . '/includes/Wholesale/ReviewScreen.php';
+require_once dirname(__DIR__) . '/includes/Analytics/AnalyticsScreen.php';
+require_once dirname(__DIR__) . '/includes/Export/OrderExportScreen.php';

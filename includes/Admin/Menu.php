@@ -194,6 +194,10 @@ class Menu
         add_action('admin_menu', [self::class, 'addMenuPage'], self::PARENT_PRIORITY);
         add_action('admin_menu', [self::class, 'addParentBubble'], self::BUBBLE_PRIORITY);
 
+        // Old links. `admin_init` because WordPress refuses an unregistered
+        // plugin page a few lines AFTER firing it, in wp-admin/admin.php.
+        add_action('admin_init', [self::class, 'redirectLegacyUrls']);
+
         // Every event that can change one of the two counts. Registered
         // outside `is_admin()` on purpose: a shopper requests a quote or sends
         // an application on the FRONT end, and that is exactly the moment the
@@ -230,6 +234,72 @@ class Menu
              */
             apply_filters('fcbo/admin_menu_position', self::POSITION)
         );
+    }
+
+    /**
+     * The parents these screens used to hang off, mapped to the screens that
+     * hung off them.
+     *
+     * Kept because a page slug alone is not a URL. Every one of these screens
+     * keeps the slug it has always had, but the file in front of it changed —
+     * and WordPress dispatches a plugin page on BOTH, so an old
+     * `options-general.php?page=fcbo-quotes` bookmark does not merely look
+     * wrong, it dies with "Cannot load". Emails this plugin has already sent
+     * carry those URLs, which is why they are redirected rather than
+     * documented.
+     */
+    const LEGACY_PARENTS = [
+        'options-general.php' => [
+            self::PARENT_SLUG,
+            self::SLUG_QUOTES,
+            self::SLUG_ANALYTICS,
+            self::SLUG_EXPORTS,
+        ],
+        'users.php' => [
+            self::SLUG_WHOLESALE,
+        ],
+    ];
+
+    /**
+     * Send an old parent-file URL to the same screen under the new menu.
+     *
+     * Chosen over leaving a pointer entry under Settings and Users: a permanent
+     * second row in each old parent would put back the scattering this menu
+     * exists to remove, and would still not fix a bookmark that carries a
+     * status or a page number. A redirect keeps every old link working and
+     * costs two array lookups on an admin request.
+     *
+     * @return void
+     */
+    public static function redirectLegacyUrls()
+    {
+        $pagenow = isset($GLOBALS['pagenow']) ? $GLOBALS['pagenow'] : '';
+
+        if (!isset(self::LEGACY_PARENTS[$pagenow])) {
+            return;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading which screen was asked for, to send a GET to the same screen's new address. Nothing is changed.
+        $query = isset($_GET) ? wp_unslash($_GET) : [];
+
+        if (!isset($query['page']) || !is_string($query['page'])) {
+            return;
+        }
+
+        if (!in_array($query['page'], self::LEGACY_PARENTS[$pagenow], true)) {
+            return;
+        }
+
+        // Everything else the old link carried — a status tab, a page number, a
+        // search term, a report period — kept so the redirect lands where the
+        // bookmark pointed and not merely on the right screen. Arrays are
+        // dropped rather than walked: no screen of ours takes one, and a nested
+        // value has no place in a URL this code hands to add_query_arg().
+        $args = array_map('sanitize_text_field', array_filter($query, 'is_scalar'));
+
+        wp_safe_redirect(add_query_arg($args, self::baseUrl()));
+
+        exit;
     }
 
     /**
@@ -333,6 +403,12 @@ class Menu
      * The `$menu` global is the only way in: `add_menu_page()` has already run
      * by the time the counts are known, and WordPress offers no API to retitle
      * a registered menu.
+     *
+     * Doing it in two phases is not only about timing. WordPress derives the
+     * page hook name from `sanitize_title()` of the menu title it was
+     * REGISTERED with, so a title that carried a changing number would change
+     * the hook every time the count changed, and every submenu hanging off it
+     * with it. The registered title stays plain; only what is drawn changes.
      *
      * @return void
      */

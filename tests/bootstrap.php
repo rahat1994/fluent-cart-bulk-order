@@ -211,6 +211,17 @@ require_once dirname(__DIR__) . '/includes/Rest/SearchMatch.php';
 // database and no FluentCart class, which is precisely the property under test.
 require_once dirname(__DIR__) . '/includes/Shortcodes/ShortcodeHandler.php';
 
+// The admin Shortcodes tab's data half, and the class that owns the create-page
+// action's constants. Both are here for one reason: the tab is only useful if
+// it cannot fall behind the registry above, and every way it CAN fall behind is
+// silent. A tag with no description still renders a card; a tag the usage scan
+// cannot find still shows a Create page button on a store that already made
+// one. ShortcodeCatalog itself is pure — a map from a tag to sentences — and
+// ShortcodePages is required only for the two constants the catalog is checked
+// against, not for anything it does with the database.
+require_once dirname(__DIR__) . '/includes/Shortcodes/ShortcodeCatalog.php';
+require_once dirname(__DIR__) . '/includes/Admin/ShortcodePages.php';
+
 // Pure, and here because none of the rules in it are ours. Each is a copy of a
 // refusal FluentCart performs — quantity pinned to 1, a subscription never
 // beside a one-time line — repeated so our surfaces can warn a shopper before
@@ -255,6 +266,14 @@ require_once dirname(__DIR__) . '/includes/Admin/Menu.php';
 require_once dirname(__DIR__) . '/includes/StoreDefaults.php';
 require_once dirname(__DIR__) . '/includes/AccessPolicy.php';
 require_once dirname(__DIR__) . '/includes/Settings.php';
+
+// The settings tab registry. Loading it constructs nothing by itself; a test
+// that calls Tabs::all() pulls in the tab classes, none of which touches
+// WordPress until one of its render methods runs. It is here for the one thing
+// about a tab that fails silently in the browser: a tab that stores nothing but
+// still claims to be a form gets wrapped in the settings <form>, and every
+// action button it draws then submits the settings instead of the action.
+require_once dirname(__DIR__) . '/includes/Admin/Settings/Tabs.php';
 require_once dirname(__DIR__) . '/includes/Quotes/QuoteReviewScreen.php';
 require_once dirname(__DIR__) . '/includes/Wholesale/ReviewScreen.php';
 require_once dirname(__DIR__) . '/includes/Analytics/AnalyticsScreen.php';

@@ -63,6 +63,28 @@ abstract class Tab
     abstract public function registerSections($page);
 
     /**
+     * Whether this tab's sections belong inside the settings form.
+     *
+     * True for every tab that stores something, which is why it is the default.
+     *
+     * A tab that returns false is drawn with NO `<form>` around it and no Save
+     * button. Both halves matter. A Save button on a screen with nothing to
+     * save is a lie an owner will press and then wonder about; and the wrapper
+     * form is actively harmful to a read-only tab, because a tab that offers
+     * its own action button has to post that button somewhere other than
+     * options.php. HTML has no nested forms — a browser drops the inner one —
+     * so an action button inside the settings form silently submits the
+     * SETTINGS instead of the action.
+     *
+     * @see \FluentCartBulkOrder\Admin\Settings\ShortcodesTab, the first of these.
+     * @return bool
+     */
+    public function isForm()
+    {
+        return true;
+    }
+
+    /**
      * Register any top-level options this tab owns.
      *
      * @param string $group This tab's option group. @see Tabs::group()

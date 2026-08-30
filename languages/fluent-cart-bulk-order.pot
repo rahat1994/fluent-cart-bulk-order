@@ -9,15 +9,15 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-30T06:44:54+00:00\n"
+"POT-Creation-Date: 2026-08-30T08:11:38+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
 
 #. Plugin Name of the plugin
-#: includes/Admin/Menu.php:224
-#: includes/Settings.php:103
-#: includes/Settings.php:1463
+#: includes/Admin/Menu.php:237
+#: includes/Settings.php:119
+#: includes/Settings.php:198
 msgid "Fluent Cart Bulk Order"
 msgstr ""
 
@@ -37,20 +37,20 @@ msgstr ""
 msgid "Fluent Cart Bulk Order requires the FluentCart plugin to be installed and activated."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1343
+#: fluent-cart-bulk-order.php:1437
 msgid "You must be logged in."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1348
+#: fluent-cart-bulk-order.php:1442
 msgid "Please enter a name for this order."
 msgstr ""
 
-#: fluent-cart-bulk-order.php:1353
+#: fluent-cart-bulk-order.php:1447
 msgid "There are no valid items to save."
 msgstr ""
 
 #. translators: %s: FluentCart order number.
-#: fluent-cart-bulk-order.php:1631
+#: fluent-cart-bulk-order.php:1725
 msgid "Order #%s"
 msgstr ""
 
@@ -66,8 +66,541 @@ msgstr ""
 msgid "Wholesale Customer"
 msgstr ""
 
-#: includes/Admin/Menu.php:225
+#: includes/Admin/Menu.php:238
 msgid "Bulk Order"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:45
+msgid "Access"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:81
+msgid "Surface Access"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:88
+msgid "Also allow these roles"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:109
+#: includes/Wholesale/ReviewScreen.php:79
+#: includes/Wholesale/ReviewScreen.php:135
+msgid "Wholesale Applications"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:116
+msgid "Extra questions"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:124
+#: includes/Admin/Settings/QuotesTab.php:75
+msgid "Notifications"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:132
+msgid "FluentCRM tags"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:146
+msgid "Administrators and wholesale customers can always reach the bulk order form, the product table and saved orders. Add any other roles that should reach them too."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:185
+msgid "(always allowed)"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:190
+msgid "This widens both the on-page surfaces and the REST endpoints behind them, so a role added here can actually load products. A shortcode \"roles\" attribute still widens one placement only, and does not reach the REST routes."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:221
+msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Bulk Order > Wholesale Applications, and approving one grants the Wholesale Customer role."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:229
+msgid "The form always asks for a company name and a tax / VAT ID. Anything below is asked as well."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:254
+msgid "Single line"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:255
+msgid "Paragraph"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:256
+msgid "Choose one"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:257
+msgid "Tick box"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:261
+msgid "Question"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:262
+#: includes/BulkPricingIntegration.php:354
+msgid "Type"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:263
+msgid "Choices"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:264
+msgid "Required"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:281
+msgid "Clear a question to remove it. \"Choices\" is only used by \"Choose one\" — put one choice on each line. A \"Choose one\" question with no choices is dropped, because nobody could answer it."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:289
+msgid "Answers already given are stored under the question's key. Renaming a question keeps its key, so past applications keep their answers; changing the key starts a new question."
+msgstr ""
+
+#. translators: %d: the maximum number of extra questions.
+#: includes/Admin/Settings/AccessTab.php:302
+msgid "A key is worked out from the question when you leave it blank, using only Latin letters and digits — so if your question is written in another script, type a key yourself. company_name and tax_id are taken by the two built-in questions. At most %d extra questions."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:310
+msgid "You have reached the limit. Clear a question to make room for another."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:339
+msgid "e.g. Trade reference"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:344
+msgid "Key"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:347
+msgid "auto"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:368
+msgid ""
+"Retail\n"
+"Wholesale"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:383
+msgid "Must answer"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:400
+msgid "Email me when someone applies"
+msgstr ""
+
+#. translators: %s: the site's admin email address.
+#: includes/Admin/Settings/AccessTab.php:407
+msgid "Sent to %s. Applicants are always emailed when you approve or reject them."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:443
+msgid "FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:444
+msgid "FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:452
+msgid "When someone applies"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:458
+msgid "When you approve them"
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:464
+msgid "The applicant's contact is tagged so you can run FluentCRM automations from it. A contact is created if they do not have one; an existing contact is never changed beyond the tag."
+msgstr ""
+
+#: includes/Admin/Settings/AccessTab.php:521
+msgid "— no tag —"
+msgstr ""
+
+#. translators: %d: a FluentCRM tag id that no longer exists.
+#: includes/Admin/Settings/AccessTab.php:534
+msgid "Tag #%d — no longer in FluentCRM"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:32
+#: includes/Admin/Settings/CheckoutTab.php:66
+msgid "Checkout"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:73
+msgid "Send bulk orders to"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:94
+msgid "Purchase Orders"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:101
+msgid "PO number field"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:109
+msgid "Ask these roles"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:117
+msgid "Who this binds"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:131
+msgid "By default a finished bulk order goes to the store checkout page. Point it somewhere else if wholesale orders use their own checkout."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:151
+msgid "Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A \"redirect\" attribute on the shortcode still wins for that placement."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:184
+msgid "Purchasing departments buy against a purchase-order number and need it on the paperwork. Turn this on and the field appears at checkout, is saved with the order, and is printed on the receipt and in every export."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:193
+msgid "Open the order exports screen"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:215
+msgid "Off — do not ask (default)"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:216
+msgid "Optional — show the field, allow an empty one"
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:217
+msgid "Required — refuse the order without one"
+msgstr ""
+
+#. translators: %d: the maximum number of characters a PO number may have.
+#: includes/Admin/Settings/CheckoutTab.php:238
+msgid "\"Required\" is enforced on the server, so it holds even if the checkout page is edited. Up to %d characters; anything longer is shortened rather than refused."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:254
+msgid "Leave all unchecked and every shopper is asked, including logged-out ones. Tick the wholesale roles to ask only your trade buyers."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:285
+msgid "Nobody. The field does not appear at checkout."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:298
+msgid "EVERY shopper, including logged-out ones, must enter a PO number to complete an order."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:299
+msgid "Every shopper, including logged-out ones, is offered the field. Nobody is refused for leaving it blank."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:306
+msgid "That includes your retail customers. If you only want it from trade buyers, tick their roles above."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Admin/Settings/CheckoutTab.php:315
+msgid "Only these roles are asked, and they must answer: %s."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Admin/Settings/CheckoutTab.php:318
+msgid "Only these roles are offered the field: %s."
+msgstr ""
+
+#: includes/Admin/Settings/CheckoutTab.php:328
+msgid "Everyone else checks out exactly as they do today."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:66
+msgid "Pricing"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:124
+msgid "Bulk Pricing Access"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:131
+msgid "Apply bulk pricing to"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:139
+msgid "Who sees tier prices"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:156
+msgid "Minimum Order Total"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:163
+msgid "Minimum order total"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:171
+msgid "Require it of"
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:219
+msgid "Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:241
+msgid "Leave all unchecked and bulk pricing applies to everyone — including logged-out visitors. See the summary below for what that means today."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:269
+msgid "Everyone, including logged-out visitors, can see tier prices on your product pages."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:274
+msgid "This is the default. To keep trade prices off the public storefront, tick the roles above that should see them — anyone else, signed in or not, then sees only your normal price."
+msgstr ""
+
+#. translators: %s: comma-separated list of role names.
+#: includes/Admin/Settings/PricingTab.php:286
+msgid "Only these roles see tier prices: %s."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:291
+msgid "Logged-out visitors do not. Administrators can always see the tier table so they can check it, but they are not given the discount at checkout — an administrator's own order is charged the same as any other shopper the policy excludes."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:304
+msgid "Require a minimum order value from specific roles. This is enforced at checkout on the server, so it cannot be bypassed by editing the page."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:327
+msgid "Leave blank or 0 for no minimum (default). Compared against the order subtotal, before shipping and tax."
+msgstr ""
+
+#: includes/Admin/Settings/PricingTab.php:343
+msgid "Leave all unchecked = the minimum applies to nobody. Unlike the setting above, this one is opt-in."
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:33
+msgid "Quotes"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:60
+#: includes/Quotes/QuoteReviewScreen.php:86
+#: includes/Quotes/QuoteReviewScreen.php:145
+#: includes/Quotes/QuoteStore.php:132
+msgid "Quote Requests"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:67
+#: includes/Integrations/Elementor/BulkOrderFormWidget.php:78
+#: includes/Shortcodes/BulkOrderForm.php:190
+msgid "Request a quote"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:95
+msgid "Lets a buyer send you their filled bulk order table and ask for a price instead of checking out. You review it, set the prices, and turn it into a FluentCart order — which also lets a buyer ask for a subscription product and a one-time product together, something the cart cannot do."
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:100
+msgid "Open the quote requests screen"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:115
+msgid "Show a \"Request a quote\" button on the bulk order form"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:118
+msgid "A \"quotes\" attribute on the shortcode still wins for that placement, so you can offer quotes on one page and not another."
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:135
+msgid "Email me when a buyer asks for a quote"
+msgstr ""
+
+#: includes/Admin/Settings/QuotesTab.php:138
+msgid "Sent to the site admin email. Repeat requests from the same buyer within fifteen minutes are not emailed again, but every one of them still appears on the quote requests screen."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:56
+#: includes/Admin/Settings/ShortcodesTab.php:83
+msgid "Shortcodes"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:100
+msgid "Paste one of these into any page, post or widget to place a surface. Every attribute is optional: leave it out and the shortcode follows the store-wide settings on the other tabs."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:159
+msgid "Copied"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:165
+msgid "Press Ctrl+C or Command+C to copy"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:166
+msgid "Copy shortcode"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:187
+msgid "This shortcode takes no attributes."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:196
+msgid "Attribute"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:197
+msgid "Value"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:198
+msgid "What it does"
+msgstr ""
+
+#. translators: %s: the name of the block and Elementor widget, e.g. "Product Table".
+#: includes/Admin/Settings/ShortcodesTab.php:234
+msgid "You do not need the shortcode for this one: it is also a \"%s\" block in the block editor and an Elementor widget of the same name, with these attributes as visual controls. Both render through the shortcode, so nothing behaves differently."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:257
+msgid "No page on this site uses this shortcode yet."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:268
+msgid "Already set up."
+msgstr ""
+
+#. translators: %s: the title of an existing page.
+#: includes/Admin/Settings/ShortcodesTab.php:272
+msgid "The page \"%s\" already uses this shortcode."
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:284
+msgid "Open that page in the editor"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:294
+msgid "View it on the site"
+msgstr ""
+
+#: includes/Admin/Settings/ShortcodesTab.php:331
+msgid "Create a draft page with this shortcode"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:32
+msgid "Surfaces"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:55
+msgid "Product Table Defaults"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:62
+#: includes/Integrations/Elementor/ProductTableWidget.php:68
+msgid "Rows per page"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:70
+#: includes/Integrations/Elementor/ProductTableWidget.php:75
+msgid "Columns"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:78
+msgid "Display"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:92
+msgid "Defaults for every [fluent_cart_product_table] on the site. A shortcode attribute always overrides what you set here, for that placement only."
+msgstr ""
+
+#. translators: 1: lowest allowed value, 2: highest allowed value, 3: the default.
+#: includes/Admin/Settings/SurfacesTab.php:118
+msgid "Between %1$d and %2$d. Default %3$d. Counts variant rows, not products."
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:136
+#: includes/Integrations/Elementor/ProductTableWidget.php:124
+#: includes/Shortcodes/ProductTable.php:108
+msgid "ID"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:137
+#: includes/Integrations/Elementor/ProductTableWidget.php:125
+#: includes/Shortcodes/ProductTable.php:109
+msgid "Title"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:138
+#: includes/Integrations/Elementor/ProductTableWidget.php:126
+#: includes/Shortcodes/ProductTable.php:110
+msgid "Price"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:139
+#: includes/Analytics/AnalyticsScreen.php:491
+#: includes/Display/SingleProductTiers.php:102
+#: includes/Export/OrderCsv.php:149
+#: includes/Export/OrderReceiptView.php:212
+#: includes/Integrations/Elementor/ProductTableWidget.php:127
+#: includes/Shortcodes/ProductTable.php:111
+msgid "Quantity"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:140
+#: includes/Integrations/Elementor/ProductTableWidget.php:128
+#: includes/Shortcodes/ProductTable.php:112
+msgid "Action"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:159
+msgid "Columns always appear in this order. Selecting all of them is the same as selecting none: the table shows everything."
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:176
+msgid "Show the search box"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:183
+msgid "Open variant rows by default"
+msgstr ""
+
+#: includes/Admin/Settings/SurfacesTab.php:186
+msgid "Opening variant rows suits small catalogues; leave it off when products have many variants."
+msgstr ""
+
+#: includes/Admin/ShortcodePages.php:231
+msgid "This action must be submitted from the Shortcodes settings tab."
+msgstr ""
+
+#: includes/Admin/ShortcodePages.php:246
+msgid "That is not a shortcode this plugin registers."
+msgstr ""
+
+#: includes/Admin/ShortcodePages.php:259
+msgid "You do not have permission to create pages on this site."
+msgstr ""
+
+#: includes/Admin/ShortcodePages.php:518
+msgid "That page could not be created. Check that your user can publish pages, then try again."
+msgstr ""
+
+#: includes/Admin/ShortcodePages.php:538
+#: includes/Admin/ShortcodePages.php:546
+msgid "Nothing was created — a page on this site already uses that shortcode."
+msgstr ""
+
+#. translators: %s: the title of an existing page.
+#: includes/Admin/ShortcodePages.php:551
+msgid "Edit \"%s\" instead."
 msgstr ""
 
 #: includes/Analytics/AnalyticsScreen.php:77
@@ -219,16 +752,6 @@ msgstr ""
 msgid "These priced real orders in this period but are no longer on any feed — they were edited or removed. Editing a tier makes a new one here, because the orders under the old one were charged the old price."
 msgstr ""
 
-#: includes/Analytics/AnalyticsScreen.php:491
-#: includes/Display/SingleProductTiers.php:102
-#: includes/Export/OrderCsv.php:149
-#: includes/Export/OrderReceiptView.php:212
-#: includes/Integrations/Elementor/ProductTableWidget.php:127
-#: includes/Settings.php:751
-#: includes/Shortcodes/ProductTable.php:111
-msgid "Quantity"
-msgstr ""
-
 #: includes/Analytics/AnalyticsScreen.php:492
 #: includes/Display/SingleProductTiers.php:416
 #: includes/Display/SingleProductTiers.php:434
@@ -303,10 +826,12 @@ msgstr ""
 
 #: includes/Analytics/Surface.php:131
 #: includes/Integrations/Elementor/BulkOrderFormWidget.php:40
+#: includes/Shortcodes/ShortcodeCatalog.php:98
 msgid "Bulk Order Form"
 msgstr ""
 
 #: includes/Analytics/Surface.php:133
+#: includes/Shortcodes/ShortcodeCatalog.php:100
 msgid "Saved Orders"
 msgstr ""
 
@@ -384,11 +909,6 @@ msgstr ""
 
 #: includes/BulkPricingIntegration.php:350
 msgid "Max Qty (0 = no limit)"
-msgstr ""
-
-#: includes/BulkPricingIntegration.php:354
-#: includes/Settings.php:1170
-msgid "Type"
 msgstr ""
 
 #: includes/BulkPricingIntegration.php:356
@@ -729,12 +1249,6 @@ msgstr ""
 msgid "Send the shopper here instead of the store checkout page. Same site only."
 msgstr ""
 
-#: includes/Integrations/Elementor/BulkOrderFormWidget.php:78
-#: includes/Settings.php:375
-#: includes/Shortcodes/BulkOrderForm.php:190
-msgid "Request a quote"
-msgstr ""
-
 #: includes/Integrations/Elementor/BulkOrderFormWidget.php:80
 msgid "Lets the buyer send this order to the store for a price instead of checking out."
 msgstr ""
@@ -748,21 +1262,12 @@ msgid "Do not offer"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:42
+#: includes/Shortcodes/ShortcodeCatalog.php:99
 msgid "Product Table"
-msgstr ""
-
-#: includes/Integrations/Elementor/ProductTableWidget.php:68
-#: includes/Settings.php:272
-msgid "Rows per page"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:72
 msgid "Leave blank to follow the store-wide setting."
-msgstr ""
-
-#: includes/Integrations/Elementor/ProductTableWidget.php:75
-#: includes/Settings.php:280
-msgid "Columns"
 msgstr ""
 
 #: includes/Integrations/Elementor/ProductTableWidget.php:83
@@ -805,32 +1310,8 @@ msgstr ""
 msgid "Collapsed"
 msgstr ""
 
-#: includes/Integrations/Elementor/ProductTableWidget.php:124
-#: includes/Settings.php:748
-#: includes/Shortcodes/ProductTable.php:108
-msgid "ID"
-msgstr ""
-
-#: includes/Integrations/Elementor/ProductTableWidget.php:125
-#: includes/Settings.php:749
-#: includes/Shortcodes/ProductTable.php:109
-msgid "Title"
-msgstr ""
-
-#: includes/Integrations/Elementor/ProductTableWidget.php:126
-#: includes/Settings.php:750
-#: includes/Shortcodes/ProductTable.php:110
-msgid "Price"
-msgstr ""
-
-#: includes/Integrations/Elementor/ProductTableWidget.php:128
-#: includes/Settings.php:752
-#: includes/Shortcodes/ProductTable.php:112
-msgid "Action"
-msgstr ""
-
 #: includes/Integrations/Elementor/ShortcodeWidget.php:85
-#: includes/Settings.php:104
+#: includes/Settings.php:120
 msgid "Settings"
 msgstr ""
 
@@ -1011,13 +1492,6 @@ msgstr ""
 
 #: includes/Quotes/QuoteOrder.php:340
 msgid "FluentCart could not find or create a customer for this buyer."
-msgstr ""
-
-#: includes/Quotes/QuoteReviewScreen.php:86
-#: includes/Quotes/QuoteReviewScreen.php:145
-#: includes/Quotes/QuoteStore.php:132
-#: includes/Settings.php:368
-msgid "Quote Requests"
 msgstr ""
 
 #: includes/Quotes/QuoteReviewScreen.php:137
@@ -1214,367 +1688,6 @@ msgstr ""
 msgid "Your request could not be saved. Please try again."
 msgstr ""
 
-#: includes/Settings.php:166
-msgid "Bulk Pricing Access"
-msgstr ""
-
-#: includes/Settings.php:173
-msgid "Apply bulk pricing to"
-msgstr ""
-
-#: includes/Settings.php:181
-msgid "Who sees tier prices"
-msgstr ""
-
-#: includes/Settings.php:215
-msgid "Minimum Order Total"
-msgstr ""
-
-#: includes/Settings.php:222
-msgid "Minimum order total"
-msgstr ""
-
-#: includes/Settings.php:230
-msgid "Require it of"
-msgstr ""
-
-#: includes/Settings.php:244
-msgid "Surface Access"
-msgstr ""
-
-#: includes/Settings.php:251
-msgid "Also allow these roles"
-msgstr ""
-
-#: includes/Settings.php:265
-msgid "Product Table Defaults"
-msgstr ""
-
-#: includes/Settings.php:288
-msgid "Display"
-msgstr ""
-
-#: includes/Settings.php:302
-msgid "Checkout"
-msgstr ""
-
-#: includes/Settings.php:309
-msgid "Send bulk orders to"
-msgstr ""
-
-#: includes/Settings.php:327
-msgid "Purchase Orders"
-msgstr ""
-
-#: includes/Settings.php:334
-msgid "PO number field"
-msgstr ""
-
-#: includes/Settings.php:342
-msgid "Ask these roles"
-msgstr ""
-
-#: includes/Settings.php:350
-msgid "Who this binds"
-msgstr ""
-
-#: includes/Settings.php:383
-#: includes/Settings.php:416
-msgid "Notifications"
-msgstr ""
-
-#: includes/Settings.php:401
-#: includes/Wholesale/ReviewScreen.php:79
-#: includes/Wholesale/ReviewScreen.php:135
-msgid "Wholesale Applications"
-msgstr ""
-
-#: includes/Settings.php:408
-msgid "Extra questions"
-msgstr ""
-
-#: includes/Settings.php:424
-msgid "FluentCRM tags"
-msgstr ""
-
-#: includes/Settings.php:470
-msgid "Choose which user roles receive quantity-based bulk pricing. This governs two things at once: the discounted price charged in the cart, and whether the tier table is shown on public product pages."
-msgstr ""
-
-#: includes/Settings.php:530
-msgid "Leave all unchecked and bulk pricing applies to everyone — including logged-out visitors. See the summary below for what that means today."
-msgstr ""
-
-#: includes/Settings.php:558
-msgid "Everyone, including logged-out visitors, can see tier prices on your product pages."
-msgstr ""
-
-#: includes/Settings.php:563
-msgid "This is the default. To keep trade prices off the public storefront, tick the roles above that should see them — anyone else, signed in or not, then sees only your normal price."
-msgstr ""
-
-#. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:581
-msgid "Only these roles see tier prices: %s."
-msgstr ""
-
-#: includes/Settings.php:586
-msgid "Logged-out visitors do not. Administrators can always see the tier table so they can check it, but they are not given the discount at checkout — an administrator's own order is charged the same as any other shopper the policy excludes."
-msgstr ""
-
-#: includes/Settings.php:597
-msgid "Require a minimum order value from specific roles. This is enforced at checkout on the server, so it cannot be bypassed by editing the page."
-msgstr ""
-
-#: includes/Settings.php:618
-msgid "Leave blank or 0 for no minimum (default). Compared against the order subtotal, before shipping and tax."
-msgstr ""
-
-#: includes/Settings.php:631
-msgid "Leave all unchecked = the minimum applies to nobody. Unlike the setting above, this one is opt-in."
-msgstr ""
-
-#: includes/Settings.php:658
-msgid "Administrators and wholesale customers can always reach the bulk order form, the product table and saved orders. Add any other roles that should reach them too."
-msgstr ""
-
-#: includes/Settings.php:692
-msgid "(always allowed)"
-msgstr ""
-
-#: includes/Settings.php:697
-msgid "This widens both the on-page surfaces and the REST endpoints behind them, so a role added here can actually load products. A shortcode \"roles\" attribute still widens one placement only, and does not reach the REST routes."
-msgstr ""
-
-#: includes/Settings.php:708
-msgid "Defaults for every [fluent_cart_product_table] on the site. A shortcode attribute always overrides what you set here, for that placement only."
-msgstr ""
-
-#. translators: 1: lowest allowed value, 2: highest allowed value, 3: the default.
-#: includes/Settings.php:732
-msgid "Between %1$d and %2$d. Default %3$d. Counts variant rows, not products."
-msgstr ""
-
-#: includes/Settings.php:771
-msgid "Columns always appear in this order. Selecting all of them is the same as selecting none: the table shows everything."
-msgstr ""
-
-#: includes/Settings.php:786
-msgid "Show the search box"
-msgstr ""
-
-#: includes/Settings.php:793
-msgid "Open variant rows by default"
-msgstr ""
-
-#: includes/Settings.php:796
-msgid "Opening variant rows suits small catalogues; leave it off when products have many variants."
-msgstr ""
-
-#: includes/Settings.php:807
-msgid "By default a finished bulk order goes to the store checkout page. Point it somewhere else if wholesale orders use their own checkout."
-msgstr ""
-
-#: includes/Settings.php:825
-msgid "Leave blank to use the store checkout page. Must be on this site — an address anywhere else is discarded on save. A \"redirect\" attribute on the shortcode still wins for that placement."
-msgstr ""
-
-#: includes/Settings.php:861
-msgid "Purchasing departments buy against a purchase-order number and need it on the paperwork. Turn this on and the field appears at checkout, is saved with the order, and is printed on the receipt and in every export."
-msgstr ""
-
-#: includes/Settings.php:870
-msgid "Open the order exports screen"
-msgstr ""
-
-#: includes/Settings.php:890
-msgid "Off — do not ask (default)"
-msgstr ""
-
-#: includes/Settings.php:891
-msgid "Optional — show the field, allow an empty one"
-msgstr ""
-
-#: includes/Settings.php:892
-msgid "Required — refuse the order without one"
-msgstr ""
-
-#. translators: %d: the maximum number of characters a PO number may have.
-#: includes/Settings.php:913
-msgid "\"Required\" is enforced on the server, so it holds even if the checkout page is edited. Up to %d characters; anything longer is shortened rather than refused."
-msgstr ""
-
-#: includes/Settings.php:947
-msgid "Leave all unchecked and every shopper is asked, including logged-out ones. Tick the wholesale roles to ask only your trade buyers."
-msgstr ""
-
-#: includes/Settings.php:979
-msgid "Nobody. The field does not appear at checkout."
-msgstr ""
-
-#: includes/Settings.php:992
-msgid "EVERY shopper, including logged-out ones, must enter a PO number to complete an order."
-msgstr ""
-
-#: includes/Settings.php:993
-msgid "Every shopper, including logged-out ones, is offered the field. Nobody is refused for leaving it blank."
-msgstr ""
-
-#: includes/Settings.php:1000
-msgid "That includes your retail customers. If you only want it from trade buyers, tick their roles above."
-msgstr ""
-
-#. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:1015
-msgid "Only these roles are asked, and they must answer: %s."
-msgstr ""
-
-#. translators: %s: comma-separated list of role names.
-#: includes/Settings.php:1018
-msgid "Only these roles are offered the field: %s."
-msgstr ""
-
-#: includes/Settings.php:1028
-msgid "Everyone else checks out exactly as they do today."
-msgstr ""
-
-#: includes/Settings.php:1049
-msgid "Lets a buyer send you their filled bulk order table and ask for a price instead of checking out. You review it, set the prices, and turn it into a FluentCart order — which also lets a buyer ask for a subscription product and a one-time product together, something the cart cannot do."
-msgstr ""
-
-#: includes/Settings.php:1054
-msgid "Open the quote requests screen"
-msgstr ""
-
-#: includes/Settings.php:1067
-msgid "Show a \"Request a quote\" button on the bulk order form"
-msgstr ""
-
-#: includes/Settings.php:1070
-msgid "A \"quotes\" attribute on the shortcode still wins for that placement, so you can offer quotes on one page and not another."
-msgstr ""
-
-#: includes/Settings.php:1085
-msgid "Email me when a buyer asks for a quote"
-msgstr ""
-
-#: includes/Settings.php:1088
-msgid "Sent to the site admin email. Repeat requests from the same buyer within fifteen minutes are not emailed again, but every one of them still appears on the quote requests screen."
-msgstr ""
-
-#: includes/Settings.php:1131
-msgid "Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Bulk Order > Wholesale Applications, and approving one grants the Wholesale Customer role."
-msgstr ""
-
-#: includes/Settings.php:1139
-msgid "The form always asks for a company name and a tax / VAT ID. Anything below is asked as well."
-msgstr ""
-
-#: includes/Settings.php:1162
-msgid "Single line"
-msgstr ""
-
-#: includes/Settings.php:1163
-msgid "Paragraph"
-msgstr ""
-
-#: includes/Settings.php:1164
-msgid "Choose one"
-msgstr ""
-
-#: includes/Settings.php:1165
-msgid "Tick box"
-msgstr ""
-
-#: includes/Settings.php:1169
-msgid "Question"
-msgstr ""
-
-#: includes/Settings.php:1171
-msgid "Choices"
-msgstr ""
-
-#: includes/Settings.php:1172
-msgid "Required"
-msgstr ""
-
-#: includes/Settings.php:1189
-msgid "Clear a question to remove it. \"Choices\" is only used by \"Choose one\" — put one choice on each line. A \"Choose one\" question with no choices is dropped, because nobody could answer it."
-msgstr ""
-
-#: includes/Settings.php:1197
-msgid "Answers already given are stored under the question's key. Renaming a question keeps its key, so past applications keep their answers; changing the key starts a new question."
-msgstr ""
-
-#. translators: %d: the maximum number of extra questions.
-#: includes/Settings.php:1210
-msgid "A key is worked out from the question when you leave it blank, using only Latin letters and digits — so if your question is written in another script, type a key yourself. company_name and tax_id are taken by the two built-in questions. At most %d extra questions."
-msgstr ""
-
-#: includes/Settings.php:1218
-msgid "You have reached the limit. Clear a question to make room for another."
-msgstr ""
-
-#: includes/Settings.php:1247
-msgid "e.g. Trade reference"
-msgstr ""
-
-#: includes/Settings.php:1252
-msgid "Key"
-msgstr ""
-
-#: includes/Settings.php:1255
-msgid "auto"
-msgstr ""
-
-#: includes/Settings.php:1276
-msgid ""
-"Retail\n"
-"Wholesale"
-msgstr ""
-
-#: includes/Settings.php:1291
-msgid "Must answer"
-msgstr ""
-
-#: includes/Settings.php:1306
-msgid "Email me when someone applies"
-msgstr ""
-
-#. translators: %s: the site's admin email address.
-#: includes/Settings.php:1313
-msgid "Sent to %s. Applicants are always emailed when you approve or reject them."
-msgstr ""
-
-#: includes/Settings.php:1347
-msgid "FluentCRM has no tags yet. Create one in FluentCRM first, then choose it here."
-msgstr ""
-
-#: includes/Settings.php:1348
-msgid "FluentCRM is not active on this site, so there is nothing to tag. Activate it and these options appear."
-msgstr ""
-
-#: includes/Settings.php:1356
-msgid "When someone applies"
-msgstr ""
-
-#: includes/Settings.php:1362
-msgid "When you approve them"
-msgstr ""
-
-#: includes/Settings.php:1368
-msgid "The applicant's contact is tagged so you can run FluentCRM automations from it. A contact is created if they do not have one; an existing contact is never changed beyond the tag."
-msgstr ""
-
-#: includes/Settings.php:1422
-msgid "— no tag —"
-msgstr ""
-
-#. translators: %d: a FluentCRM tag id that no longer exists.
-#: includes/Settings.php:1435
-msgid "Tag #%d — no longer in FluentCRM"
-msgstr ""
-
 #: includes/Shortcodes/BulkOrderForm.php:55
 msgid "Please log in to access the bulk order form."
 msgstr ""
@@ -1696,6 +1809,74 @@ msgstr ""
 
 #: includes/Shortcodes/SavedOrders.php:115
 msgid "Loading saved orders..."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:101
+msgid "Wholesale Application"
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:116
+msgid "The bulk order form: a permitted buyer searches products by name or SKU, or pastes a SKU list, sets quantities line by line and sends the whole order to checkout in one action."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:120
+msgid "A paginated table of your catalogue with a quantity box on every row, so a buyer can add several products to the cart without opening a single product page."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:124
+msgid "A buyer's own saved orders, re-priced against the live catalogue every time they are opened, each with a one-click reorder."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:128
+msgid "The form a signed-in shopper fills in to ask for a wholesale account, which you then approve or reject from the Wholesale Applications screen."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:147
+msgid "Comma-separated role slugs allowed to open this placement. Leave it out to use the store-wide access policy."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:151
+msgid "Where the buyer is sent after the order goes to checkout. Leave it out to use the store-wide setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:155
+msgid "Whether this placement offers \"Request a quote\". Leave it out to follow the Quotes setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:159
+msgid "How many variant rows one page of the table shows. Leave it out to use the Surfaces setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:163
+msgid "Which columns to show, comma separated, from: id, title, price, qty, action. Leave it out to use the Surfaces setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:167
+msgid "Whether the search box is shown above the table. Leave it out to use the Surfaces setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:171
+msgid "Limit the table to one product category, given as its slug or its id."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:175
+msgid "Whether variant rows start open. Leave it out to use the Surfaces setting."
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:190
+msgid "text"
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:191
+msgid "number"
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:192
+msgid "comma-separated list"
+msgstr ""
+
+#: includes/Shortcodes/ShortcodeCatalog.php:193
+msgid "true or false"
 msgstr ""
 
 #: includes/Shortcodes/ShortcodeHandler.php:186

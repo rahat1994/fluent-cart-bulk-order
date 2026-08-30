@@ -78,19 +78,30 @@ class Tabs
     const QUOTES = 'quotes';
 
     /**
+     * Every tag the plugin registers, and a page to put one on.
+     */
+    const SHORTCODES = 'shortcodes';
+
+    /**
      * Slug => class, in the order the tabs are drawn.
      *
      * The FIRST entry is the default tab: it is what an owner lands on from the
      * menu, and what an unknown `?tab=` falls back to. Pricing holds that spot
      * because it is the one thing a store cannot use this plugin without
      * setting.
+     *
+     * Shortcodes is LAST, and it is the one tab that stores nothing: it is a
+     * reference an owner reads once while placing the surfaces, not a setting
+     * they come back to. @see ShortcodesTab, and Tab::isForm() for what a tab
+     * with nothing to save does differently.
      */
     const CLASSES = [
-        self::PRICING  => PricingTab::class,
-        self::ACCESS   => AccessTab::class,
-        self::SURFACES => SurfacesTab::class,
-        self::CHECKOUT => CheckoutTab::class,
-        self::QUOTES   => QuotesTab::class,
+        self::PRICING    => PricingTab::class,
+        self::ACCESS     => AccessTab::class,
+        self::SURFACES   => SurfacesTab::class,
+        self::CHECKOUT   => CheckoutTab::class,
+        self::QUOTES     => QuotesTab::class,
+        self::SHORTCODES => ShortcodesTab::class,
     ];
 
     /**
@@ -105,7 +116,7 @@ class Tabs
      *
      * The tab files are required here rather than by the plugin bootstrap.
      * Settings.php is loaded on EVERY page load — AccessPolicy reads its page
-     * slug — while these five classes are only ever needed on `admin_init` and
+     * slug — while these tab classes are only ever needed on `admin_init` and
      * on one admin screen.
      *
      * @return array<string, Tab>

@@ -256,6 +256,29 @@ add_action('plugins_loaded', function () {
     // Admin settings page for the "apply bulk pricing to roles" policy.
     // The file itself is required at the top of this plugin file.
     (new \FluentCartBulkOrder\Settings())->register();
+
+    // The Shortcodes tab's create-a-page button. Only the admin needs the
+    // action itself — admin-post.php is an admin request — so the class loads
+    // only there.
+    if (is_admin()) {
+        require_once FCBO_DIR . 'includes/Admin/ShortcodePages.php';
+        \FluentCartBulkOrder\Admin\ShortcodePages::register();
+    }
+
+    // Cache invalidation for that tab's "is this tag already on a page?"
+    // lookup, registered OUTSIDE the is_admin() branch above and deliberately
+    // so: the block editor saves a page over the REST API, which is not an
+    // admin request, and that is by far the most common way a page gains or
+    // loses one of our tags. Registering these inside the branch would leave
+    // the answer stale until the transient expired.
+    //
+    // Through a delegate rather than the class, so an ordinary front-end
+    // request does not load a class it will never call. @see
+    // \FluentCartBulkOrder\Admin\ShortcodePages for the cost this cache buys.
+    add_action('save_post_page', 'fcbo_flush_shortcode_pages');
+    add_action('deleted_post', 'fcbo_flush_shortcode_pages');
+
+    add_action('admin_enqueue_scripts', 'fcbo_enqueue_shortcodes_tab_assets');
 });
 
 /*
@@ -411,6 +434,77 @@ function fcbo_render_shortcode($atts = [])
     require_once FCBO_DIR . 'includes/Shortcodes/ShortcodeHandler.php';
 
     return \FluentCartBulkOrder\Shortcodes\ShortcodeHandler::renderTag('fluent_cart_bulk_order', $atts);
+}
+
+/**
+ * Drop the cached "which pages hold which of our shortcodes" map.
+ *
+ * Hooked to page saves and post deletions, both of which can happen on a
+ * request that is not an admin request at all. @see the registration in the
+ * `plugins_loaded` handler above for why that matters.
+ *
+ * @return void
+ */
+function fcbo_flush_shortcode_pages()
+{
+    require_once FCBO_DIR . 'includes/Admin/ShortcodePages.php';
+
+    \FluentCartBulkOrder\Admin\ShortcodePages::flush();
+}
+
+/**
+ * Load the copy button and the card styling on the Shortcodes settings tab.
+ *
+ * Scoped to that one tab rather than the whole settings page: the other five
+ * tabs have no copy buttons and no cards, and an admin screen should not carry
+ * a script it cannot use.
+ *
+ * @param string $hook The current admin page's hook suffix.
+ * @return void
+ */
+function fcbo_enqueue_shortcodes_tab_assets($hook)
+{
+    // Matched by suffix rather than against a literal `toplevel_page_...`.
+    // WordPress derives the prefix from where the screen hangs in the menu, so
+    // a literal would break the day the menu moves — which has already happened
+    // once. @see \FluentCartBulkOrder\Admin\Menu
+    $suffix = '_page_' . \FluentCartBulkOrder\Settings::PAGE_SLUG;
+
+    if (substr((string) $hook, -strlen($suffix)) !== $suffix) {
+        return;
+    }
+
+    require_once FCBO_DIR . 'includes/Admin/Settings/Tabs.php';
+
+    $arg = \FluentCartBulkOrder\Admin\Settings\Tabs::QUERY_ARG;
+
+    // A non-string (`?tab[]=x`) is dropped rather than cast: sanitize_key() on
+    // an array is a fatal, and this runs on every admin page load.
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- choosing which stylesheet a read-only GET render needs. Tabs::current() turns anything that is not a real tab into the default one.
+    $requested = isset($_GET[$arg]) && is_string($_GET[$arg])
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- as above.
+        ? sanitize_key(wp_unslash($_GET[$arg]))
+        : '';
+
+    if (\FluentCartBulkOrder\Admin\Settings\Tabs::current($requested)
+        !== \FluentCartBulkOrder\Admin\Settings\Tabs::SHORTCODES) {
+        return;
+    }
+
+    wp_enqueue_style(
+        'fcbo-admin-shortcodes',
+        FCBO_URL . 'assets/css/admin-shortcodes.css',
+        [],
+        FCBO_VERSION
+    );
+
+    wp_enqueue_script(
+        'fcbo-admin-shortcodes',
+        FCBO_URL . 'assets/js/admin-shortcodes.js',
+        [],
+        FCBO_VERSION,
+        true
+    );
 }
 
 /**

@@ -1,0 +1,43 @@
+/*
+ * The Shortcodes settings tab.
+ *
+ * Deliberately small. Everything structural — buttons, tables, descriptions —
+ * uses wp-admin's own classes so the screen follows the admin colour scheme and
+ * every future WordPress restyle, and this file only does the one thing core
+ * has no class for: separating four cards on one page.
+ */
+
+.fcbo-shortcode-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	margin: 0 0 20px;
+	max-width: 900px;
+	padding: 12px 16px 16px;
+}
+
+.fcbo-shortcode-card .fcbo-shortcode-title {
+	margin-top: 0;
+}
+
+.fcbo-shortcode-snippet code {
+	font-size: 14px;
+	padding: 4px 8px;
+}
+
+/* Keeps the "Copied" confirmation from shifting the button as it appears. */
+.fcbo-copy-feedback {
+	color: #2271b1;
+	display: inline-block;
+	min-width: 10em;
+	padding-left: 8px;
+}
+
+.fcbo-shortcode-attributes {
+	margin: 8px 0 12px;
+	max-width: 100%;
+}
+
+.fcbo-shortcode-attributes td code {
+	white-space: nowrap;
+}

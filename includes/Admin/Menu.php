@@ -194,8 +194,21 @@ class Menu
         add_action('admin_menu', [self::class, 'addMenuPage'], self::PARENT_PRIORITY);
         add_action('admin_menu', [self::class, 'addParentBubble'], self::BUBBLE_PRIORITY);
 
-        // Old links. `admin_init` because WordPress refuses an unregistered
-        // plugin page a few lines AFTER firing it, in wp-admin/admin.php.
+        // Old links, caught on two hooks because WordPress refuses them in two
+        // different places.
+        //
+        //   admin_page_access_denied  where four of the five now end up.
+        //                             wp-admin/includes/menu.php runs its
+        //                             access check while building the menu,
+        //                             BEFORE `admin_init`, and fires this
+        //                             immediately before wp_die( ..., 403 ).
+        //   admin_init                for the settings screen, which does not
+        //                             die: its slug is the top-level menu's own
+        //                             slug, so WordPress resolves it under any
+        //                             parent file. It is redirected anyway, so
+        //                             one bookmark cannot leave an owner on a
+        //                             URL that highlights the wrong menu.
+        add_action('admin_page_access_denied', [self::class, 'redirectLegacyUrls']);
         add_action('admin_init', [self::class, 'redirectLegacyUrls']);
 
         // Every event that can change one of the two counts. Registered

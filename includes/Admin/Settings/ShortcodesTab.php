@@ -157,7 +157,12 @@ class ShortcodesTab extends Tab
             '<button type="button" class="button fcbo-copy-button" data-fcbo-copy="%1$s" data-fcbo-copied="%2$s" data-fcbo-manual="%3$s">%4$s</button>',
             esc_attr($snippet),
             esc_attr__('Copied', 'fluent-cart-bulk-order'),
-            esc_attr__('Press Ctrl+C to copy', 'fluent-cart-bulk-order'),
+            // Both shortcuts named: this is the last-resort branch, shown when
+            // neither the clipboard API nor execCommand worked, and telling a Mac
+            // owner to press a key that does nothing turns a fallback into a
+            // dead end. Platform-sniffing to pick one would be a user-agent
+            // guess in aid of four characters.
+            esc_attr__('Press Ctrl+C or Command+C to copy', 'fluent-cart-bulk-order'),
             esc_html__('Copy shortcode', 'fluent-cart-bulk-order')
         );
 

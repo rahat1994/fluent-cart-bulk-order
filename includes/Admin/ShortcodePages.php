@@ -265,6 +265,18 @@ class ShortcodePages
         // Re-asked here rather than trusted from the form. The button is hidden
         // once a page holds the tag, but a stale tab still has the old form in
         // it, and this is the check that stops a second page being made.
+        //
+        // FLUSHED FIRST, so this one question is answered from the database
+        // rather than the transient. The cache exists to keep RENDERING cheap —
+        // the tab asks this for four tags on every load. A create is a rare,
+        // deliberate click, and the invalidation hooks cannot cover every way a
+        // page gains a shortcode: an importer, a migration, a direct SQL edit
+        // or any code path that writes a post without firing `save_post_page`
+        // leaves the map wrong for up to five minutes. Trusting it here would
+        // turn "stale by a few minutes" into a duplicate draft the owner has to
+        // notice and delete. One query on a button press is the right trade.
+        self::flush();
+
         $existing = self::pageUsing($tag);
 
         if ($existing) {

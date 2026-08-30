@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-30T07:56:49+00:00\n"
+"POT-Creation-Date: 2026-08-30T08:11:38+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.6.0\n"
 "X-Domain: fluent-cart-bulk-order\n"
@@ -442,57 +442,57 @@ msgstr ""
 msgid "Copied"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:160
-msgid "Press Ctrl+C to copy"
+#: includes/Admin/Settings/ShortcodesTab.php:165
+msgid "Press Ctrl+C or Command+C to copy"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:161
+#: includes/Admin/Settings/ShortcodesTab.php:166
 msgid "Copy shortcode"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:182
+#: includes/Admin/Settings/ShortcodesTab.php:187
 msgid "This shortcode takes no attributes."
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:191
+#: includes/Admin/Settings/ShortcodesTab.php:196
 msgid "Attribute"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:192
+#: includes/Admin/Settings/ShortcodesTab.php:197
 msgid "Value"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:193
+#: includes/Admin/Settings/ShortcodesTab.php:198
 msgid "What it does"
 msgstr ""
 
 #. translators: %s: the name of the block and Elementor widget, e.g. "Product Table".
-#: includes/Admin/Settings/ShortcodesTab.php:229
+#: includes/Admin/Settings/ShortcodesTab.php:234
 msgid "You do not need the shortcode for this one: it is also a \"%s\" block in the block editor and an Elementor widget of the same name, with these attributes as visual controls. Both render through the shortcode, so nothing behaves differently."
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:252
+#: includes/Admin/Settings/ShortcodesTab.php:257
 msgid "No page on this site uses this shortcode yet."
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:263
+#: includes/Admin/Settings/ShortcodesTab.php:268
 msgid "Already set up."
 msgstr ""
 
 #. translators: %s: the title of an existing page.
-#: includes/Admin/Settings/ShortcodesTab.php:267
+#: includes/Admin/Settings/ShortcodesTab.php:272
 msgid "The page \"%s\" already uses this shortcode."
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:279
+#: includes/Admin/Settings/ShortcodesTab.php:284
 msgid "Open that page in the editor"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:289
+#: includes/Admin/Settings/ShortcodesTab.php:294
 msgid "View it on the site"
 msgstr ""
 
-#: includes/Admin/Settings/ShortcodesTab.php:326
+#: includes/Admin/Settings/ShortcodesTab.php:331
 msgid "Create a draft page with this shortcode"
 msgstr ""
 
@@ -589,17 +589,17 @@ msgstr ""
 msgid "You do not have permission to create pages on this site."
 msgstr ""
 
-#: includes/Admin/ShortcodePages.php:506
+#: includes/Admin/ShortcodePages.php:518
 msgid "That page could not be created. Check that your user can publish pages, then try again."
 msgstr ""
 
-#: includes/Admin/ShortcodePages.php:526
-#: includes/Admin/ShortcodePages.php:534
+#: includes/Admin/ShortcodePages.php:538
+#: includes/Admin/ShortcodePages.php:546
 msgid "Nothing was created — a page on this site already uses that shortcode."
 msgstr ""
 
 #. translators: %s: the title of an existing page.
-#: includes/Admin/ShortcodePages.php:539
+#: includes/Admin/ShortcodePages.php:551
 msgid "Edit \"%s\" instead."
 msgstr ""
 

@@ -12,7 +12,8 @@
  *    administered over plain http, and a staging site on http almost always is.
  * 2. document.execCommand('copy') over a temporary textarea — deprecated, and
  *    still the only thing that works in case 1.
- * 3. Selecting the shortcode text and telling the owner to press Ctrl+C. Not a
+ * 3. Selecting the shortcode text and telling the owner to press Ctrl+C or
+ *    Command+C, since this branch cannot know which platform it is on. Not a
  *    failure message; it is a working instruction.
  *
  * The fourth is the markup itself: the tag is printed in a visible <code>

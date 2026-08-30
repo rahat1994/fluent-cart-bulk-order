@@ -62,7 +62,7 @@ defined('ABSPATH') || exit;
  *       frees the role list to mean the plainer thing — "no restriction" — and
  *       an owner who wants PO numbers from wholesale buyers only ticks the
  *       roles. The settings page states, in words, who the current combination
- *       actually binds. @see \FluentCartBulkOrder\Settings::renderPoAudienceField()
+ *       actually binds. @see \FluentCartBulkOrder\Admin\Settings\CheckoutTab::renderPoAudienceField()
  *
  * ---------------------------------------------------------------------------
  * HOW THE GATES INTERACT — the traps

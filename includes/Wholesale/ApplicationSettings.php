@@ -18,7 +18,7 @@ defined('ABSPATH') || exit;
  * normalising every caller would otherwise repeat, and it writes nothing. The
  * settings page owns the writing.
  *
- * @see \FluentCartBulkOrder\Settings::registerWholesaleSection() The form.
+ * @see \FluentCartBulkOrder\Admin\Settings\AccessTab The form.
  */
 class ApplicationSettings
 {

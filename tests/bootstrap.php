@@ -37,6 +37,59 @@ if (!function_exists('sanitize_text_field')) {
     }
 }
 
+// StoreDefaults::sanitize() validates role lists through AccessPolicy, which
+// calls get_editable_roles() — a wp-admin function AccessPolicy::editableRoles()
+// has to require_once because it is absent outside wp-admin. There is no
+// wp-admin here at all, so this stub stands in for the whole file.
+//
+// It returns the roles this plugin's own tests reason about, which is enough:
+// what is under test is which KEYS survive a tabbed save, and a role list is
+// only along for the ride as one of those keys' values.
+// The sanitizers reach for these WordPress helpers. Passthrough-ish stubs: what
+// is under test is which settings KEYS survive a save, not how WordPress scrubs
+// a string, and a stub that reimplemented the scrubbing would be testing itself.
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key)
+    {
+        return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $key));
+    }
+}
+
+if (!function_exists('absint')) {
+    function absint($n)
+    {
+        return abs((int) $n);
+    }
+}
+
+if (!function_exists('esc_url_raw')) {
+    function esc_url_raw($url)
+    {
+        return trim((string) $url);
+    }
+}
+
+if (!function_exists('wp_unslash')) {
+    function wp_unslash($value)
+    {
+        return is_string($value) ? stripslashes($value) : $value;
+    }
+}
+
+if (!function_exists('get_editable_roles')) {
+    function get_editable_roles()
+    {
+        return [
+            'administrator'      => ['name' => 'Administrator'],
+            'editor'             => ['name' => 'Editor'],
+            'author'             => ['name' => 'Author'],
+            'subscriber'         => ['name' => 'Subscriber'],
+            'customer'           => ['name' => 'Customer'],
+            'wholesale-customer' => ['name' => 'Wholesale Customer'],
+        ];
+    }
+}
+
 if (!function_exists('esc_html')) {
     function esc_html($text)
     {

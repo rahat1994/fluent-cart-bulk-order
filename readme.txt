@@ -42,7 +42,7 @@ Everything is gated by user role, so your retail shop stays exactly as it is. On
 = Trade accounts =
 
 * **Wholesale application form** — a shortcode a signed-in shopper can use to apply for a trade account. Ask for a company name and a tax or VAT ID plus any questions you add yourself: single line, paragraph, choose-one or tick box, required or not.
-* **Review screen** — applications land under Users with a pending count in the menu. Approving one grants the wholesale role; the applicant and the store owner are emailed either way.
+* **Review screen** — applications land under **Bulk Order → Wholesale Applications** with a pending count in the menu. Approving one grants the wholesale role; the applicant and the store owner are emailed either way.
 * **FluentCRM tagging** — if FluentCRM is active, apply a tag when an application is received and another when it is approved, so your email automations can pick it up.
 
 = Quotes, PO numbers and paperwork =
@@ -79,9 +79,7 @@ The plugin makes no external HTTP requests, sends nothing to any third-party ser
 5. Add `[fluent_cart_bulk_order]` to a page, or drop the **Bulk Order Form** block on it.
 6. Set up your quantity tiers in FluentCart under the Bulk Pricing integration — store-wide, or on a single product.
 
-The plugin's admin screens are:
-
-All five live together under one **Bulk Order** menu in the admin sidebar:
+All five of the plugin's admin screens live together under one **Bulk Order** menu in the admin sidebar:
 
 * **Bulk Order → Settings** — roles, store-wide surface defaults, order rules, PO number, quotes and the wholesale application form.
 * **Bulk Order → Quote Requests** — price, accept or decline a quote.

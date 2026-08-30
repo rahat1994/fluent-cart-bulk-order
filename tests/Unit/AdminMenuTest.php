@@ -103,6 +103,61 @@ class AdminMenuTest extends TestCase
     }
 
     /**
+     * A bookmark carries more than a screen name, and losing the rest looks
+     * like success.
+     *
+     * The admin emails this plugin has already sent link straight to a pending
+     * application with its status filter attached. Landing on the right screen
+     * with `status` dropped shows the owner a different list than the one the
+     * link promised, and nothing about that reads as a bug.
+     */
+    public function testLegacyRedirectKeepsEveryScalarArgument()
+    {
+        $args = Menu::legacyArgs([
+            'page'   => Menu::SLUG_WHOLESALE,
+            'status' => 'pending',
+            'paged'  => '3',
+            's'      => 'acme corp',
+            'period' => 'last_30_days',
+        ]);
+
+        $this->assertSame(Menu::SLUG_WHOLESALE, $args['page']);
+        $this->assertSame('pending', $args['status']);
+        $this->assertSame('3', $args['paged']);
+        $this->assertSame('acme corp', $args['s']);
+        $this->assertSame('last_30_days', $args['period']);
+    }
+
+    /**
+     * An argument this map has never heard of still travels.
+     *
+     * Menu.php cannot know which screen owns which filter, and the next screen
+     * to add one would otherwise have its links quietly truncated by code
+     * nobody thought to revisit.
+     */
+    public function testLegacyRedirectKeepsArgumentsItDoesNotRecognise()
+    {
+        $args = Menu::legacyArgs(['page' => Menu::SLUG_QUOTES, 'some_future_filter' => 'yes']);
+
+        $this->assertSame('yes', $args['some_future_filter']);
+    }
+
+    /**
+     * Arrays are dropped, not walked. No screen of ours takes one, and a nested
+     * value has no place in a URL handed to add_query_arg().
+     */
+    public function testLegacyRedirectDropsArrayArguments()
+    {
+        $args = Menu::legacyArgs([
+            'page'   => Menu::SLUG_EXPORTS,
+            'nested' => ['a' => 'b'],
+        ]);
+
+        $this->assertArrayNotHasKey('nested', $args);
+        $this->assertSame(Menu::SLUG_EXPORTS, $args['page']);
+    }
+
+    /**
      * A slug missing from this map is a screen whose old bookmarks die with
      * "Cannot load" — WordPress refuses a plugin page requested under a parent
      * file it was not registered on.

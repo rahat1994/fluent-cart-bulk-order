@@ -127,8 +127,12 @@ of ours left under Settings or Users. Open each one; each loads its own screen.
 With a waiting quote or application, the count shows on both the submenu row and
 the **Bulk Order** row itself.
 *Also:* `/wp-admin/options-general.php?page=fcbo-settings` and
-`/wp-admin/users.php?page=fcbo-wholesale-applications` — the addresses the
-screens used to have — redirect to the new ones instead of failing.
+`/wp-admin/users.php?page=fcbo-wholesale-applications&status=pending&paged=2` —
+the addresses the screens used to have — redirect to the new ones instead of
+failing, **and the second one still arrives on page 2 of the pending list**.
+Losing `status` and `paged` here would look like the redirect worked while
+showing a different list than the link promised — and the review emails this
+plugin has already sent carry exactly that kind of URL.
 
 **1.5 Deactivate**
 Deactivate the plugin, then reactivate it.
@@ -621,7 +625,7 @@ Paste 500 characters.
 no Quotes admin screen.
 
 **11.2 Turn on**
-Settings → Quotes → enable.
+Bulk Order → Settings → Quotes → enable.
 *Expect:* the quote panel appears on the form and **Bulk Order → Quote Requests**
 appears in the admin menu.
 

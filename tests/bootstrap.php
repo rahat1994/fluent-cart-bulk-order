@@ -26,6 +26,17 @@ if (!function_exists('__')) {
     }
 }
 
+// Stubbed for Menu::legacyArgs(), which maps it over a redirect's query string.
+// A passthrough is honest here: the test is asking whether an argument SURVIVES
+// the redirect, not how WordPress would scrub it. Stripping tags in the stub
+// would test the stub.
+if (!function_exists('sanitize_text_field')) {
+    function sanitize_text_field($str)
+    {
+        return is_scalar($str) ? trim((string) $str) : '';
+    }
+}
+
 if (!function_exists('esc_html')) {
     function esc_html($text)
     {

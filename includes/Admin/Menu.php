@@ -303,16 +303,33 @@ class Menu
             return;
         }
 
-        // Everything else the old link carried — a status tab, a page number, a
-        // search term, a report period — kept so the redirect lands where the
-        // bookmark pointed and not merely on the right screen. Arrays are
-        // dropped rather than walked: no screen of ours takes one, and a nested
-        // value has no place in a URL this code hands to add_query_arg().
-        $args = array_map('sanitize_text_field', array_filter($query, 'is_scalar'));
-
-        wp_safe_redirect(add_query_arg($args, self::baseUrl()));
+        wp_safe_redirect(add_query_arg(self::legacyArgs($query), self::baseUrl()));
 
         exit;
+    }
+
+    /**
+     * The query a legacy URL should carry to its new address.
+     *
+     * Split out of redirectLegacyUrls() so it can be tested: that method ends
+     * in exit(), which a unit test cannot call into, and "does the redirect
+     * keep the status tab" is the part most likely to break silently. Landing
+     * on the right SCREEN while dropping `status=pending` looks like it worked
+     * and is not what the bookmark asked for.
+     *
+     * Everything scalar is kept — the status tab, the page number, the search
+     * term, the report period — because this map cannot know which screen owns
+     * which argument and dropping an unrecognised one would break the next
+     * screen that adds a filter. Arrays are dropped rather than walked: no
+     * screen of ours takes one, and a nested value has no place in a URL handed
+     * to add_query_arg().
+     *
+     * @param array<string,mixed> $query Unslashed request query.
+     * @return array<string,string>
+     */
+    public static function legacyArgs($query)
+    {
+        return array_map('sanitize_text_field', array_filter((array) $query, 'is_scalar'));
     }
 
     /**

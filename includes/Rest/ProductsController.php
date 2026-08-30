@@ -418,6 +418,19 @@ class ProductsController
                         'variation_title' => $variant->variation_title ?: 'Default',
                         'item_price'      => (int) $variant->item_price,
                         'stock_status'    => $variant->stock_status ?: 'in-stock',
+                        // Same spelling and same fallback as buildVariantPayload()
+                        // above, because product-table.js has to answer the same
+                        // question the bulk order form already answers: is this
+                        // line recurring?
+                        //
+                        // It was missing, and that was issue #34. Without it the
+                        // Product Table gave a subscription variant a free
+                        // quantity spinner and a case-pack rule, and the shopper
+                        // only found out at the cart — FluentCart refuses qty > 1
+                        // on a subscription (fluent-cart/app/Models/
+                        // ProductVariation.php:249) and refuses to hold one
+                        // beside a one-time line at all (app/Models/Cart.php:443).
+                        'payment_type'    => $variant->payment_type ?: 'onetime',
                         'manage_stock'    => (int) ($variant->manage_stock ?? 0),
                         'available'       => (int) ($variant->available ?? 0),
                         'order_rules'     => fcbo_resolve_order_rules($pricingData, $product->ID, $variant->id),

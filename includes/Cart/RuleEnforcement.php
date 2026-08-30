@@ -50,6 +50,25 @@ class RuleEnforcement
             return $result;
         }
 
+        // A subscription's quantity is not the shopper's to choose, so it is not
+        // ours to refuse. FluentCart overwrites it with 1
+        // (fluent-cart/api/Resource/FrontendResource/CartResource.php:63-65) and
+        // rejects anything above 1 two lines further down this very call stack
+        // (fluent-cart/app/Models/ProductVariation.php:249). Enforcing a
+        // min_qty of 5 on top of that would refuse the only quantity FluentCart
+        // permits — an owner who set a case-pack rule store-wide would make
+        // their subscription products unbuyable, with our error message on the
+        // "Product Not Found" page and nothing pointing at the cause.
+        //
+        // This is also what makes the surfaces honest: bulk-order.js and
+        // product-table.js both pin a subscription row to 1 and show no rule
+        // hint, so the server has to agree or they would be offering a quantity
+        // it then refuses. Same statement in the settings UI and readme.txt.
+        // Issue #34.
+        if (SubscriptionRule::isRecurring(isset($variation->payment_type) ? $variation->payment_type : '')) {
+            return $result;
+        }
+
         $productId = (int) $variation->post_id;
         $variantId = (int) $variation->id;
 

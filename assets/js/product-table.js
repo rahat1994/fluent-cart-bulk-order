@@ -198,15 +198,38 @@
         );
     }
 
+    // Did the search that produced this page find one of the product's variants?
+    //
+    // Drives whether the accordion is forced open below. Without that, a store
+    // with "expand variants" off would mark the matched row and then leave it
+    // collapsed — the shopper searches a SKU, the product appears, and the row
+    // they typed is behind a click they have no reason to make.
+    function hasSearchMatch(p) {
+        if (!p.variants) return false;
+        for (var i = 0; i < p.variants.length; i++) {
+            if (p.variants[i].search_match) return true;
+        }
+        return false;
+    }
+
     // One accordion row per variant of a variable product (hidden until expanded).
     function variantRow(p, v, open) {
         var oos = isOutOfStock(v);
+        // The visually hidden sentence is the accessible half of the highlight.
+        // Everything else about a matched row is colour and weight, which a
+        // screen reader cannot convey and a colour-blind shopper may not see —
+        // the a11y bar this repo set in plan 005 is that no state is signalled
+        // by colour alone.
+        var matchNote = v.search_match
+            ? '<span class="fcbo-sr-only">' + escapeHtml(t('search_match')) + '</span>'
+            : '';
         return assembleRow(
-            'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') + '"' +
+            'class="fcbo-pt-variant-row' + (open ? ' is-open' : '') +
+                (v.search_match ? ' is-search-match' : '') + '"' +
                 ' data-parent-product="' + p.id + '" data-variant-id="' + v.id + '"',
             {
                 idText: '',
-                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>',
+                titleHtml: '<span class="fcbo-pt-variant-name">' + escapeHtml(v.variation_title) + '</span>' + matchNote,
                 priceText: formatPrice(v.item_price),
                 qtyHtml: qtyInputHtml(oos, v),
                 actionHtml: addBtnHtml(oos)
@@ -226,11 +249,19 @@
             if (!p.variants || !p.variants.length) continue;
 
             if (p.variants.length === 1) {
+                // A single-variant product carries no ambiguity: the product IS
+                // the match, so there is no sibling row to tell it apart from
+                // and nothing to highlight.
                 html += simpleRow(p);
             } else {
-                html += productSummaryRow(p, EXPAND);
+                // Forced open when the search found a variant in here, whatever
+                // the store's expand_variants setting says. The setting is about
+                // the default browse experience; a search result that hides the
+                // row the shopper searched for is just a wrong answer.
+                var open = EXPAND || hasSearchMatch(p);
+                html += productSummaryRow(p, open);
                 for (var j = 0; j < p.variants.length; j++) {
-                    html += variantRow(p, p.variants[j], EXPAND);
+                    html += variantRow(p, p.variants[j], open);
                 }
             }
         }

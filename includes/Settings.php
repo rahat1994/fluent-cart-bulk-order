@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -80,18 +82,26 @@ class Settings
      */
     public function register()
     {
-        add_action('admin_menu', [$this, 'addSettingsPage']);
+        // The priority is the menu position. @see \FluentCartBulkOrder\Admin\Menu
+        add_action('admin_menu', [$this, 'addSettingsPage'], Menu::priority(self::PAGE_SLUG));
         add_action('admin_init', [$this, 'registerSettings']);
     }
 
     /**
-     * Register the options page under the Settings menu.
+     * Register the settings screen as the first submenu of the Bulk Order menu.
+     *
+     * Its slug IS the parent's slug, so this screen is what the parent row
+     * opens and no duplicated "Bulk Order" entry appears above it — the whole
+     * reason it must register before the other four. Menu::addMenuPage() passes
+     * no callback of its own precisely so this one is the only renderer.
+     * @see \FluentCartBulkOrder\Admin\Menu
      */
     public function addSettingsPage()
     {
-        add_options_page(
+        add_submenu_page(
+            Menu::PARENT_SLUG,
             __('Fluent Cart Bulk Order', 'fluent-cart-bulk-order'),
-            __('Bulk Order', 'fluent-cart-bulk-order'),
+            __('Settings', 'fluent-cart-bulk-order'),
             'manage_options',
             self::PAGE_SLUG,
             [$this, 'renderPage']
@@ -1119,7 +1129,7 @@ class Settings
         printf(
             '<p>%s</p>',
             esc_html__(
-                'Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Users > Wholesale Applications, and approving one grants the Wholesale Customer role.',
+                'Put [fluent_cart_wholesale_application] on a page and signed-in customers can ask for a wholesale account. Applications arrive under Bulk Order > Wholesale Applications, and approving one grants the Wholesale Customer role.',
                 'fluent-cart-bulk-order'
             )
         );

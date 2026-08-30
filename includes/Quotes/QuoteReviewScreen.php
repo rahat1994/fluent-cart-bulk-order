@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Quotes;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -35,21 +37,22 @@ defined('ABSPATH') || exit;
  *                                        atomically by QuoteStore::decide().
  *
  * The screen itself repeats check 3 rather than trusting the menu capability.
- * add_options_page() hides the menu item from users without the capability but
+ * add_submenu_page() hides the menu item from users without the capability but
  * does not stop a direct URL, and `admin.php?page=` dispatch has been the source
  * of enough plugin vulnerabilities to be worth two lines.
  *
  * ---------------------------------------------------------------------------
- * WHY THE SCREEN LIVES UNDER SETTINGS
+ * WHY THE SCREEN LIVES UNDER THE PLUGIN'S OWN MENU
  * ---------------------------------------------------------------------------
  *
- * Beside the plugin's own settings page, and NOT under FluentCart's menu. That
- * menu is a single-page app whose entries FluentCart builds by hand into the
- * `$submenu` global and gates behind its own permission manager, so hanging a
- * page off it would mean our screen silently disappearing for an administrator
- * the host's gate happens not to recognise. A core parent always exists for
- * anyone holding `manage_options`, which is the capability this screen needs
- * anyway. The count bubble is what makes it discoverable either way.
+ * Under Bulk Order, beside the plugin's own settings page, and NOT under
+ * FluentCart's menu. That menu is a single-page app whose entries FluentCart
+ * builds by hand into the `$submenu` global and gates behind its own permission
+ * manager, so hanging a page off it would mean our screen silently disappearing
+ * for an administrator the host's gate happens not to recognise. A menu this
+ * plugin registers itself always exists for anyone holding `manage_options`,
+ * which is the capability this screen needs anyway.
+ * @see \FluentCartBulkOrder\Admin\Menu
  */
 class QuoteReviewScreen
 {
@@ -82,26 +85,29 @@ class QuoteReviewScreen
     {
         $title = __('Quote Requests', 'fluent-cart-bulk-order');
 
-        // The capability check is NOT redundant with add_options_page() below,
+        // The capability check is NOT redundant with add_submenu_page() below,
         // and it is not about security here — it is about cost. `admin_menu`
         // fires on EVERY wp-admin request for EVERY logged-in user, a
         // subscriber opening profile.php included, and countByStatus() is a
         // WP_Query with a meta lookup. The number is only ever SHOWN to a user
         // who holds the capability, so counting for anyone else buys nothing.
+        // Menu::cachedCount() keeps even that one off most requests.
         $open = current_user_can(self::CAPABILITY)
-            ? QuoteStore::countByStatus(QuoteStatus::REQUESTED)
+            ? Menu::cachedCount(Menu::COUNT_QUOTES, function () {
+                return QuoteStore::countByStatus(QuoteStatus::REQUESTED);
+            })
             : 0;
 
         // The count bubble is the whole discovery mechanism for this screen. An
         // owner who never notices a quote has a feature that does not work,
-        // whatever the code does.
-        $menuTitle = $open > 0
-            ? $title . ' <span class="awaiting-mod"><span class="pending-count">' . (int) $open . '</span></span>'
-            : $title;
+        // whatever the code does. Reported to the parent as well, because a
+        // submenu row is hidden until the Bulk Order menu is open.
+        Menu::countPending($open);
 
-        add_options_page(
+        add_submenu_page(
+            Menu::PARENT_SLUG,
             $title,
-            $menuTitle,
+            Menu::bubbleTitle($title, $open),
             self::CAPABILITY,
             self::PAGE_SLUG,
             [self::class, 'render']
@@ -115,7 +121,7 @@ class QuoteReviewScreen
      */
     public static function pageUrl()
     {
-        return admin_url('options-general.php?page=' . self::PAGE_SLUG);
+        return Menu::url(self::PAGE_SLUG);
     }
 
     /**
@@ -125,7 +131,7 @@ class QuoteReviewScreen
      */
     public static function render()
     {
-        // Not redundant with the menu capability. add_options_page() controls
+        // Not redundant with the menu capability. add_submenu_page() controls
         // visibility; this controls access.
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('You do not have permission to review quote requests.', 'fluent-cart-bulk-order'));
@@ -418,7 +424,7 @@ class QuoteReviewScreen
                 '<li><a href="%1$s"%2$s>%3$s%4$s</a>%5$s</li>',
                 esc_url(add_query_arg(
                     ['page' => self::PAGE_SLUG, 'status' => $slug],
-                    admin_url('options-general.php')
+                    Menu::baseUrl()
                 )),
                 $isCurrent ? ' class="current" aria-current="page"' : '',
                 esc_html($label),
@@ -804,7 +810,7 @@ class QuoteReviewScreen
 
         $base = add_query_arg(
             ['page' => self::PAGE_SLUG, 'status' => $status === '' ? 'all' : $status],
-            admin_url('options-general.php')
+            Menu::baseUrl()
         );
 
         echo '<div class="tablenav"><div class="tablenav-pages">';
@@ -875,7 +881,7 @@ class QuoteReviewScreen
             );
         }
 
-        wp_safe_redirect(add_query_arg($args, admin_url('options-general.php')));
+        wp_safe_redirect(add_query_arg($args, Menu::baseUrl()));
 
         exit;
     }

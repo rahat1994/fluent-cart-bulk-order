@@ -59,7 +59,8 @@ class Deactivator
      *     teardown: `fcbo_wholesale_feedback_{user_id}` lives 60 seconds and
      *     is read-and-deleted on the next page view, and
      *     `fcbo_wholesale_notified_{user_id}` and the four
-     *     `fcbo_analytics_{period}` report caches live 15 minutes. Core's
+     *     `fcbo_analytics_{period}` report caches live 15 minutes, and the two
+     *     `fcbo_menu_count_*` admin-menu bubbles live 5. Core's
      *     `delete_expired_transients()` sweep collects anything left by a
      *     visitor who never came back. A LONGER-LIVED transient added later
      *     would need deleting, and that too belongs HERE.

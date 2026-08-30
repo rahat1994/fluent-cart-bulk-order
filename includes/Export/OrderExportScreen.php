@@ -2,6 +2,7 @@
 
 namespace FluentCartBulkOrder\Export;
 
+use FluentCartBulkOrder\Admin\Menu;
 use FluentCartBulkOrder\Checkout\PoSettings;
 
 defined('ABSPATH') || exit;
@@ -33,7 +34,7 @@ defined('ABSPATH') || exit;
  *
  * Nothing here changes anything: it lists orders and links to downloads. The
  * capability is checked twice — once for menu visibility and once on render,
- * because add_options_page() hides a menu item but does not stop a direct URL —
+ * because add_submenu_page() hides a menu item but does not stop a direct URL —
  * and the search term is only ever used as a bound query parameter and escaped
  * on the way back out. The DOWNLOADS each carry their own per-order nonce;
  * @see \FluentCartBulkOrder\Export\OrderExportFlow.
@@ -59,7 +60,8 @@ class OrderExportScreen
     {
         $title = __('Order Exports', 'fluent-cart-bulk-order');
 
-        add_options_page(
+        add_submenu_page(
+            Menu::PARENT_SLUG,
             $title,
             $title,
             OrderExportFlow::CAPABILITY,
@@ -75,7 +77,7 @@ class OrderExportScreen
      */
     public static function pageUrl()
     {
-        return admin_url('options-general.php?page=' . self::PAGE_SLUG);
+        return Menu::url(self::PAGE_SLUG);
     }
 
     /**
@@ -85,7 +87,7 @@ class OrderExportScreen
      */
     public static function render()
     {
-        // Not redundant with the menu capability. add_options_page() controls
+        // Not redundant with the menu capability. add_submenu_page() controls
         // visibility; this controls access.
         if (!current_user_can(OrderExportFlow::CAPABILITY)) {
             wp_die(esc_html__('You do not have permission to export orders.', 'fluent-cart-bulk-order'));
@@ -211,7 +213,7 @@ class OrderExportScreen
     {
         printf(
             '<form method="get" action="%s"><p class="search-box">',
-            esc_url(admin_url('options-general.php'))
+            esc_url(Menu::baseUrl())
         );
 
         printf('<input type="hidden" name="page" value="%s" />', esc_attr(self::PAGE_SLUG));
@@ -379,7 +381,7 @@ class OrderExportScreen
             $args['s'] = $search;
         }
 
-        $base = add_query_arg($args, admin_url('options-general.php'));
+        $base = add_query_arg($args, Menu::baseUrl());
 
         echo '<div class="tablenav"><div class="tablenav-pages">';
 

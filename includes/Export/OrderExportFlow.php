@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Export;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -88,7 +90,9 @@ class OrderExportFlow
         add_filter('fluent_cart/customer/order_details_section_parts', [self::class, 'addToCustomerOrder'], 10, 2);
 
         if (is_admin()) {
-            add_action('admin_menu', [self::class, 'registerScreen']);
+            // The priority is the submenu position under Bulk Order.
+            // @see \FluentCartBulkOrder\Admin\Menu
+            add_action('admin_menu', [self::class, 'registerScreen'], Menu::priority(Menu::SLUG_EXPORTS));
         }
     }
 

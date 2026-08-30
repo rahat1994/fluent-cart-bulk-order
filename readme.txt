@@ -42,7 +42,7 @@ Everything is gated by user role, so your retail shop stays exactly as it is. On
 = Trade accounts =
 
 * **Wholesale application form** — a shortcode a signed-in shopper can use to apply for a trade account. Ask for a company name and a tax or VAT ID plus any questions you add yourself: single line, paragraph, choose-one or tick box, required or not.
-* **Review screen** — applications land under Users with a pending count in the menu. Approving one grants the wholesale role; the applicant and the store owner are emailed either way.
+* **Review screen** — applications land under **Bulk Order → Wholesale Applications** with a pending count in the menu. Approving one grants the wholesale role; the applicant and the store owner are emailed either way.
 * **FluentCRM tagging** — if FluentCRM is active, apply a tag when an application is received and another when it is approved, so your email automations can pick it up.
 
 = Quotes, PO numbers and paperwork =
@@ -75,17 +75,17 @@ The plugin makes no external HTTP requests, sends nothing to any third-party ser
 1. Install and activate [FluentCart](https://wordpress.org/plugins/fluent-cart/) first. This plugin does nothing without it.
 2. Install Fluent Cart Bulk Order from Plugins → Add New, or upload the plugin folder to `/wp-content/plugins/`.
 3. Activate the plugin through the Plugins screen.
-4. Go to **Settings → Bulk Order** and choose which user roles may use the bulk ordering surfaces and which roles receive bulk pricing.
+4. Go to **Bulk Order → Settings** and choose which user roles may use the bulk ordering surfaces and which roles receive bulk pricing.
 5. Add `[fluent_cart_bulk_order]` to a page, or drop the **Bulk Order Form** block on it.
 6. Set up your quantity tiers in FluentCart under the Bulk Pricing integration — store-wide, or on a single product.
 
-The plugin's admin screens are:
+All five of the plugin's admin screens live together under one **Bulk Order** menu in the admin sidebar:
 
-* **Settings → Bulk Order** — roles, store-wide surface defaults, order rules, PO number, quotes and the wholesale application form.
-* **Settings → Bulk Order Analytics** — bulk revenue, top buyers, tier utilisation.
-* **Settings → Quote Requests** — price, accept or decline a quote.
-* **Settings → Order Exports** — export a single order.
-* **Users → Wholesale Applications** — approve or reject trade account applications.
+* **Bulk Order → Settings** — roles, store-wide surface defaults, order rules, PO number, quotes and the wholesale application form.
+* **Bulk Order → Quote Requests** — price, accept or decline a quote.
+* **Bulk Order → Wholesale Applications** — approve or reject trade account applications.
+* **Bulk Order → Analytics** — bulk revenue, top buyers, tier utilisation.
+* **Bulk Order → Order Exports** — export a single order.
 
 == Frequently Asked Questions ==
 
@@ -95,7 +95,7 @@ Yes. This is an add-on and it will not activate without FluentCart. Every surfac
 
 = Who can see the bulk order form? =
 
-Administrators and the roles you allow under Settings → Bulk Order. Everyone else sees nothing on the page. The REST endpoints behind the surfaces apply the same rule, so the gate is not just the page.
+Administrators and the roles you allow under Bulk Order → Settings. Everyone else sees nothing on the page. The REST endpoints behind the surfaces apply the same rule, so the gate is not just the page.
 
 The wholesale application form is the one exception: it is meant for shoppers who do *not* have access yet, so any signed-in user can see it. Someone who is still waiting, or who was turned down, sees the form again so they can correct an answer or reapply — a second submission replaces the first rather than queueing another. Someone already approved sees a confirmation and no form.
 
@@ -151,10 +151,10 @@ No, and deliberately so. A past order's price records what was charged, not whic
 2. Quick order — pasting "SKU, quantity" lines or uploading a CSV.
 3. The product table with per-row quantity entry and expandable variant rows.
 4. Bulk pricing tiers on a single product page, with the quantity order table.
-5. Settings → Bulk Order: role access, bulk pricing roles and store-wide defaults.
-6. Settings → Bulk Order Analytics: bulk revenue split, top buyers and tier utilisation.
-7. Users → Wholesale Applications: reviewing and deciding an application.
-8. Settings → Quote Requests: pricing a buyer's quote line by line.
+5. Bulk Order → Settings: role access, bulk pricing roles and store-wide defaults.
+6. Bulk Order → Analytics: bulk revenue split, top buyers and tier utilisation.
+7. Bulk Order → Wholesale Applications: reviewing and deciding an application.
+8. Bulk Order → Quote Requests: pricing a buyer's quote line by line.
 
 == Changelog ==
 
@@ -185,4 +185,4 @@ No, and deliberately so. A past order's price records what was charged, not whic
 == Upgrade Notice ==
 
 = 1.1.0 =
-First WordPress.org release. If you installed an earlier build by hand, review Settings → Bulk Order after updating: role access and bulk pricing roles are now set there rather than assumed.
+First WordPress.org release. If you installed an earlier build by hand, review Bulk Order → Settings after updating: role access and bulk pricing roles are now set there rather than assumed.

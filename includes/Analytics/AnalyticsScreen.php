@@ -2,6 +2,8 @@
 
 namespace FluentCartBulkOrder\Analytics;
 
+use FluentCartBulkOrder\Admin\Menu;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -74,9 +76,10 @@ class AnalyticsScreen
     {
         $title = __('Bulk Order Analytics', 'fluent-cart-bulk-order');
 
-        add_options_page(
+        add_submenu_page(
+            Menu::PARENT_SLUG,
             $title,
-            $title,
+            __('Analytics', 'fluent-cart-bulk-order'),
             self::CAPABILITY,
             self::PAGE_SLUG,
             [self::class, 'render']
@@ -90,7 +93,7 @@ class AnalyticsScreen
      */
     public static function pageUrl()
     {
-        return admin_url('options-general.php?page=' . self::PAGE_SLUG);
+        return Menu::url(self::PAGE_SLUG);
     }
 
     /**
@@ -100,7 +103,7 @@ class AnalyticsScreen
      */
     public static function render()
     {
-        // Not redundant with the menu capability. add_options_page() controls
+        // Not redundant with the menu capability. add_submenu_page() controls
         // visibility; this controls access.
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('You do not have permission to view bulk order analytics.', 'fluent-cart-bulk-order'));
@@ -693,7 +696,7 @@ class AnalyticsScreen
     {
         return add_query_arg(
             ['page' => self::PAGE_SLUG, Period::PARAM => $period],
-            admin_url('options-general.php')
+            Menu::baseUrl()
         );
     }
 

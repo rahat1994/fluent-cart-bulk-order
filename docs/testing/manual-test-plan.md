@@ -116,7 +116,23 @@ front end, and only administrators get it.
 **1.4 Activation**
 Activate FluentCart, then this plugin.
 *Expect:* no error. Users → Add New shows a **Wholesale Customer** role in the
-role dropdown. **Settings → Bulk Order** exists.
+role dropdown. **Bulk Order → Settings** exists.
+
+**1.4a The admin menu**
+Look at the sidebar as `admin_u`.
+*Expect:* ONE top-level **Bulk Order** entry, under FluentCart, with exactly
+five submenus in this order — Settings, Quote Requests, Wholesale Applications,
+Analytics, Order Exports. No second "Bulk Order" row above Settings, and nothing
+of ours left under Settings or Users. Open each one; each loads its own screen.
+With a waiting quote or application, the count shows on both the submenu row and
+the **Bulk Order** row itself.
+*Also:* `/wp-admin/options-general.php?page=fcbo-settings` and
+`/wp-admin/users.php?page=fcbo-wholesale-applications&status=pending&paged=2` —
+the addresses the screens used to have — redirect to the new ones instead of
+failing, **and the second one still arrives on page 2 of the pending list**.
+Losing `status` and `paged` here would look like the redirect worked while
+showing a different list than the link promised — and the review emails this
+plugin has already sent carry exactly that kind of URL.
 
 **1.5 Deactivate**
 Deactivate the plugin, then reactivate it.
@@ -135,10 +151,10 @@ Check with a database client; this is the case most easily got wrong.
 
 ---
 
-## 2. Settings page — Settings → Bulk Order
+## 2. Settings page — Bulk Order → Settings
 
 **2.1 Page loads**
-Sign in as `admin_u`, open Settings → Bulk Order.
+Sign in as `admin_u`, open Bulk Order → Settings.
 *Expect:* nine sections render — surface access, bulk pricing access, minimum
 order total, product table, checkout, PO number, quotes, wholesale application.
 No notice in the log.
@@ -148,7 +164,7 @@ Change one field in every section. Save.
 *Expect:* "Settings saved." Every value you set is shown back after the reload.
 
 **2.3 Non-admin cannot reach it**
-As `retail_u`, open `/wp-admin/options-general.php?page=fcbo-settings` directly.
+As `retail_u`, open `/wp-admin/admin.php?page=fcbo-settings` directly.
 *Expect:* refused ("You do not have sufficient permissions" or similar). No
 settings shown.
 
@@ -321,7 +337,7 @@ Fill two rows, press Save, name it `Monthly restock`.
 
 **4.22 Request a quote (only when quotes are on — §11)**
 Fill rows, open the quote panel, add a note, send.
-*Expect:* confirmation with a reference. The quote shows in Settings → Quotes.
+*Expect:* confirmation with a reference. The quote shows in Bulk Order → Quote Requests.
 
 **4.23 Shortcode attributes**
 Test each on a page: `roles`, `redirect`, `quotes="no"`.
@@ -609,9 +625,9 @@ Paste 500 characters.
 no Quotes admin screen.
 
 **11.2 Turn on**
-Settings → Quotes → enable.
-*Expect:* the quote panel appears on the form and **Settings → Quotes** appears
-in the admin menu.
+Bulk Order → Settings → Quotes → enable.
+*Expect:* the quote panel appears on the form and **Bulk Order → Quote Requests**
+appears in the admin menu.
 
 **11.3 Send a request**
 As `wholesale_u`, assemble three lines and send with a note.
@@ -655,7 +671,7 @@ through with more than one page of quotes.
 *Expect:* counts and rows match the filter; paging keeps the filter.
 
 **11.11 Direct URL and nonce**
-Open `/wp-admin/options-general.php?page=fcbo-quotes` as `retail_u`.
+Open `/wp-admin/admin.php?page=fcbo-quotes` as `retail_u`.
 *Expect:* refused. Then re-submit a decision form with a stale/absent nonce.
 *Expect:* refused with "This action must be submitted from the quote review screen."
 
@@ -669,7 +685,7 @@ never re-opened.
 ## 12. Order export
 
 **12.1 Owner screen**
-Settings → Order Exports as `admin_u`.
+Bulk Order → Order Exports as `admin_u`.
 *Expect:* a searchable, paged list of orders with CSV and receipt links.
 
 **12.2 CSV**
@@ -706,7 +722,7 @@ Place several orders first: some through the bulk order form, some through the
 product table, some through normal checkout, at least one from a converted quote.
 
 **13.1 Screen loads**
-Settings → Bulk Order Analytics as `admin_u`.
+Bulk Order → Analytics as `admin_u`.
 *Expect:* four blocks — revenue split, entry points, top customers, tier utilization.
 
 **13.2 Periods**
@@ -837,7 +853,7 @@ Fill and submit.
 new submit replaces the waiting one, it does not queue a second.
 
 **16.5 Review screen**
-As `admin_u`, Users → Wholesale Applications.
+As `admin_u`, Bulk Order → Wholesale Applications.
 *Expect:* a pending count badge in the menu, and the application with every
 answer, including the built-in company name and tax ID.
 

@@ -17,20 +17,31 @@
  * particular store happens to have configured.
  */
 
+// Safe here, and deliberately absent from tests/bootstrap.php: this file only
+// ever runs through `wp eval-file`, which boots WordPress first, so ABSPATH is
+// defined by the time it is reached. The PHPUnit bootstrap has no WordPress
+// behind it at all and the same line would end the test run.
+defined('ABSPATH') || exit;
+
 use FluentCartBulkOrder\Pricing\Tiers;
 use FluentCartBulkOrder\Pricing\OrderRules;
 use FluentCartBulkOrder\Pricing\FeedResolver;
 
 fcbo_load_pricing();
 
-$results = [];
-function check(&$r, $name, $got, $want) {
+$fcbo_results = [];
+function fcbo_check(&$r, $name, $got, $want) {
     $ok = $got === $want;
-    $r[] = ($ok ? 'PASS  ' : 'FAIL  ') . $name . ($ok ? '' : "  got: " . var_export($got, true) . "  want: " . var_export($want, true));
+    // wp_json_encode(), not var_export(): the same information in one line,
+    // and var_export() is flagged everywhere as debug code that should not be
+    // shipped. This file is not shipped, but there is no reason for it to be
+    // the one place that reads as if it might be.
+    $r[] = ($ok ? 'PASS  ' : 'FAIL  ') . $name
+        . ($ok ? '' : '  got: ' . wp_json_encode($got) . '  want: ' . wp_json_encode($want));
 }
 
 /* ---------- FeedResolver precedence ---------- */
-$pricing = [
+$fcbo_pricing = [
   'global' => ['tiers'=>[['min_qty'=>10,'discount_value'=>5]], 'role_tiers'=>[], 'order_rules'=>['min_qty'=>0,'step'=>1]],
   'product' => [
     42 => [
@@ -41,26 +52,38 @@ $pricing = [
     ],
   ],
 ];
-check($results, 'product feed beats store-wide', FeedResolver::resolveTiers($pricing, 42, 1)[0]['discount_value'], 15);
-check($results, 'unlisted product falls back to store-wide', FeedResolver::resolveTiers($pricing, 999, 1)[0]['discount_value'], 5);
-check($results, 'variant-restricted feed matches its variant', FeedResolver::resolveTiers($pricing, 43, 99)[0]['discount_value'], 25);
-check($results, 'variant-restricted feed skipped for others', FeedResolver::resolveTiers($pricing, 43, 100)[0]['discount_value'], 5);
-check($results, 'rules resolve through the SAME feed as tiers', FeedResolver::resolveOrderRules($pricing, 42, 1), ['min_qty'=>6,'step'=>6]);
-check($results, 'store-wide rules when no product feed', FeedResolver::resolveOrderRules($pricing, 999, 1), ['min_qty'=>0,'step'=>1]);
+fcbo_check($fcbo_results, 'product feed beats store-wide', FeedResolver::resolveTiers($fcbo_pricing, 42, 1)[0]['discount_value'], 15);
+fcbo_check($fcbo_results, 'unlisted product falls back to store-wide', FeedResolver::resolveTiers($fcbo_pricing, 999, 1)[0]['discount_value'], 5);
+fcbo_check($fcbo_results, 'variant-restricted feed matches its variant', FeedResolver::resolveTiers($fcbo_pricing, 43, 99)[0]['discount_value'], 25);
+fcbo_check($fcbo_results, 'variant-restricted feed skipped for others', FeedResolver::resolveTiers($fcbo_pricing, 43, 100)[0]['discount_value'], 5);
+fcbo_check($fcbo_results, 'rules resolve through the SAME feed as tiers', FeedResolver::resolveOrderRules($fcbo_pricing, 42, 1), ['min_qty'=>6,'step'=>6]);
+fcbo_check($fcbo_results, 'store-wide rules when no product feed', FeedResolver::resolveOrderRules($fcbo_pricing, 999, 1), ['min_qty'=>0,'step'=>1]);
 
 /* ---------- the delegates still answer identically ---------- */
 // Local fixture: the arithmetic itself is asserted in tests/Unit; here it only
 // needs to be something both the class and its wrapper can be asked about.
-$tiers = [
+$fcbo_tiers = [
     ['min_qty' => 10, 'max_qty' => 0, 'discount_value' => 5],
     ['min_qty' => 50, 'max_qty' => 0, 'discount_value' => 10],
 ];
-check($results, 'delegate fcbo_match_tier agrees', fcbo_match_tier($tiers, 60)['discount_value'], 10);
-check($results, 'delegate fcbo_normalize_qty agrees', fcbo_normalize_qty(7, ['min_qty'=>0,'step'=>6]), 12);
-check($results, 'delegate fcbo_apply_tier_to_price agrees', fcbo_apply_tier_to_price(1000, ['discount_type'=>'percent','discount_value'=>10]), 900);
-check($results, 'delegate fcbo_resolve_tiers agrees', fcbo_resolve_tiers($pricing, 42, 1)[0]['discount_value'], 15);
-check($results, 'delegate fcbo_resolve_order_rules agrees', fcbo_resolve_order_rules($pricing, 42, 1), ['min_qty'=>6,'step'=>6]);
+fcbo_check($fcbo_results, 'delegate fcbo_match_tier agrees', fcbo_match_tier($fcbo_tiers, 60)['discount_value'], 10);
+fcbo_check($fcbo_results, 'delegate fcbo_normalize_qty agrees', fcbo_normalize_qty(7, ['min_qty'=>0,'step'=>6]), 12);
+fcbo_check($fcbo_results, 'delegate fcbo_apply_tier_to_price agrees', fcbo_apply_tier_to_price(1000, ['discount_type'=>'percent','discount_value'=>10]), 900);
+fcbo_check($fcbo_results, 'delegate fcbo_resolve_tiers agrees', fcbo_resolve_tiers($fcbo_pricing, 42, 1)[0]['discount_value'], 15);
+fcbo_check($fcbo_results, 'delegate fcbo_resolve_order_rules agrees', fcbo_resolve_order_rules($fcbo_pricing, 42, 1), ['min_qty'=>6,'step'=>6]);
 
-echo implode("\n", $results) . "\n";
-$fails = count(array_filter($results, fn($x) => str_starts_with($x, 'FAIL')));
-echo "\n" . (count($results) - $fails) . '/' . count($results) . " passed\n";
+// WP_CLI::log() rather than echo. This file only runs under `wp eval-file`, so
+// WP_CLI is always present — and it is the honest answer to "all output must be
+// escaped", which means nothing for a terminal: esc_html() on a CLI report would
+// mangle it rather than protect anyone.
+WP_CLI::log(implode("\n", $fcbo_results));
+
+// A closure, not an arrow function, and strpos() rather than str_starts_with():
+// this plugin supports PHP 7.4 and str_starts_with() is PHP 8.0, so the old
+// version fatally errored on exactly the interpreter the header promises.
+$fcbo_fails = count(array_filter($fcbo_results, function ($x) {
+    return strpos($x, 'FAIL') === 0;
+}));
+
+WP_CLI::log('');
+WP_CLI::log((count($fcbo_results) - $fcbo_fails) . '/' . count($fcbo_results) . ' passed');

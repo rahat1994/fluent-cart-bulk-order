@@ -181,7 +181,7 @@ class Reports
                 FROM {$orders} o
                 WHERE " . implode(' AND ', $where);
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names come from $wpdb->prefix and class constants; every value is a %s bound on the next line, and the caller caches the result.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table names come from $wpdb->prefix and class constants; every value is a %s bound on the next line, and the caller caches the result.
         $row = $wpdb->get_row($wpdb->prepare($sql, $args), ARRAY_A);
 
         return [
@@ -230,7 +230,7 @@ class Reports
                 WHERE " . implode(' AND ', $where) . '
                 GROUP BY src.source';
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names come from $wpdb->prefix and class constants; every value is bound through prepare() on the next line, and the caller caches the result.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table names come from $wpdb->prefix and class constants; every value is bound through prepare() on the next line, and the caller caches the result.
         $rows = $wpdb->get_results($wpdb->prepare($sql, $args), ARRAY_A);
 
         return is_array($rows) ? $rows : [];
@@ -327,7 +327,7 @@ class Reports
                 ORDER BY revenue DESC
                 LIMIT ' . (int) self::TOP_CUSTOMERS;
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names come from $wpdb; the LIMIT is an int cast of a class constant; every remaining value is bound through prepare() on the next line, and the caller caches the result.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table names come from $wpdb; the LIMIT is an int cast of a class constant; every remaining value is bound through prepare() on the next line, and the caller caches the result.
         $rows = $wpdb->get_results($wpdb->prepare($sql, $args), ARRAY_A);
 
         return is_array($rows) ? $rows : [];
@@ -391,7 +391,7 @@ class Reports
                 ORDER BY units DESC
                 LIMIT ' . (int) self::MAX_TIERS;
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names come from $wpdb->prefix and class constants; the LIMIT is an int cast of a class constant; every remaining value is bound through prepare() on the next line, and the caller caches the result.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table names come from $wpdb->prefix and class constants; the LIMIT is an int cast of a class constant; every remaining value is bound through prepare() on the next line, and the caller caches the result.
         $rows = $wpdb->get_results($wpdb->prepare($sql, $args), ARRAY_A);
 
         return is_array($rows) ? $rows : [];

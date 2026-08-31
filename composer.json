@@ -22,6 +22,7 @@
         "test:coverage": "phpunit --coverage-text",
         "lint": "phpcs",
         "lint:fix": "phpcbf",
+        "check": "bin/plugin-check.sh",
         "build": "bin/build-zip.sh"
     },
     "config": {

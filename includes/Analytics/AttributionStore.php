@@ -277,7 +277,7 @@ class AttributionStore
 
         $table = self::table();
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this plugin's own table; there is no WordPress API for it, and a write has nothing to cache.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- this plugin's own table; there is no WordPress API for it, and a write has nothing to cache.
         $wpdb->delete($table, ['order_id' => $orderId], ['%d']);
 
         // The site's own clock, matching how FluentCart stamps `fct_orders`
@@ -326,7 +326,7 @@ class AttributionStore
              line_total, saving, created_at)
             VALUES " . implode(', ', $values);
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $sql is built only from the table name and a repeated literal placeholder group; every VALUE is bound through prepare() on the next line.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $sql is built only from the table name and a repeated literal placeholder group; every VALUE is bound through prepare() on the next line.
         $written = $wpdb->query($wpdb->prepare($sql, $args));
 
         // Deliberately does NOT invalidate the report cache. @see
@@ -362,7 +362,7 @@ class AttributionStore
 
         $table = self::table();
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this plugin's own table, interpolated from $wpdb->prefix and a class constant; there are no user-supplied values in this statement, and MIN() on an indexed column needs no cache.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- this plugin's own table, interpolated from $wpdb->prefix and a class constant; there are no user-supplied values in this statement, and MIN() on an indexed column needs no cache.
         $since = $wpdb->get_var("SELECT MIN(created_at) FROM {$table}");
 
         return $since ? (string) $since : null;
@@ -387,7 +387,7 @@ class AttributionStore
 
         $table = self::table();
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- schema check on this plugin's own table, memoized for the request.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- schema check on this plugin's own table, memoized for the request.
         $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
 
         self::$tableExists = ($found === $table);
@@ -408,7 +408,7 @@ class AttributionStore
 
         $table = $wpdb->prefix . self::TABLE;
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- DROP TABLE cannot take a bound table name; the value is built from $wpdb->prefix and a class constant, neither of which is user input. The schema change is the point of the method: it runs from uninstall only. @see \FluentCartBulkOrder\Deactivator::uninstall()
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter -- DROP TABLE cannot take a bound table name; the value is built from $wpdb->prefix and a class constant, neither of which is user input. The schema change is the point of the method: it runs from uninstall only. @see \FluentCartBulkOrder\Deactivator::uninstall()
         $wpdb->query("DROP TABLE IF EXISTS {$table}");
 
         delete_option(self::VERSION_OPTION);

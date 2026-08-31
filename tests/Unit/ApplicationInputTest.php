@@ -162,13 +162,26 @@ class ApplicationInputTest extends TestCase
      */
     public function testCheckboxReading()
     {
+        // json_encode(), not var_export(), for the failure labels. It
+        // distinguishes every value in these two lists just as well — '' from
+        // "0", [] from {} — and var_export() is flagged wherever it appears as
+        // debug code that should not ship. Nothing in tests/ ships, but there is
+        // no reason for the test suite to be the one place that reads as if it
+        // might.
+        //
+        // json_encode() and not wp_json_encode(): this suite runs with no
+        // WordPress behind it, so the wrapper does not exist here. Stubbing one
+        // to satisfy a linter would add a function whose only caller is the
+        // linter.
+        // phpcs:disable WordPress.WP.AlternativeFunctions.json_encode_json_encode
         foreach (['1', 'on', 'yes', 'true', 'anything', true] as $truthy) {
-            $this->assertTrue(ApplicationInput::isChecked($truthy), var_export($truthy, true) . ' should read as ticked');
+            $this->assertTrue(ApplicationInput::isChecked($truthy), json_encode($truthy) . ' should read as ticked');
         }
 
         foreach ([null, '', '0', 'false', 'off', 'no', false, [], new \stdClass()] as $falsy) {
-            $this->assertFalse(ApplicationInput::isChecked($falsy), var_export($falsy, true) . ' should read as unticked');
+            $this->assertFalse(ApplicationInput::isChecked($falsy), json_encode($falsy) . ' should read as unticked');
         }
+        // phpcs:enable WordPress.WP.AlternativeFunctions.json_encode_json_encode
     }
 
     /**

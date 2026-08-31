@@ -87,3 +87,16 @@ $fcbo_fails = count(array_filter($fcbo_results, function ($x) {
 
 WP_CLI::log('');
 WP_CLI::log((count($fcbo_results) - $fcbo_fails) . '/' . count($fcbo_results) . ' passed');
+
+// A failing check has to fail the COMMAND, not just print the word FAIL.
+//
+// Without this the script printed its failures and exited 0, so anything that
+// ran it — a release step, a pre-push hook, a person reading the tail of a long
+// log — was told everything passed. A test that cannot fail its runner is not a
+// test, it is a report nobody reads.
+//
+// WP_CLI::error() prints to stderr and exits non-zero, which is what
+// `wp eval-file` propagates.
+if ($fcbo_fails > 0) {
+    WP_CLI::error($fcbo_fails . ' check(s) failed.');
+}

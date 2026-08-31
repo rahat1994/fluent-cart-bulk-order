@@ -95,6 +95,21 @@ if [ -z "$PLUGINS_DIR" ] || [ ! -d "$PLUGINS_DIR" ]; then
 	exit 1
 fi
 
+# Trailing slashes off before the containment test below builds a pattern from
+# this. WordPress core defines WP_PLUGIN_DIR without one, but a site is free to
+# define it in wp-config.php with one — and `"$PLUGINS_DIR"/*` would then be
+# `/path/to/plugins//*`, which matches nothing. A perfectly ordinary checkout
+# would be told it is in the wrong place.
+#
+# The loop stops at a single "/" rather than collapsing it to the empty string,
+# which would make the pattern `/*` and match every absolute path. A plugin
+# directory of "/" is not a real configuration; if one ever appeared, the test
+# below would refuse it rather than accept everything, which is the direction a
+# guard should fail in.
+while [ "${#PLUGINS_DIR}" -gt 1 ] && [ "${PLUGINS_DIR%/}" != "$PLUGINS_DIR" ]; do
+	PLUGINS_DIR="${PLUGINS_DIR%/}"
+done
+
 # The checkout itself must be inside that directory. If it is not — a worktree,
 # a clone kept elsewhere — the staged copy would be installed somewhere the
 # running WordPress does not load from, and every finding would be about a

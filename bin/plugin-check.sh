@@ -59,8 +59,76 @@ command -v wp >/dev/null 2>&1 || {
 	exit 1
 }
 
-# wp-content/plugins is this checkout's parent.
-PLUGINS_DIR="$(cd "$ROOT/.." && pwd)"
+# Where the staged copy has to be put for Plugin Check to see it.
+#
+# Plugin Check resolves a plugin by its directory name UNDER WordPress' plugin
+# directory, so the staged copy has to land there and nowhere else. This script
+# assumed the checkout's parent was that directory, which is true for an
+# ordinary checkout and false in the case this repository actually documents:
+# `.worktrees/` is in both .gitignore and .distignore, and from
+# `.worktrees/some-branch/` the parent is `.worktrees`. The copy would go
+# somewhere WordPress cannot see, and the only symptom would be the generic
+# "did not run" error further down — pointing at wp-cli for a mistake this
+# script made.
+#
+# WP_PLUGIN_DIR is asked for rather than assumed. It is also the answer for
+# anyone whose install does not use the default layout.
+#
+# The last line that is an existing directory, NOT simply the output. This
+# wp-cli prints hundreds of lines of PHP deprecation notices to STDOUT — not
+# stderr — so `$(wp eval ...)` captures the notices with the answer buried at
+# the end of them. Redirecting stderr does not help, and neither does grepping
+# for "Deprecated", which would only cover the notices this PHP happens to
+# emit today.
+PLUGINS_DIR=""
+while IFS= read -r line; do
+	case "$line" in
+		/*) [ -d "$line" ] && PLUGINS_DIR="$line" ;;
+	esac
+done <<EOF
+$(wp eval 'echo WP_PLUGIN_DIR;' --skip-plugins --skip-themes 2>/dev/null || true)
+EOF
+
+if [ -z "$PLUGINS_DIR" ] || [ ! -d "$PLUGINS_DIR" ]; then
+	echo "error: could not ask WordPress where its plugin directory is." >&2
+	echo "  Run this from a checkout inside a working WordPress install." >&2
+	exit 1
+fi
+
+# Trailing slashes off before the containment test below builds a pattern from
+# this. WordPress core defines WP_PLUGIN_DIR without one, but a site is free to
+# define it in wp-config.php with one — and `"$PLUGINS_DIR"/*` would then be
+# `/path/to/plugins//*`, which matches nothing. A perfectly ordinary checkout
+# would be told it is in the wrong place.
+#
+# The loop stops at a single "/" rather than collapsing it to the empty string,
+# which would make the pattern `/*` and match every absolute path. A plugin
+# directory of "/" is not a real configuration; if one ever appeared, the test
+# below would refuse it rather than accept everything, which is the direction a
+# guard should fail in.
+while [ "${#PLUGINS_DIR}" -gt 1 ] && [ "${PLUGINS_DIR%/}" != "$PLUGINS_DIR" ]; do
+	PLUGINS_DIR="${PLUGINS_DIR%/}"
+done
+
+# The checkout itself must be inside that directory. If it is not — a worktree,
+# a clone kept elsewhere — the staged copy would be installed somewhere the
+# running WordPress does not load from, and every finding would be about a
+# plugin nobody is checking.
+case "$ROOT/" in
+	"$PLUGINS_DIR"/*) ;;
+	*)
+		echo "error: this checkout is not inside WordPress' plugin directory." >&2
+		echo "  checkout:   $ROOT" >&2
+		echo "  plugin dir: $PLUGINS_DIR" >&2
+		echo >&2
+		echo "  Plugin Check resolves a plugin by its directory name under that" >&2
+		echo "  path, so the staged copy has to be placed there. Run this from a" >&2
+		echo "  checkout inside it rather than from a worktree or a clone kept" >&2
+		echo "  elsewhere." >&2
+		exit 1
+		;;
+esac
+
 STAGE="$ROOT/build/$SLUG"
 
 # A slug unique to THIS run, and claimed with mkdir rather than assumed.
